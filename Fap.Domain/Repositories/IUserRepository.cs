@@ -1,8 +1,7 @@
 ﻿using Fap.Domain.Entities;
 
 namespace Fap.Domain.Repositories;
-public interface IUserRepository
+public interface IUserRepository : IGenericRepository<User>
 {
-    Task<User?> GetByIdAsync(int id);
-    Task AddAsync(User user);
+    Task<User?> GetByEmailAsync(string email);
 }

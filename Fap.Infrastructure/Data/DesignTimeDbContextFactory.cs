@@ -5,9 +5,9 @@ using Microsoft.Extensions.Configuration;
 
 namespace Fap.Infrastructure.Data;
 
-public class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<AppDbContext>
+public class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<FapDbContext>
 {
-    public AppDbContext CreateDbContext(string[] args)
+    public FapDbContext CreateDbContext(string[] args)
     {
         var config = new ConfigurationBuilder()
             .SetBasePath(Directory.GetCurrentDirectory())
@@ -18,10 +18,10 @@ public class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<AppDbConte
         var conn = config.GetConnectionString("Default")
                  ?? "Server=localhost,1433;Database=FapDb;User Id=sa;Password=YourStrong!Passw0rd;TrustServerCertificate=True;";
 
-        var options = new DbContextOptionsBuilder<AppDbContext>()
+        var options = new DbContextOptionsBuilder<FapDbContext>()
             .UseSqlServer(conn)
             .Options;
 
-        return new AppDbContext(options);
+        return new FapDbContext(options);
     }
 }
