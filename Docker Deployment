@@ -1,0 +1,163 @@
+
+# 🚀 **FAP Blockchain Backend - Hướng Dẫn Triển Khai Nhanh**
+
+## 🧩 1. Yêu cầu hệ thống
+
+---
+
+## 🐳 2. Cài đặt Docker
+
+### Windows / macOS
+
+Tải tại [https://www.docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop) → Cài đặt → Khởi động → Kiểm tra:
+
+```bash
+docker --version
+docker-compose --version
+```
+
+### Linux (Ubuntu)
+
+```bash
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" \
+  -o /usr/local/bin/docker-compose
+sudo chmod +x /usr/local/bin/docker-compose
+```
+
+---
+
+## 📦 3. Tải source
+
+```bash
+git clone https://github.com/FAP-Blockchain/fap_backend.git
+cd fap_backend
+git checkout docker
+```
+
+Hoặc tải ZIP từ GitHub branch `docker`.
+
+---
+
+## 🗄️ 4. Cấu hình SQL Server (chạy trên máy host)
+
+### ✅ Kiểm tra & khởi động
+
+```powershell
+Get-Service MSSQLSERVER
+Start-Service MSSQLSERVER
+```
+
+### ✅ Bật Mixed Mode + user `sa`
+
+Trong SSMS:
+**Properties → Security → SQL Server and Windows Authentication mode** → OK
+
+```powershell
+sqlcmd -S localhost -E -Q "ALTER LOGIN [sa] ENABLE; ALTER LOGIN [sa] WITH PASSWORD='12345';"
+Restart-Service MSSQLSERVER
+```
+
+### ✅ Bật TCP/IP (port 1433)
+
+Trong **SQL Server Configuration Manager → Protocols for MSSQLSERVER → Enable TCP/IP → IPAll → TCP Port = 1433**
+
+### ✅ Mở firewall
+
+```powershell
+New-NetFirewallRule -DisplayName "SQL Server 1433" -Direction Inbound -Protocol TCP -LocalPort 1433 -Action Allow
+```
+
+### ✅ Test kết nối
+
+```powershell
+sqlcmd -S localhost,1433 -U sa -P 12345 -Q "SELECT @@VERSION"
+```
+
+---
+
+## ⚙️ 5. Chạy backend bằng Docker
+
+### Build image
+
+```bash
+docker build -t fap-backend .
+```
+
+### Run container
+
+```bash
+docker-compose up -d
+```
+
+### Kiểm tra
+
+```bash
+docker ps
+```
+
+Swagger UI: [http://localhost:8080/swagger](http://localhost:8080/swagger)
+
+---
+
+## 🧪 6. Test API
+
+```bash
+curl -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@fap.edu.vn","password":"123456"}'
+```
+
+---
+
+## 👥 7. Tài khoản mẫu
+
+| Role    | Email                                           | Password |
+| ------- | ----------------------------------------------- | -------- |
+| Admin   | [admin@fap.edu.vn](mailto:admin@fap.edu.vn)     | 123456   |
+| Teacher | [teacher@fap.edu.vn](mailto:teacher@fap.edu.vn) | 123456   |
+| Student | [student@fap.edu.vn](mailto:student@fap.edu.vn) | 123456   |
+
+---
+
+## 🧰 8. Lệnh nhanh
+
+```bash
+docker-compose down          # Dừng
+docker-compose down -v       # Dừng + xóa DB
+docker rmi fap-backend       # Xóa image
+docker logs fap-backend -f   # Xem log
+```
+
+---
+
+## ❗ 9. Lỗi thường gặp
+
+* **Login failed ‘sa’** → Enable Mixed Mode + đặt lại password
+* **Cannot connect SQL** → Bật TCP/IP 1433 + Firewall
+* **Port 8080 in use** → Đổi trong `docker-compose.yml` → `8081:80`
+
+---
+
+## 🌐 10. Frontend base URL
+
+```
+http://localhost:8080
+```
+
+Swagger: [http://localhost:8080/swagger](http://localhost:8080/swagger)
+
+---
+
+✅ **Checklist**
+
+* [ ] Docker Desktop chạy
+* [ ] SQL Server (Mixed Mode + port 1433)
+* [ ] User `sa` pass `12345`
+* [ ] Build image → Run container → Truy cập Swagger
+
+---
+
+**MIT License © 2025 FAP Blockchain Team**
+💡 *Triển khai thành công trong vài phút!*
