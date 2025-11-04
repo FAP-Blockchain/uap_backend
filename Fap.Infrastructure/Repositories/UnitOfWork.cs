@@ -12,7 +12,8 @@ namespace Fap.Infrastructure.Repositories
         public IStudentRepository Students { get; }
         public ITeacherRepository Teachers { get; }
         public IRoleRepository Roles { get; }
-        public IOtpRepository Otps { get; }  // ✅ NEW
+        public IPermissionRepository Permissions { get; }  // ✅ NEW
+        public IOtpRepository Otps { get; }
 
         public UnitOfWork(FapDbContext context)
         {
@@ -22,7 +23,8 @@ namespace Fap.Infrastructure.Repositories
             Students = new StudentRepository(context);
             Teachers = new TeacherRepository(context);
             Roles = new RoleRepository(context);
-            Otps = new OtpRepository(context);  // ✅ NEW
+            Permissions = new PermissionRepository(context);  // ✅ NEW
+            Otps = new OtpRepository(context);
         }
 
         public async Task<int> SaveChangesAsync()

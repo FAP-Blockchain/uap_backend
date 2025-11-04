@@ -71,6 +71,7 @@ builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 builder.Services.AddScoped<IStudentRepository, StudentRepository>();  
 builder.Services.AddScoped<ITeacherRepository, TeacherRepository>();  
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
+builder.Services.AddScoped<IPermissionRepository, PermissionRepository>();  // ✅ NEW
 builder.Services.AddScoped<IOtpRepository, OtpRepository>();  
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
@@ -81,6 +82,7 @@ builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("Emai
 builder.Services.Configure<OtpSettings>(builder.Configuration.GetSection("OtpSettings"));
 
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<RoleService>();  // ✅ NEW
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IOtpService, OtpService>();  
 
