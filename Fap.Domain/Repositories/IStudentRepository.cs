@@ -6,5 +6,7 @@ namespace Fap.Domain.Repositories
     {
         Task<Student?> GetByStudentCodeAsync(string studentCode);
         Task<Student?> GetByUserIdAsync(Guid userId);
+        Task<Student?> GetByIdWithDetailsAsync(Guid id);
+        Task<IEnumerable<Student>> GetAllWithUsersAsync();
     }
 }

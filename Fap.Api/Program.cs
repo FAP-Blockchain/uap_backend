@@ -83,6 +83,8 @@ builder.Services.Configure<OtpSettings>(builder.Configuration.GetSection("OtpSet
 
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<RoleService>();  // ✅ NEW
+builder.Services.AddScoped<StudentService>();  // ✅ NEW
+builder.Services.AddScoped<TeacherService>();  // ✅ NEW
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IOtpService, OtpService>();  
 
