@@ -25,4 +25,8 @@
 		<ProjectReference Include="..\Fap.Domain\Fap.Domain.csproj" />
 		<ProjectReference Include="..\Fap.Infrastructure\Fap.Infrastructure.csproj" />
 	</ItemGroup>
+
+	<ItemGroup>
+	  <Folder Include="TestData\" />
+	</ItemGroup>
 </Project>

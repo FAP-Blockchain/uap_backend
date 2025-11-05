@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using Fap.Domain.DTOs.Auth;
+using Fap.Domain.DTOs.User;
 using Fap.Domain.Entities;
 
 namespace Fap.Api.Mappings
@@ -10,7 +11,6 @@ namespace Fap.Api.Mappings
         {
             // ========== AUTH MAPPINGS ==========
             
-            // RegisterUserRequest -> User
             CreateMap<RegisterUserRequest, User>()
                 .ForMember(dest => dest.Id, opt => opt.Ignore())
                 .ForMember(dest => dest.PasswordHash, opt => opt.Ignore())
@@ -23,7 +23,6 @@ namespace Fap.Api.Mappings
                 .ForMember(dest => dest.Student, opt => opt.Ignore())
                 .ForMember(dest => dest.Teacher, opt => opt.Ignore());
 
-            // RegisterUserRequest -> Student
             CreateMap<RegisterUserRequest, Student>()
                 .ForMember(dest => dest.Id, opt => opt.Ignore())
                 .ForMember(dest => dest.UserId, opt => opt.Ignore())
@@ -41,7 +40,6 @@ namespace Fap.Api.Mappings
                 .ForMember(dest => dest.Credentials, opt => opt.Ignore())
                 .ForMember(dest => dest.Roadmaps, opt => opt.Ignore());
 
-            // RegisterUserRequest -> Teacher
             CreateMap<RegisterUserRequest, Teacher>()
                 .ForMember(dest => dest.Id, opt => opt.Ignore())
                 .ForMember(dest => dest.UserId, opt => opt.Ignore())
@@ -54,13 +52,38 @@ namespace Fap.Api.Mappings
                 .ForMember(dest => dest.Classes, opt => opt.Ignore());
 
             // ========== OTP MAPPINGS ==========
-            // Otp -> OtpResponse (nếu cần trả về thông tin OTP)
+            
+            CreateMap<SendOtpRequest, Otp>()
+                .ForMember(dest => dest.Id, opt => opt.Ignore())
+                .ForMember(dest => dest.Email, opt => opt.MapFrom(src => src.Email))
+                .ForMember(dest => dest.Code, opt => opt.Ignore())
+                .ForMember(dest => dest.Purpose, opt => opt.MapFrom(src => src.Purpose))
+                .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => DateTime.UtcNow))
+                .ForMember(dest => dest.ExpiresAt, opt => opt.Ignore())
+                .ForMember(dest => dest.IsUsed, opt => opt.MapFrom(src => false))
+                .ForMember(dest => dest.UsedAt, opt => opt.Ignore());
+
             CreateMap<Otp, OtpResponse>()
                 .ForMember(dest => dest.Email, opt => opt.MapFrom(src => src.Email))
                 .ForMember(dest => dest.Purpose, opt => opt.MapFrom(src => src.Purpose))
                 .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreatedAt))
                 .ForMember(dest => dest.ExpiresAt, opt => opt.MapFrom(src => src.ExpiresAt))
                 .ForMember(dest => dest.IsUsed, opt => opt.MapFrom(src => src.IsUsed));
+
+            // ========== USER MAPPINGS ========== 
+            
+            // User -> UserResponse
+            CreateMap<User, UserResponse>()
+                .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
+                .ForMember(dest => dest.FullName, opt => opt.MapFrom(src => src.FullName))
+                .ForMember(dest => dest.Email, opt => opt.MapFrom(src => src.Email))
+                .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => src.IsActive))
+                .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreatedAt))
+                .ForMember(dest => dest.RoleName, opt => opt.MapFrom(src => src.Role.Name))
+                .ForMember(dest => dest.StudentCode, opt => opt.MapFrom(src => 
+                    src.Student != null ? src.Student.StudentCode : null))
+                .ForMember(dest => dest.TeacherCode, opt => opt.MapFrom(src => 
+                    src.Teacher != null ? src.Teacher.TeacherCode : null));
         }
     }
 }

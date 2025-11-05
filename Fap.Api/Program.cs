@@ -1,4 +1,5 @@
 ﻿using Fap.Api.Filters;
+using Fap.Api.Interfaces;
 using Fap.Api.Mappings;
 using Fap.Api.Services;
 using Fap.Domain.Repositories;
@@ -71,7 +72,7 @@ builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 builder.Services.AddScoped<IStudentRepository, StudentRepository>();  
 builder.Services.AddScoped<ITeacherRepository, TeacherRepository>();  
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
-builder.Services.AddScoped<IPermissionRepository, PermissionRepository>();  // ✅ NEW
+builder.Services.AddScoped<IPermissionRepository, PermissionRepository>();  
 builder.Services.AddScoped<IOtpRepository, OtpRepository>();  
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
@@ -82,9 +83,10 @@ builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("Emai
 builder.Services.Configure<OtpSettings>(builder.Configuration.GetSection("OtpSettings"));
 
 builder.Services.AddScoped<AuthService>();
-builder.Services.AddScoped<RoleService>();  // ✅ NEW
-builder.Services.AddScoped<StudentService>();  // ✅ NEW
-builder.Services.AddScoped<TeacherService>();  // ✅ NEW
+builder.Services.AddScoped<RoleService>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<StudentService>();  
+builder.Services.AddScoped<TeacherService>();  
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IOtpService, OtpService>();  
 

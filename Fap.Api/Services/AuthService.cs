@@ -16,12 +16,14 @@ namespace Fap.Api.Services
         private readonly IConfiguration _config;
         private readonly IMapper _mapper;
         private readonly PasswordHasher<User> _hasher = new();
+        private readonly ILogger<AuthService> _logger;
 
-        public AuthService(IUnitOfWork uow, IConfiguration config, IMapper mapper)
+        public AuthService(IUnitOfWork uow, IConfiguration config, IMapper mapper, ILogger<AuthService> logger)
         {
             _uow = uow;
             _config = config;
             _mapper = mapper;
+            _logger = logger;
         }
 
         // 🔑 LOGIN
@@ -53,6 +55,45 @@ namespace Fap.Api.Services
             };
         }
 
+        // 🔄 REFRESH TOKEN
+        public async Task<RefreshTokenResponse?> RefreshTokenAsync(string refreshTokenValue)
+        {
+            // 1. Validate refresh token
+            var storedToken = (await _uow.RefreshTokens.FindAsync(rt => rt.Token == refreshTokenValue))
+                .FirstOrDefault();
+
+            if (storedToken == null)
+                return null; // Token không tồn tại
+
+            if (storedToken.Expires < DateTime.UtcNow)
+            {
+                // Token hết hạn, xóa nó đi
+                _uow.RefreshTokens.Remove(storedToken);
+                await _uow.SaveChangesAsync();
+                return null;
+            }
+
+            // 2. Lấy user từ refresh token
+            var user = await _uow.Users.GetByIdWithRoleAsync(storedToken.UserId);
+            if (user == null || !user.IsActive)
+                return null;
+
+            // 3. Xóa refresh token cũ
+            _uow.RefreshTokens.Remove(storedToken);
+
+            // 4. Tạo access token mới và refresh token mới
+            var newAccessToken = GenerateJwtToken(user);
+            var newRefreshToken = await CreateRefreshTokenAsync(user);
+
+            return new RefreshTokenResponse
+            {
+                AccessToken = newAccessToken,
+                RefreshToken = newRefreshToken.Token,
+                Role = user.Role.Name,
+                FullName = user.FullName
+            };
+        }
+
         // 🔓 LOGOUT
         public async Task<bool> LogoutAsync(Guid userId)
         {
@@ -79,7 +120,7 @@ namespace Fap.Api.Services
             return true;
         }
 
-        // ✅ ĐĂNG KÝ 1 TÀI KHOẢN (Sử dụng AutoMapper)
+        // ✅ ĐĂNG KÝ 1 TÀI KHOẢN
         public async Task<RegisterUserResponse> RegisterUserAsync(RegisterUserRequest request)
         {
             var response = new RegisterUserResponse
@@ -209,6 +250,61 @@ namespace Fap.Api.Services
             return response;
         }
 
+        // 🔐 CHANGE PASSWORD 
+        public async Task<ChangePasswordResponse> ChangePasswordAsync(Guid userId, ChangePasswordRequest request)
+        {
+            var response = new ChangePasswordResponse();
+
+            try
+            {
+                // 1. Get user
+                var user = await _uow.Users.GetByIdAsync(userId);
+                if (user == null)
+                {
+                    response.Errors.Add("User not found");
+                    response.Message = "Change password failed";
+                    return response;
+                }
+
+                // 2. Verify current password
+                var verifyResult = _hasher.VerifyHashedPassword(user, user.PasswordHash, request.CurrentPassword);
+                if (verifyResult == PasswordVerificationResult.Failed)
+                {
+                    response.Errors.Add("Current password is incorrect");
+                    response.Message = "Change password failed";
+                    _logger.LogWarning($"❌ Failed password change attempt for user {userId} - Incorrect current password");
+                    return response;
+                }
+
+                // 3. Validate new password is different from current
+                var isSamePassword = _hasher.VerifyHashedPassword(user, user.PasswordHash, request.NewPassword);
+                if (isSamePassword == PasswordVerificationResult.Success)
+                {
+                    response.Errors.Add("New password must be different from current password");
+                    response.Message = "Change password failed";
+                    return response;
+                }
+
+                // 4. Hash and update password
+                user.PasswordHash = _hasher.HashPassword(user, request.NewPassword);
+                _uow.Users.Update(user);
+                await _uow.SaveChangesAsync();
+
+                response.Success = true;
+                response.Message = "Password changed successfully";
+                _logger.LogInformation($"✅ User {userId} changed password successfully");
+
+                return response;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"❌ Error changing password for user {userId}: {ex.Message}");
+                response.Errors.Add($"Internal error: {ex.Message}");
+                response.Message = "Change password failed";
+                return response;
+            }
+        }
+
         // ========== Private Helpers ==========
         private string GenerateJwtToken(User user)
         {
@@ -240,7 +336,7 @@ namespace Fap.Api.Services
             {
                 Id = Guid.NewGuid(),
                 Token = Guid.NewGuid().ToString("N"),
-                Expires = DateTime.UtcNow.AddDays(7),
+                Expires = DateTime.UtcNow.AddDays(7), // Refresh token hết hạn sau 7 ngày
                 UserId = user.Id
             };
 

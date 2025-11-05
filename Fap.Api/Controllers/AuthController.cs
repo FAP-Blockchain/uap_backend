@@ -32,6 +32,19 @@ namespace Fap.Api.Controllers
             return Ok(result);
         }
 
+        // 🔄 REFRESH TOKEN (NEW)
+        [HttpPost("refresh-token")]
+        [AllowAnonymous]
+        public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
+        {
+            var result = await _authService.RefreshTokenAsync(request.RefreshToken);
+            
+            if (result == null)
+                return Unauthorized(new { message = "Invalid or expired refresh token" });
+            
+            return Ok(result);
+        }
+
         // 🔓 LOGOUT
         [HttpPost("logout")]
         [Authorize]
@@ -73,29 +86,38 @@ namespace Fap.Api.Controllers
             return Ok(new { message = "OTP verified successfully" });
         }
 
-        //// 🔁 RESET PASSWORD (Old method - deprecated)
-        //[HttpPost("reset-password")]
-        //[AllowAnonymous]
-        //[Obsolete("Use reset-password-with-otp instead")]
-        //public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest req)
-        //{
-        //    var success = await _authService.ResetPasswordAsync(req);
-        //    if (!success)
-        //        return NotFound(new { message = "Email not found" });
-        //    return Ok(new { message = "Password reset successfully" });
-        //}
+        // 🔐 CHANGE PASSWORD (NEW)
+        [HttpPut("change-password")]
+        [Authorize]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+        {
+            try
+            {
+                // Get user ID from JWT token claims
+                var userId = Guid.Parse(User.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value);
+                
+                var result = await _authService.ChangePasswordAsync(userId, request);
+               
+                if (!result.Success)
+                    return BadRequest(result);
+               
+               return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = $"Failed to change password: {ex.Message}" });
+            }
+        }
 
-        // 🔁 RESET PASSWORD WITH OTP (New method)
+        // 🔁 RESET PASSWORD WITH OTP
         [HttpPost("reset-password-with-otp")]
         [AllowAnonymous]
         public async Task<IActionResult> ResetPasswordWithOtp([FromBody] ResetPasswordWithOtpRequest request)
         {
-            // Validate OTP first
             var isValidOtp = await _otpService.ValidateOtpAsync(request.Email, request.OtpCode, "PasswordReset");
             if (!isValidOtp)
                 return BadRequest(new { message = "Invalid or expired OTP" });
 
-            // Reset password
             var resetRequest = new ResetPasswordRequest
             {
                 Email = request.Email,
@@ -120,14 +142,12 @@ namespace Fap.Api.Controllers
             if (!result.Success)
                 return BadRequest(result);
 
-            // Send welcome email
             try
             {
                 await _emailService.SendWelcomeEmailAsync(request.Email, request.FullName, request.Password);
             }
             catch (Exception ex)
             {
-                // Log error but don't fail the registration
                 Console.WriteLine($"⚠️ Failed to send welcome email: {ex.Message}");
             }
             
@@ -141,7 +161,6 @@ namespace Fap.Api.Controllers
         {
             var result = await _authService.BulkRegisterAsync(request);
             
-            // Send welcome emails for successful registrations
             foreach (var userResult in result.Results.Where(r => r.Success))
             {
                 var userRequest = request.Users.First(u => u.Email == userResult.Email);
