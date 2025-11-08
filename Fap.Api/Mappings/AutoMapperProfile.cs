@@ -5,6 +5,8 @@ using Fap.Domain.DTOs.Student;
 using Fap.Domain.DTOs.Teacher;
 using Fap.Domain.DTOs.Class;
 using Fap.Domain.DTOs.TimeSlot;
+using Fap.Domain.DTOs.Subject;  // ✅ NEW
+using Fap.Domain.DTOs.Semester;  // ✅ NEW
 using Fap.Domain.Entities;
 
 namespace Fap.Api.Mappings
@@ -269,6 +271,33 @@ namespace Fap.Api.Mappings
                 .ForMember(dest => dest.EndTime, opt => opt.MapFrom(src => src.EndTime.ToString(@"hh\:mm")))
                 .ForMember(dest => dest.DurationMinutes, opt => opt.MapFrom(src => (int)(src.EndTime - src.StartTime).TotalMinutes))
                 .ForMember(dest => dest.TotalSlots, opt => opt.MapFrom(src => src.Slots != null ? src.Slots.Count : 0));
+
+            // ========== SUBJECT MAPPINGS ==========
+            
+            CreateMap<Subject, SubjectDto>()
+                .ForMember(dest => dest.SemesterName, opt => opt.MapFrom(src => src.Semester.Name))
+                .ForMember(dest => dest.TotalClasses, opt => opt.MapFrom(src => src.Classes.Count));
+
+            CreateMap<CreateSubjectRequest, Subject>()
+                .ForMember(dest => dest.Id, opt => opt.Ignore())
+                .ForMember(dest => dest.Semester, opt => opt.Ignore())
+                .ForMember(dest => dest.Classes, opt => opt.Ignore())
+                .ForMember(dest => dest.Slots, opt => opt.Ignore())
+                .ForMember(dest => dest.Grades, opt => opt.Ignore())
+                .ForMember(dest => dest.Roadmaps, opt => opt.Ignore())
+                .ForMember(dest => dest.SubjectCriterias, opt => opt.Ignore());
+
+            // ========== SEMESTER MAPPINGS ==========
+            
+            CreateMap<Semester, SemesterDto>()
+                .ForMember(dest => dest.TotalSubjects, opt => opt.MapFrom(src => src.Subjects.Count))
+                .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => 
+ src.StartDate <= DateTime.UtcNow && src.EndDate >= DateTime.UtcNow));
+
+            CreateMap<CreateSemesterRequest, Semester>()
+                .ForMember(dest => dest.Id, opt => opt.Ignore())
+                .ForMember(dest => dest.IsClosed, opt => opt.MapFrom(src => false))
+                .ForMember(dest => dest.Subjects, opt => opt.Ignore());
         }
     }
 }

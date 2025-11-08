@@ -14,9 +14,10 @@ namespace Fap.Infrastructure.Repositories
         public IRoleRepository Roles { get; }
         public IPermissionRepository Permissions { get; }
         public IOtpRepository Otps { get; }
-        public IClassRepository Classes { get; }  // ✅ NEW
-        public ISubjectRepository Subjects { get; }  // ✅ NEW
-        public ITimeSlotRepository TimeSlots { get; }  // ✅ NEW
+        public IClassRepository Classes { get; }
+        public ISubjectRepository Subjects { get; }
+        public ITimeSlotRepository TimeSlots { get; }
+        public ISemesterRepository Semesters { get; }  // ✅ NEW
 
         public UnitOfWork(FapDbContext context)
         {
@@ -28,9 +29,10 @@ namespace Fap.Infrastructure.Repositories
             Roles = new RoleRepository(context);
             Permissions = new PermissionRepository(context);
             Otps = new OtpRepository(context);
-            Classes = new ClassRepository(context);  // ✅ NEW
-            Subjects = new SubjectRepository(context);  // ✅ NEW
-            TimeSlots = new TimeSlotRepository(context);  // ✅ NEW
+            Classes = new ClassRepository(context);
+            Subjects = new SubjectRepository(context);
+            TimeSlots = new TimeSlotRepository(context);
+            Semesters = new SemesterRepository(context);  // ✅ NEW
         }
 
         public async Task<int> SaveChangesAsync()

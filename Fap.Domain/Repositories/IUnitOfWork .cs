@@ -15,6 +15,7 @@ namespace Fap.Domain.Repositories
         IClassRepository Classes { get; }
         ISubjectRepository Subjects { get; }
         ITimeSlotRepository TimeSlots { get; }
+        ISemesterRepository Semesters { get; }  // ✅ NEW
         
         Task<int> SaveChangesAsync();
     }

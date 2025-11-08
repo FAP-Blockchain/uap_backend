@@ -73,7 +73,8 @@ builder.Services.AddScoped<IStudentRepository, StudentRepository>();
 builder.Services.AddScoped<ITeacherRepository, TeacherRepository>();  
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
 builder.Services.AddScoped<IPermissionRepository, PermissionRepository>();  
-builder.Services.AddScoped<IOtpRepository, OtpRepository>();  
+builder.Services.AddScoped<IOtpRepository, OtpRepository>();
+builder.Services.AddScoped<ISemesterRepository, SemesterRepository>();  // ✅ NEW
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 // ==================================================
@@ -90,8 +91,10 @@ builder.Services.AddScoped<ITeacherService, TeacherService>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IOtpService, OtpService>();
-builder.Services.AddScoped<IClassService, ClassService>();  // ✅ NEW
-builder.Services.AddScoped<ITimeSlotService, TimeSlotService>();  // ✅ NEW
+builder.Services.AddScoped<IClassService, ClassService>();
+builder.Services.AddScoped<ITimeSlotService, TimeSlotService>();
+builder.Services.AddScoped<ISubjectService, SubjectService>();  // ✅ NEW
+builder.Services.AddScoped<ISemesterService, SemesterService>();  // ✅ NEW
 
 builder.Services.AddAutoMapper(cfg => cfg.AddMaps(typeof(AutoMapperProfile)));
 
