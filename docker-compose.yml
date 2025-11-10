@@ -1,13 +1,71 @@
 version: '3.8'
+
 services:
+  # =============================================================================
+  # FAP Backend API Service
+  # =============================================================================
   api:
-    image: fap-backend
-    container_name: fap-backend
+    image: fap-backend:latest  # Dùng image ?ã build s?n
+    container_name: fap-backend-api
+    restart: unless-stopped
+    
     ports:
-      - "8080:80"
+      - "8080:80"    # HTTP
+      - "8443:443"     # HTTPS (n?u có SSL)
+    
     environment:
+      # ASP.NET Core settings
       ASPNETCORE_ENVIRONMENT: Development
-      ASPNETCORE_URLS: http://0.0.0.0:80
-      ConnectionStrings__DefaultConnection: "Server=host.docker.internal,1433;Database=FapDb;User Id=sa;Password=12345;TrustServerCertificate=True;Encrypt=False;"
+      ASPNETCORE_URLS: http://+:80
+      
+      # Database connection (s? d?ng host.docker.internal ?? connect t?i SQL Server trên host machine)
+      ConnectionStrings__DefaultConnection: "Server=host.docker.internal,1433;Database=FapDb;User Id=sa;Password=YourStrong@Password123;TrustServerCertificate=True;Encrypt=False;"
+      
+      # JWT Settings (optional - có th? l?y t? appsettings.json)
+      # Jwt__Key: "your-secret-key-here"
+      # Jwt__Issuer: "FapApi"
+   # Jwt__Audience: "FapClient"
+      
+    # Allow container to connect to host machine (for SQL Server on host)
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    start_period: 40s
+ 
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+      max-file: "3"
+
+  # =============================================================================
+  # SQL Server Service (Optional - n?u mu?n ch?y SQL Server trong Docker)
+  # =============================================================================
+  # sqlserver:
+  #   image: mcr.microsoft.com/mssql/server:2022-latest
+  #   container_name: fap-sqlserver
+  #   restart: unless-stopped
+  #   ports:
+  #     - "1433:1433"
+  #   environment:
+  #     ACCEPT_EULA: "Y"
+  #     SA_PASSWORD: "YourStrong@Password123"
+  #     MSSQL_PID: "Developer"
+  #   volumes:
+  #     - sqlserver-data:/var/opt/mssql
+  #   healthcheck:
+  #     test: /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "YourStrong@Password123" -Q "SELECT 1" || exit 1
+  #     interval: 10s
+  #     timeout: 3s
+  #     retries: 10
+  #     start_period: 10s
+
+# volumes:
+#   sqlserver-data:

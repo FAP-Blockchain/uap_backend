@@ -16,12 +16,12 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
 // ==================================================
-// 🔹 CONTROLLERS & SWAGGER
+// CONTROLLERS & SWAGGER
 // ==================================================
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
-// ✅ Swagger cấu hình JWT
+// Swagger cấu hình JWT
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo
@@ -60,7 +60,7 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 // ==================================================
-// 🔹 DATABASE & REPOSITORIES
+// DATABASE & REPOSITORIES
 // ==================================================
 builder.Services.AddDbContext<FapDbContext>(opt =>
     opt.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -74,11 +74,11 @@ builder.Services.AddScoped<ITeacherRepository, TeacherRepository>();
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
 builder.Services.AddScoped<IPermissionRepository, PermissionRepository>();  
 builder.Services.AddScoped<IOtpRepository, OtpRepository>();
-builder.Services.AddScoped<ISemesterRepository, SemesterRepository>();  // ✅ NEW
+builder.Services.AddScoped<ISemesterRepository, SemesterRepository>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 // ==================================================
-// 🔹 SETTINGS & SERVICES
+// SETTINGS & SERVICES
 // ==================================================
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.Configure<OtpSettings>(builder.Configuration.GetSection("OtpSettings"));
@@ -93,34 +93,63 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IOtpService, OtpService>();
 builder.Services.AddScoped<IClassService, ClassService>();
 builder.Services.AddScoped<ITimeSlotService, TimeSlotService>();
-builder.Services.AddScoped<ISubjectService, SubjectService>();  // ✅ NEW
-builder.Services.AddScoped<ISemesterService, SemesterService>();  // ✅ NEW
+builder.Services.AddScoped<ISubjectService, SubjectService>();
+builder.Services.AddScoped<ISemesterService, SemesterService>();
 
 builder.Services.AddAutoMapper(cfg => cfg.AddMaps(typeof(AutoMapperProfile)));
 
 // ==================================================
-// 🔹 JWT AUTHENTICATION
+// CORS CONFIGURATION
+// ==================================================
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()
+      .AllowAnyMethod()
+              .AllowAnyHeader();
+ });
+
+    // PRODUCTION: Chỉ cho phép domain cụ thể
+    options.AddPolicy("Production", policy =>
+    {
+        policy.WithOrigins(
+       "http://localhost:3000",
+     "http://localhost:4200",
+     "http://localhost:5173",
+   "http://localhost:8080",
+          "https://yourdomain.com",
+   "https://www.yourdomain.com"
+   )
+        .AllowAnyMethod()
+    .AllowAnyHeader()
+ .AllowCredentials();
+    });
+});
+
+// ==================================================
+// JWT AUTHENTICATION
 // ==================================================
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
         options.TokenValidationParameters = new TokenValidationParameters
-        {
+{
             ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
-        };
+         ValidateAudience = true,
+        ValidateLifetime = true,
+      ValidateIssuerSigningKey = true,
+      ValidIssuer = builder.Configuration["Jwt:Issuer"],
+      ValidAudience = builder.Configuration["Jwt:Audience"],
+          IssuerSigningKey = new SymmetricSecurityKey(
+      Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+ };
     });
 
 builder.Services.AddAuthorization();
 
 // ==================================================
-// 🔹 BUILD APP
+// BUILD APP
 // ==================================================
 var app = builder.Build();
 
@@ -130,25 +159,37 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<FapDbContext>();
     try
     {
-        Console.WriteLine("🔄 Applying migrations...");
-        await db.Database.MigrateAsync();
+        Console.WriteLine("Applying migrations...");
+      await db.Database.MigrateAsync();
         await DataSeeder.SeedAsync(db);
-        Console.WriteLine("✅ Database migration & seeding done!");
+        Console.WriteLine("Database migration & seeding done!");
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"⚠️ Database migration failed: {ex.Message}");
-        Console.WriteLine("➡️ Skipping migration, continuing app startup...");
+        Console.WriteLine($"Database migration failed: {ex.Message}");
+        Console.WriteLine("Skipping migration, continuing app startup...");
     }
 }
 
 // ==================================================
-// 🔹 MIDDLEWARE PIPELINE
+// MIDDLEWARE PIPELINE
 // ==================================================
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+}
+
+// ==================================================
+// USE CORS (MUST BE BEFORE Authentication & Authorization)
+// ==================================================
+if (app.Environment.IsDevelopment())
+{
+    app.UseCors("AllowAll");
+}
+else
+{
+    app.UseCors("Production");
 }
 
 app.UseAuthentication();

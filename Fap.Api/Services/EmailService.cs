@@ -46,11 +46,11 @@ namespace Fap.Api.Services
                 await client.SendAsync(message);
                 await client.DisconnectAsync(true);
 
-                _logger.LogInformation($"✅ Email sent successfully to {toEmail}");
+                _logger.LogInformation($"Email sent successfully to {toEmail}");
             }
             catch (Exception ex)
             {
-                _logger.LogError($"❌ Failed to send email to {toEmail}: {ex.Message}");
+                _logger.LogError($"Failed to send email to {toEmail}: {ex.Message}");
                 throw;
             }
         }

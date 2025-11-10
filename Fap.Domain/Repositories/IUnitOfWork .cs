@@ -18,5 +18,6 @@ namespace Fap.Domain.Repositories
         ISemesterRepository Semesters { get; }  // ✅ NEW
         
         Task<int> SaveChangesAsync();
+        void ClearChangeTracker();
     }
 }

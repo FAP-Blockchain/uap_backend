@@ -40,6 +40,11 @@ namespace Fap.Infrastructure.Repositories
             return await _context.SaveChangesAsync();
         }
 
+        public void ClearChangeTracker()
+        {
+            _context.ChangeTracker.Clear();
+        }
+
         public void Dispose()
         {
             _context.Dispose();

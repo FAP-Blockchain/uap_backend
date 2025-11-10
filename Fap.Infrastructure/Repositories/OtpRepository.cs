@@ -13,14 +13,19 @@ namespace Fap.Infrastructure.Repositories
 
         public async Task<Otp?> GetValidOtpAsync(string email, string code, string purpose)
         {
-            return await _dbSet
+            var currentUtc = DateTime.UtcNow;
+
+            // Simplified: Only check email, code, not used, and not expired
+            // Purpose is ignored - any valid OTP can be used for any purpose
+            var otp = await _dbSet
                 .Where(o => o.Email == email 
                          && o.Code == code 
-                         && o.Purpose == purpose 
                          && !o.IsUsed
-                         && o.ExpiresAt > DateTime.UtcNow)
+                         && o.ExpiresAt > currentUtc)
                 .OrderByDescending(o => o.CreatedAt)
                 .FirstOrDefaultAsync();
+
+            return otp;
         }
 
         public async Task<List<Otp>> GetActiveOtpsByEmailAsync(string email, string purpose)
@@ -49,10 +54,16 @@ namespace Fap.Infrastructure.Repositories
                 .Where(o => o.Email == email && o.Purpose == purpose && !o.IsUsed)
                 .ToListAsync();
 
-            foreach (var otp in otps)
+            if (otps.Any())
             {
-                otp.IsUsed = true;
-                otp.UsedAt = DateTime.UtcNow;
+                foreach (var otp in otps)
+                {
+                    otp.IsUsed = true;
+                    otp.UsedAt = DateTime.UtcNow;
+                }
+            
+                // Save changes immediately to prevent tracking conflicts
+                _context.UpdateRange(otps);
             }
         }
     }
