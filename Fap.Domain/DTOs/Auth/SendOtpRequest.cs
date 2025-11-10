@@ -8,7 +8,7 @@ namespace Fap.Domain.DTOs.Auth
         [EmailAddress(ErrorMessage = "Invalid email format")]
         public string Email { get; set; }
 
-        [Required(ErrorMessage = "Purpose is required")]
-        public string Purpose { get; set; } // "Registration" or "PasswordReset"
+        // Purpose is optional - just for logging/tracking, not validation
+        public string? Purpose { get; set; }
     }
 }

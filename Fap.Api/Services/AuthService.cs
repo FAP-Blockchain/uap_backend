@@ -26,7 +26,7 @@ namespace Fap.Api.Services
             _logger = logger;
         }
 
-        // 🔑 LOGIN
+        // LOGIN
         public async Task<LoginResponse?> LoginAsync(LoginRequest req)
         {
             var user = await _uow.Users.GetByEmailAsync(req.Email);
@@ -55,7 +55,7 @@ namespace Fap.Api.Services
             };
         }
 
-        // 🔄 REFRESH TOKEN
+        // REFRESH TOKEN
         public async Task<RefreshTokenResponse?> RefreshTokenAsync(string refreshTokenValue)
         {
             // 1. Validate refresh token
@@ -94,7 +94,7 @@ namespace Fap.Api.Services
             };
         }
 
-        // 🔓 LOGOUT
+        // LOGOUT
         public async Task<bool> LogoutAsync(Guid userId)
         {
             var tokens = await _uow.RefreshTokens.FindAsync(r => r.UserId == userId);
@@ -105,7 +105,7 @@ namespace Fap.Api.Services
             return true;
         }
 
-        // 🔁 RESET PASSWORD
+        // RESET PASSWORD
         public async Task<bool> ResetPasswordAsync(ResetPasswordRequest req)
         {
             if (req.NewPassword != req.ConfirmPassword)
@@ -120,7 +120,7 @@ namespace Fap.Api.Services
             return true;
         }
 
-        // ✅ ĐĂNG KÝ 1 TÀI KHOẢN
+        // ĐĂNG KÝ 1 TÀI KHOẢN
         public async Task<RegisterUserResponse> RegisterUserAsync(RegisterUserRequest request)
         {
             var response = new RegisterUserResponse
@@ -228,7 +228,7 @@ namespace Fap.Api.Services
             }
         }
 
-        // ✅ ĐĂNG KÝ NHIỀU TÀI KHOẢN
+        // ĐĂNG KÝ NHIỀU TÀI KHOẢN
         public async Task<BulkRegisterResponse> BulkRegisterAsync(BulkRegisterRequest request)
         {
             var response = new BulkRegisterResponse
@@ -250,7 +250,7 @@ namespace Fap.Api.Services
             return response;
         }
 
-        // 🔐 CHANGE PASSWORD 
+        // CHANGE PASSWORD 
         public async Task<ChangePasswordResponse> ChangePasswordAsync(Guid userId, ChangePasswordRequest request)
         {
             var response = new ChangePasswordResponse();
@@ -272,7 +272,7 @@ namespace Fap.Api.Services
                 {
                     response.Errors.Add("Current password is incorrect");
                     response.Message = "Change password failed";
-                    _logger.LogWarning($"❌ Failed password change attempt for user {userId} - Incorrect current password");
+                    _logger.LogWarning($"Failed password change attempt for user {userId} - Incorrect current password");
                     return response;
                 }
 
@@ -292,13 +292,13 @@ namespace Fap.Api.Services
 
                 response.Success = true;
                 response.Message = "Password changed successfully";
-                _logger.LogInformation($"✅ User {userId} changed password successfully");
+                _logger.LogInformation($"User {userId} changed password successfully");
 
                 return response;
             }
             catch (Exception ex)
             {
-                _logger.LogError($"❌ Error changing password for user {userId}: {ex.Message}");
+                _logger.LogError($"Error changing password for user {userId}: {ex.Message}");
                 response.Errors.Add($"Internal error: {ex.Message}");
                 response.Message = "Change password failed";
                 return response;
@@ -306,6 +306,13 @@ namespace Fap.Api.Services
         }
 
         // ========== Private Helpers ==========
+
+        // GET USER BY ID (Public method for controller use)
+        public async Task<User?> GetUserByIdAsync(Guid userId)
+        {
+            return await _uow.Users.GetByIdAsync(userId);
+        }
+
         private string GenerateJwtToken(User user)
         {
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]));
