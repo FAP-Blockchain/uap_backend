@@ -17,7 +17,8 @@ namespace Fap.Infrastructure.Repositories
         public IClassRepository Classes { get; }
         public ISubjectRepository Subjects { get; }
         public ITimeSlotRepository TimeSlots { get; }
-        public ISemesterRepository Semesters { get; }  // ✅ NEW
+        public ISemesterRepository Semesters { get; }
+        public IEnrollRepository Enrolls { get; }
 
         public UnitOfWork(FapDbContext context)
         {
@@ -32,7 +33,8 @@ namespace Fap.Infrastructure.Repositories
             Classes = new ClassRepository(context);
             Subjects = new SubjectRepository(context);
             TimeSlots = new TimeSlotRepository(context);
-            Semesters = new SemesterRepository(context);  // ✅ NEW
+            Semesters = new SemesterRepository(context);
+            Enrolls = new EnrollRepository(context);
         }
 
         public async Task<int> SaveChangesAsync()
