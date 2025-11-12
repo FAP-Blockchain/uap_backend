@@ -86,6 +86,7 @@ builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 // ==================================================
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.Configure<OtpSettings>(builder.Configuration.GetSection("OtpSettings"));
+builder.Services.Configure<BlockchainSettings>(builder.Configuration.GetSection("BlockchainSettings")); // ✅ NEW
 
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
@@ -95,6 +96,9 @@ builder.Services.AddScoped<ITeacherService, TeacherService>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IOtpService, OtpService>();
+builder.Services.AddScoped<IClassService, ClassService>();
+builder.Services.AddScoped<ITimeSlotService, TimeSlotService>();
+builder.Services.AddScoped<IBlockchainService, BlockchainService>(); // ✅ NEW
 builder.Services.AddScoped<IClassService, ClassService>();
 builder.Services.AddScoped<ITimeSlotService, TimeSlotService>();
 builder.Services.AddScoped<ISubjectService, SubjectService>();

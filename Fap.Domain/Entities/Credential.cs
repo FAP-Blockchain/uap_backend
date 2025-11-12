@@ -23,5 +23,11 @@ namespace Fap.Domain.Entities
 
         [Required] public Guid CertificateTemplateId { get; set; }
         [ForeignKey(nameof(CertificateTemplateId))] public CertificateTemplate CertificateTemplate { get; set; }
+
+        // ✅ BLOCKCHAIN INTEGRATION
+        [MaxLength(200)]
+        public string? BlockchainTransactionHash { get; set; }
+        public DateTime? BlockchainStoredAt { get; set; }
+        public bool IsOnBlockchain { get; set; } = false;
     }
 }
