@@ -79,6 +79,8 @@ builder.Services.AddScoped<IClassRepository, ClassRepository>();
 builder.Services.AddScoped<ISubjectRepository, SubjectRepository>();
 builder.Services.AddScoped<ITimeSlotRepository, TimeSlotRepository>();
 builder.Services.AddScoped<IEnrollRepository, EnrollRepository>();
+builder.Services.AddScoped<IGradeRepository, GradeRepository>();
+builder.Services.AddScoped<IGradeComponentRepository, GradeComponentRepository>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 // ==================================================
@@ -104,6 +106,8 @@ builder.Services.AddScoped<ITimeSlotService, TimeSlotService>();
 builder.Services.AddScoped<ISubjectService, SubjectService>();
 builder.Services.AddScoped<ISemesterService, SemesterService>();
 builder.Services.AddScoped<IEnrollmentService, EnrollmentService>();
+builder.Services.AddScoped<IGradeService, GradeService>();
+builder.Services.AddScoped<IGradeComponentService, GradeComponentService>();
 
 builder.Services.AddAutoMapper(cfg => cfg.AddMaps(typeof(AutoMapperProfile)));
 

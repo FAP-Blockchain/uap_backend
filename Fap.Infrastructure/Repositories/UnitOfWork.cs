@@ -19,6 +19,8 @@ namespace Fap.Infrastructure.Repositories
         public ITimeSlotRepository TimeSlots { get; }
         public ISemesterRepository Semesters { get; }
         public IEnrollRepository Enrolls { get; }
+        public IGradeRepository Grades { get; }
+        public IGradeComponentRepository GradeComponents { get; }
 
         public UnitOfWork(FapDbContext context)
         {
@@ -35,6 +37,8 @@ namespace Fap.Infrastructure.Repositories
             TimeSlots = new TimeSlotRepository(context);
             Semesters = new SemesterRepository(context);
             Enrolls = new EnrollRepository(context);
+            Grades = new GradeRepository(context);
+            GradeComponents = new GradeComponentRepository(context);
         }
 
         public async Task<int> SaveChangesAsync()

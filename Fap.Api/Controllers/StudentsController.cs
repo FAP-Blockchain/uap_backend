@@ -1,5 +1,6 @@
 using Fap.Api.Interfaces;
 using Fap.Domain.DTOs.Enrollment;
+using Fap.Domain.DTOs.Grade;
 using Fap.Domain.DTOs.Student;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -13,72 +14,97 @@ namespace Fap.Api.Controllers
     {
         private readonly IStudentService _studentService;
         private readonly IEnrollmentService _enrollmentService;
+        private readonly IGradeService _gradeService;
         private readonly ILogger<StudentsController> _logger;
 
         public StudentsController(
             IStudentService studentService,
             IEnrollmentService enrollmentService,
-       ILogger<StudentsController> logger)
-     {
+            IGradeService gradeService,
+            ILogger<StudentsController> logger)
+        {
             _studentService = studentService;
-        _enrollmentService = enrollmentService;
+            _enrollmentService = enrollmentService;
+            _gradeService = gradeService;
             _logger = logger;
         }
 
-   [HttpGet]
+        [HttpGet]
         public async Task<IActionResult> GetAllStudents([FromQuery] GetStudentsRequest request)
-     {
-  try
-         {
-        var results = await _studentService.GetStudentsAsync(request);
-         return Ok(results);
+        {
+            try
+            {
+                var results = await _studentService.GetStudentsAsync(request);
+                return Ok(results);
             }
-   catch (Exception ex)
-      {
-   _logger.LogError($"Error getting students: {ex.Message}");
-   return StatusCode(500, new { message = "An error occurred while retrieving students" });
-          }
-  }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error getting students: {ex.Message}");
+                return StatusCode(500, new { message = "An error occurred while retrieving students" });
+            }
+        }
 
         [HttpGet("{id}")]
-    public async Task<IActionResult> GetStudentById(Guid id)
+        public async Task<IActionResult> GetStudentById(Guid id)
         {
-try
+            try
             {
-      var student = await _studentService.GetStudentByIdAsync(id);
+                var student = await _studentService.GetStudentByIdAsync(id);
 
                 if (student == null)
-        return NotFound(new
-           {
-  success = false,
-message = $"Student with ID '{id}' not found"
-           });
+                    return NotFound(new
+                    {
+                        success = false,
+                        message = $"Student with ID '{id}' not found"
+                    });
 
-        return Ok(student);
-         }
-       catch (Exception ex)
-    {
-   _logger.LogError($"Error getting student {id}: {ex.Message}");
-       return StatusCode(500, new { message = "An error occurred while retrieving student" });
-         }
-   }
+                return Ok(student);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error getting student {id}: {ex.Message}");
+                return StatusCode(500, new { message = "An error occurred while retrieving student" });
+            }
+        }
 
-     /// <summary>
-   /// Get student's enrollment history
+        /// <summary>
+        /// Get student's enrollment history
         /// </summary>
         [HttpGet("{id}/enrollments")]
         public async Task<IActionResult> GetStudentEnrollments(Guid id, [FromQuery] GetStudentEnrollmentsRequest request)
-  {
-     try
-    {
-            var result = await _enrollmentService.GetStudentEnrollmentHistoryAsync(id, request);
-    return Ok(result);
-  }
-    catch (Exception ex)
-      {
-_logger.LogError($"Error getting enrollments for student {id}: {ex.Message}");
-     return StatusCode(500, new { message = "An error occurred while retrieving student enrollments" });
-          }
-   }
+        {
+            try
+            {
+                var result = await _enrollmentService.GetStudentEnrollmentHistoryAsync(id, request);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error getting enrollments for student {id}: {ex.Message}");
+                return StatusCode(500, new { message = "An error occurred while retrieving student enrollments" });
+            }
+        }
+
+        /// <summary>
+        /// GET /api/students/{id}/grades - Get student grade transcript
+        /// </summary>
+        [HttpGet("{id}/grades")]
+        public async Task<IActionResult> GetStudentGrades(Guid id, [FromQuery] GetStudentGradesRequest request)
+        {
+            try
+            {
+                var result = await _gradeService.GetStudentGradesAsync(id, request);
+
+                if (result == null)
+                    return NotFound(new { message = $"Student with ID {id} not found" });
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error getting grades for student {id}: {ex.Message}");
+                return StatusCode(500, new { message = "An error occurred while retrieving student grades" });
+            }
+        }
     }
 }

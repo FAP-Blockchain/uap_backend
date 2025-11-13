@@ -1,5 +1,6 @@
 using Fap.Api.Interfaces;
 using Fap.Domain.DTOs.Class;
+using Fap.Domain.DTOs.Grade;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,11 +12,16 @@ namespace Fap.Api.Controllers
     public class ClassesController : ControllerBase
     {
         private readonly IClassService _classService;
+        private readonly IGradeService _gradeService;
         private readonly ILogger<ClassesController> _logger;
 
-        public ClassesController(IClassService classService, ILogger<ClassesController> logger)
+        public ClassesController(
+            IClassService classService,
+            IGradeService gradeService,
+            ILogger<ClassesController> logger)
         {
             _classService = classService;
+            _gradeService = gradeService;
             _logger = logger;
         }
 
@@ -147,6 +153,28 @@ namespace Fap.Api.Controllers
             {
                 _logger.LogError($"? Error getting class roster for {id}: {ex.Message}");
                 return StatusCode(500, new { message = "An error occurred while retrieving class roster" });
+            }
+        }
+
+        /// <summary>
+        /// GET /api/classes/{id}/grades - Get class grade report
+        /// </summary>
+        [HttpGet("{id}/grades")]
+        public async Task<IActionResult> GetClassGrades(Guid id, [FromQuery] GetClassGradesRequest request)
+        {
+            try
+            {
+                var result = await _gradeService.GetClassGradesAsync(id, request);
+
+                if (result == null)
+                    return NotFound(new { message = $"Class with ID {id} not found" });
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error getting class grades for {id}: {ex.Message}");
+                return StatusCode(500, new { message = "An error occurred while retrieving class grades" });
             }
         }
     }

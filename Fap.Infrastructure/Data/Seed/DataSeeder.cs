@@ -444,17 +444,74 @@ namespace Fap.Infrastructure.Data.Seed
             // ========== GRADES ==========
             var grades = new List<Grade>
             {
-                // Student 1 grades
+                // ========== BC101-A (Class 1) - Blockchain Fundamentals ==========
+                // Student 1 (SV001) - Complete grades with all components
                 new Grade { Id = Guid.NewGuid(), StudentId = student1Entity.Id, SubjectId = subject1.Id, GradeComponentId = gradeComponents[0].Id, Score = 8.5m, LetterGrade = "B+", UpdatedAt = DateTime.UtcNow },
                 new Grade { Id = Guid.NewGuid(), StudentId = student1Entity.Id, SubjectId = subject1.Id, GradeComponentId = gradeComponents[1].Id, Score = 9.0m, LetterGrade = "A", UpdatedAt = DateTime.UtcNow },
+                new Grade { Id = Guid.NewGuid(), StudentId = student1Entity.Id, SubjectId = subject1.Id, GradeComponentId = gradeComponents[2].Id, Score = 8.0m, LetterGrade = "B+", UpdatedAt = DateTime.UtcNow },
+                new Grade { Id = Guid.NewGuid(), StudentId = student1Entity.Id, SubjectId = subject1.Id, GradeComponentId = gradeComponents[3].Id, Score = 8.7m, LetterGrade = "B+", UpdatedAt = DateTime.UtcNow },
 
-                // Student 2 grades
+                // Student 2 (SV002) - Partial grades (missing some components)
                 new Grade { Id = Guid.NewGuid(), StudentId = student2Entity.Id, SubjectId = subject1.Id, GradeComponentId = gradeComponents[0].Id, Score = 7.5m, LetterGrade = "B", UpdatedAt = DateTime.UtcNow },
                 new Grade { Id = Guid.NewGuid(), StudentId = student2Entity.Id, SubjectId = subject1.Id, GradeComponentId = gradeComponents[1].Id, Score = 8.0m, LetterGrade = "B+", UpdatedAt = DateTime.UtcNow },
+                new Grade { Id = Guid.NewGuid(), StudentId = student2Entity.Id, SubjectId = subject1.Id, GradeComponentId = gradeComponents[2].Id, Score = 7.0m, LetterGrade = "B", UpdatedAt = DateTime.UtcNow },
 
-                // Student 3 grades
+                // Student 3 (SV003) - Excellent grades
                 new Grade { Id = Guid.NewGuid(), StudentId = student3Entity.Id, SubjectId = subject1.Id, GradeComponentId = gradeComponents[0].Id, Score = 9.5m, LetterGrade = "A", UpdatedAt = DateTime.UtcNow },
-                new Grade { Id = Guid.NewGuid(), StudentId = student3Entity.Id, SubjectId = subject1.Id, GradeComponentId = gradeComponents[1].Id, Score = 9.8m, LetterGrade = "A+", UpdatedAt = DateTime.UtcNow }
+                new Grade { Id = Guid.NewGuid(), StudentId = student3Entity.Id, SubjectId = subject1.Id, GradeComponentId = gradeComponents[1].Id, Score = 9.8m, LetterGrade = "A+", UpdatedAt = DateTime.UtcNow },
+                new Grade { Id = Guid.NewGuid(), StudentId = student3Entity.Id, SubjectId = subject1.Id, GradeComponentId = gradeComponents[2].Id, Score = 9.2m, LetterGrade = "A", UpdatedAt = DateTime.UtcNow },
+                new Grade { Id = Guid.NewGuid(), StudentId = student3Entity.Id, SubjectId = subject1.Id, GradeComponentId = gradeComponents[3].Id, Score = 9.6m, LetterGrade = "A+", UpdatedAt = DateTime.UtcNow },
+
+                // ========== SE201-A (Class 2) - Software Engineering ==========
+                // Student 1 (SV001) - Good grades
+                new Grade { Id = Guid.NewGuid(), StudentId = student1Entity.Id, SubjectId = subject2.Id, GradeComponentId = gradeComponents[0].Id, Score = 8.0m, LetterGrade = "B+", UpdatedAt = DateTime.UtcNow },
+                new Grade { Id = Guid.NewGuid(), StudentId = student1Entity.Id, SubjectId = subject2.Id, GradeComponentId = gradeComponents[1].Id, Score = 8.5m, LetterGrade = "B+", UpdatedAt = DateTime.UtcNow },
+                new Grade { Id = Guid.NewGuid(), StudentId = student1Entity.Id, SubjectId = subject2.Id, GradeComponentId = gradeComponents[3].Id, Score = 9.0m, LetterGrade = "A", UpdatedAt = DateTime.UtcNow },
+
+                // Student 3 (SV003) - Excellent performance
+                new Grade { Id = Guid.NewGuid(), StudentId = student3Entity.Id, SubjectId = subject2.Id, GradeComponentId = gradeComponents[0].Id, Score = 9.0m, LetterGrade = "A", UpdatedAt = DateTime.UtcNow },
+                new Grade { Id = Guid.NewGuid(), StudentId = student3Entity.Id, SubjectId = subject2.Id, GradeComponentId = gradeComponents[1].Id, Score = 9.3m, LetterGrade = "A", UpdatedAt = DateTime.UtcNow },
+                new Grade { Id = Guid.NewGuid(), StudentId = student3Entity.Id, SubjectId = subject2.Id, GradeComponentId = gradeComponents[2].Id, Score = 8.8m, LetterGrade = "B+", UpdatedAt = DateTime.UtcNow },
+                new Grade { Id = Guid.NewGuid(), StudentId = student3Entity.Id, SubjectId = subject2.Id, GradeComponentId = gradeComponents[3].Id, Score = 9.5m, LetterGrade = "A", UpdatedAt = DateTime.UtcNow },
+
+                // ========== DB301-A (Class 3) - Database Management Systems ==========
+                // Student 1 (SV001) - Average grades
+                new Grade { Id = Guid.NewGuid(), StudentId = student1Entity.Id, SubjectId = subject3.Id, GradeComponentId = gradeComponents[0].Id, Score = 7.5m, LetterGrade = "B", UpdatedAt = DateTime.UtcNow },
+                new Grade { Id = Guid.NewGuid(), StudentId = student1Entity.Id, SubjectId = subject3.Id, GradeComponentId = gradeComponents[1].Id, Score = 8.0m, LetterGrade = "B+", UpdatedAt = DateTime.UtcNow },
+                new Grade { Id = Guid.NewGuid(), StudentId = student1Entity.Id, SubjectId = subject3.Id, GradeComponentId = gradeComponents[2].Id, Score = 7.8m, LetterGrade = "B", UpdatedAt = DateTime.UtcNow },
+
+                // Student 2 (SV002) - Good grades
+                new Grade { Id = Guid.NewGuid(), StudentId = student2Entity.Id, SubjectId = subject3.Id, GradeComponentId = gradeComponents[0].Id, Score = 8.2m, LetterGrade = "B+", UpdatedAt = DateTime.UtcNow },
+                new Grade { Id = Guid.NewGuid(), StudentId = student2Entity.Id, SubjectId = subject3.Id, GradeComponentId = gradeComponents[1].Id, Score = 8.5m, LetterGrade = "B+", UpdatedAt = DateTime.UtcNow },
+
+                // Student 3 (SV003) - Excellent grades
+                new Grade { Id = Guid.NewGuid(), StudentId = student3Entity.Id, SubjectId = subject3.Id, GradeComponentId = gradeComponents[0].Id, Score = 9.0m, LetterGrade = "A", UpdatedAt = DateTime.UtcNow },
+                new Grade { Id = Guid.NewGuid(), StudentId = student3Entity.Id, SubjectId = subject3.Id, GradeComponentId = gradeComponents[1].Id, Score = 9.5m, LetterGrade = "A", UpdatedAt = DateTime.UtcNow },
+                new Grade { Id = Guid.NewGuid(), StudentId = student3Entity.Id, SubjectId = subject3.Id, GradeComponentId = gradeComponents[2].Id, Score = 9.2m, LetterGrade = "A", UpdatedAt = DateTime.UtcNow },
+                new Grade { Id = Guid.NewGuid(), StudentId = student3Entity.Id, SubjectId = subject3.Id, GradeComponentId = gradeComponents[3].Id, Score = 9.8m, LetterGrade = "A+", UpdatedAt = DateTime.UtcNow },
+
+                // ========== BC202-A (Class 4) - Smart Contract Development ==========
+                // Student 1 (SV001) - In progress (only midterm)
+                new Grade { Id = Guid.NewGuid(), StudentId = student1Entity.Id, SubjectId = subject4.Id, GradeComponentId = gradeComponents[0].Id, Score = 8.3m, LetterGrade = "B+", UpdatedAt = DateTime.UtcNow },
+                new Grade { Id = Guid.NewGuid(), StudentId = student1Entity.Id, SubjectId = subject4.Id, GradeComponentId = gradeComponents[2].Id, Score = 8.0m, LetterGrade = "B+", UpdatedAt = DateTime.UtcNow },
+
+                // Student 2 (SV002) - In progress
+                new Grade { Id = Guid.NewGuid(), StudentId = student2Entity.Id, SubjectId = subject4.Id, GradeComponentId = gradeComponents[0].Id, Score = 7.8m, LetterGrade = "B", UpdatedAt = DateTime.UtcNow },
+
+                // ========== BC202-B (Class 5) - Smart Contract Development (Another section) ==========
+                // Student 3 (SV003) - Complete grades
+                new Grade { Id = Guid.NewGuid(), StudentId = student3Entity.Id, SubjectId = subject4.Id, GradeComponentId = gradeComponents[0].Id, Score = 9.2m, LetterGrade = "A", UpdatedAt = DateTime.UtcNow },
+                new Grade { Id = Guid.NewGuid(), StudentId = student3Entity.Id, SubjectId = subject4.Id, GradeComponentId = gradeComponents[1].Id, Score = 9.5m, LetterGrade = "A", UpdatedAt = DateTime.UtcNow },
+                new Grade { Id = Guid.NewGuid(), StudentId = student3Entity.Id, SubjectId = subject4.Id, GradeComponentId = gradeComponents[2].Id, Score = 9.0m, LetterGrade = "A", UpdatedAt = DateTime.UtcNow },
+                new Grade { Id = Guid.NewGuid(), StudentId = student3Entity.Id, SubjectId = subject4.Id, GradeComponentId = gradeComponents[3].Id, Score = 9.7m, LetterGrade = "A+", UpdatedAt = DateTime.UtcNow },
+
+                // ========== BC303-A (Class 6) - Blockchain Security ==========
+                // Student 1 (SV001) - Just started (only assignment)
+                new Grade { Id = Guid.NewGuid(), StudentId = student1Entity.Id, SubjectId = subject5.Id, GradeComponentId = gradeComponents[2].Id, Score = 8.5m, LetterGrade = "B+", UpdatedAt = DateTime.UtcNow },
+
+                // Student 3 (SV003) - Early stage
+                new Grade { Id = Guid.NewGuid(), StudentId = student3Entity.Id, SubjectId = subject5.Id, GradeComponentId = gradeComponents[2].Id, Score = 9.0m, LetterGrade = "A", UpdatedAt = DateTime.UtcNow },
+                new Grade { Id = Guid.NewGuid(), StudentId = student3Entity.Id, SubjectId = subject5.Id, GradeComponentId = gradeComponents[3].Id, Score = 9.3m, LetterGrade = "A", UpdatedAt = DateTime.UtcNow }
             };
 
             await context.Grades.AddRangeAsync(grades);
