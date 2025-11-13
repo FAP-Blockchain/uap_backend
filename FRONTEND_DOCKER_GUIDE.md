@@ -1,62 +1,70 @@
-# H??ng d?n tri?n khai Backend cho Frontend Team b?ng Docker
+# Hướng dẫn triển khai Backend cho Frontend Team bằng Docker
 
-T�i li?u n�y h??ng d?n c�ch nhanh ch�ng kh?i ch?y to�n b? h? th?ng backend (API + Database) tr�n b?t k? m�y t�nh n�o ch? v?i Docker.
+Tài liệu này hướng dẫn cách nhanh chóng khởi chạy toàn bộ hệ thống backend (API + Database) trên bất kỳ máy tính nào chỉ với Docker.
 
-## 1. Y�u c?u c?n c�
+## 1. Yêu cầu cần có
 
-- **C�i ??t Docker Desktop**: ??m b?o b?n ?� c�i ??t v� ?ang ch?y Docker Desktop tr�n m�y t�nh c?a m�nh.
-  - T?i v? t?i: [https://www.docker.com/products/docker-desktop/](https://www.docker.com/products/docker-desktop/)
+* **Cài đặt Docker Desktop**: Đảm bảo bạn đã cài đặt và đang chạy Docker Desktop trên máy tính của mình.
 
-## 2. Nh?ng g� b?n c?n
+  * Tải về tại: [https://www.docker.com/products/docker-desktop/](https://www.docker.com/products/docker-desktop/)
 
-- B?n ch? c?n duy nh?t t?p `docker-compose.yml`.
-- **Kh�ng c?n** t?i xu?ng to�n b? m� ngu?n c?a backend.
+## 2. Những gì bạn cần
 
-## 3. C�c b??c th?c hi?n
+* Bạn chỉ cần duy nhất tệp `docker-compose.yml`.
+* **Không cần** tải xuống toàn bộ mã nguồn của backend.
 
-1.  **T?o m?t th? m?c m?i**: Tr�n m�y t�nh c?a b?n, t?o m?t th? m?c tr?ng ?? ch?a t?p c?u h�nh, v� d?: `fap-backend-env`.
+## 3. Các bước thực hiện
 
-2.  **Sao ch�p t?p**: ??t t?p `docker-compose.yml` v�o b�n trong th? m?c b?n v?a t?o.
+1. **Tạo một thư mục mới**: Trên máy tính của bạn, tạo một thư mục trống để chứa tệp cấu hình, ví dụ: `fap-backend-env`.
 
-3.  **M? Terminal**: M? m?t c?a s? d�ng l?nh (PowerShell, Command Prompt, ho?c Terminal) v� ?i?u h??ng ??n th? m?c ?�.
-    ```sh
-    # V� d?:
-    cd C:\Users\YourUser\Desktop\fap-backend-env
-    ```
+2. **Sao chép tệp**: Đặt tệp `docker-compose.yml` vào bên trong thư mục bạn vừa tạo.
 
-4.  **Kh?i ??ng Backend**: Ch?y l?nh sau.
-    ```sh
-    docker compose up -d
-    ```
+3. **Mở Terminal**: Mở một cửa sổ dòng lệnh (PowerShell, Command Prompt, hoặc Terminal) và điều hướng đến thư mục đó.
 
-**Ch? m?t ch�t!** L?n ??u ti�n ch?y, Docker s? c?n t?i c�c "image" (b?n ?�ng g�i c?a API v� SQL Server) t? tr�n m?ng v?. Qu� tr�nh n�y c� th? m?t v�i ph�t. Nh?ng l?n kh?i ??ng sau s? nhanh h?n nhi?u.
+   ```sh
+   # Ví dụ:
+   cd C:\Users\YourUser\Desktop\fap-backend-env
+   ```
 
-L?nh tr�n s? t? ??ng:
-- T?i v? v� ch?y container cho **API Backend**.
-- T?i v? v� ch?y container cho **SQL Server Database**.
-- C?u h�nh m?ng ?? hai container c� th? giao ti?p v?i nhau.
+4. **Khởi động Backend**: Chạy lệnh sau.
 
-## 4. Ki?m tra ho?t ??ng
+   ```sh
+   docker compose up -d
+   ```
 
-Sau khi l?nh ch?y xong, b?n c� th? ki?m tra xem backend ?� ho?t ??ng ?�ng ch?a:
+**Chỉ một chút!** Lần đầu tiên chạy, Docker sẽ cần tải các "image" (bản đóng gói của API và SQL Server) từ trên mạng về. Quá trình này có thể mất vài phút. Những lần khởi động sau sẽ nhanh hơn nhiều.
 
-- **API Endpoint**: Backend s? ch?y t?i ??a ch? `http://localhost:8080`.
-- **Swagger UI (T�i li?u API)**: M? tr�nh duy?t v� truy c?p `http://localhost:8080/swagger`. B?n s? th?y danh s�ch t?t c? c�c API c� s?n ?? frontend c� th? g?i.
-- **Health Check**: Truy c?p `http://localhost:8080/health` ?? ??m b?o API ?ang "kh?e m?nh".
+Lệnh trên sẽ:
 
-## 5. C�c l?nh Docker h?u �ch kh�c
+* Tải về và chạy container cho **API Backend**.
+* Tải về và chạy container cho **SQL Server Database**.
+* Cấu hình mạng để hai container có thể giao tiếp với nhau.
 
-- **?? d?ng to�n b? h? th?ng backend**:
+## 4. Kiểm tra hoạt động
+
+Sau khi lệnh chạy xong, bạn có thể kiểm tra xem backend đã hoạt động đúng chưa:
+
+* **API Endpoint**: Backend sẽ chạy tại địa chỉ `http://localhost:8080`.
+* **Swagger UI (Tài liệu API)**: Mở trình duyệt và truy cập `http://localhost:8080/swagger`. Bạn sẽ thấy danh sách tất cả các API có sẵn để frontend có thể gọi.
+* **Health Check**: Truy cập `http://localhost:8080/health` để đảm bảo API đang "khỏe mạnh".
+
+## 5. Các lệnh Docker hữu ích khác
+
+* **Dừng toàn bộ hệ thống backend**:
+
   ```sh
   docker compose down
   ```
-- **?? xem nh?t k� (logs) c?a API n?u c� l?i**:
+
+* **Xem nhật ký (logs) của API nếu có lỗi**:
+
   ```sh
   docker compose logs -f api
   ```
-- **?? kh?i ??ng l?i h? th?ng**:
+
+* **Khởi động lại hệ thống**:
+
   ```sh
   docker compose restart
   ```
 
-V?i c�c b??c tr�n, ??i ng? frontend c� th? d? d�ng c� m?t m�i tr??ng backend ho�n ch?nh v� nh?t qu�n tr�n b?t k? m�y t�nh n�o m� kh�ng c?n ph?i build hay c?u h�nh m� ngu?n.
