@@ -296,38 +296,38 @@ namespace Fap.Api.Mappings
             // ======================================================================
 
             CreateMap<Grade, GradeDto>()
-     .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
-     .ForMember(dest => dest.StudentId, opt => opt.MapFrom(src => src.StudentId))
-      .ForMember(dest => dest.StudentCode, opt => opt.MapFrom(src => src.Student != null ? src.Student.StudentCode : null))
-   .ForMember(dest => dest.StudentName, opt => opt.MapFrom(src => src.Student != null && src.Student.User != null ? src.Student.User.FullName : null))
-  .ForMember(dest => dest.SubjectId, opt => opt.MapFrom(src => src.SubjectId))
-              .ForMember(dest => dest.SubjectCode, opt => opt.MapFrom(src => src.Subject != null ? src.Subject.SubjectCode : null))
-    .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src => src.Subject != null ? src.Subject.SubjectName : null))
- .ForMember(dest => dest.GradeComponentId, opt => opt.MapFrom(src => src.GradeComponentId))
+                .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
+                .ForMember(dest => dest.StudentId, opt => opt.MapFrom(src => src.StudentId))
+                .ForMember(dest => dest.StudentCode, opt => opt.MapFrom(src => src.Student != null ? src.Student.StudentCode : null))
+                .ForMember(dest => dest.StudentName, opt => opt.MapFrom(src => src.Student != null && src.Student.User != null ? src.Student.User.FullName : null))
+                .ForMember(dest => dest.SubjectId, opt => opt.MapFrom(src => src.SubjectId))
+                .ForMember(dest => dest.SubjectCode, opt => opt.MapFrom(src => src.Subject != null ? src.Subject.SubjectCode : null))
+                .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src => src.Subject != null ? src.Subject.SubjectName : null))
+                .ForMember(dest => dest.GradeComponentId, opt => opt.MapFrom(src => src.GradeComponentId))
                 .ForMember(dest => dest.ComponentName, opt => opt.MapFrom(src => src.GradeComponent != null ? src.GradeComponent.Name : null))
-   .ForMember(dest => dest.ComponentWeight, opt => opt.MapFrom(src => src.GradeComponent != null ? src.GradeComponent.WeightPercent : 0))
-      .ForMember(dest => dest.Score, opt => opt.MapFrom(src => src.Score))
+                .ForMember(dest => dest.ComponentWeight, opt => opt.MapFrom(src => src.GradeComponent != null ? src.GradeComponent.WeightPercent : 0))
+                .ForMember(dest => dest.Score, opt => opt.MapFrom(src => src.Score))
                 .ForMember(dest => dest.LetterGrade, opt => opt.MapFrom(src => src.LetterGrade))
-         .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(src => src.UpdatedAt));
+                .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(src => src.UpdatedAt));
 
             CreateMap<Grade, GradeDetailDto>()
-        .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
-                       .ForMember(dest => dest.Score, opt => opt.MapFrom(src => src.Score))
-             .ForMember(dest => dest.LetterGrade, opt => opt.MapFrom(src => src.LetterGrade))
+                .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
+                .ForMember(dest => dest.Score, opt => opt.MapFrom(src => src.Score))
+                .ForMember(dest => dest.LetterGrade, opt => opt.MapFrom(src => src.LetterGrade))
                 .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(src => src.UpdatedAt))
-                       .ForMember(dest => dest.StudentId, opt => opt.MapFrom(src => src.StudentId))
-            .ForMember(dest => dest.StudentCode, opt => opt.MapFrom(src => src.Student != null ? src.Student.StudentCode : null))
-           .ForMember(dest => dest.StudentName, opt => opt.MapFrom(src => src.Student != null && src.Student.User != null ? src.Student.User.FullName : null))
-          .ForMember(dest => dest.StudentEmail, opt => opt.MapFrom(src => src.Student != null && src.Student.User != null ? src.Student.User.Email : null))
-               .ForMember(dest => dest.SubjectId, opt => opt.MapFrom(src => src.SubjectId))
-              .ForMember(dest => dest.SubjectCode, opt => opt.MapFrom(src => src.Subject != null ? src.Subject.SubjectCode : null))
-       .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src => src.Subject != null ? src.Subject.SubjectName : null))
-            .ForMember(dest => dest.Credits, opt => opt.MapFrom(src => src.Subject != null ? src.Subject.Credits : 0))
-            .ForMember(dest => dest.GradeComponentId, opt => opt.MapFrom(src => src.GradeComponentId))
-         .ForMember(dest => dest.ComponentName, opt => opt.MapFrom(src => src.GradeComponent != null ? src.GradeComponent.Name : null))
-        .ForMember(dest => dest.ComponentWeight, opt => opt.MapFrom(src => src.GradeComponent != null ? src.GradeComponent.WeightPercent : 0))
-                   .ForMember(dest => dest.ClassName, opt => opt.Ignore())
-           .ForMember(dest => dest.TeacherName, opt => opt.Ignore());
+                .ForMember(dest => dest.StudentId, opt => opt.MapFrom(src => src.StudentId))
+                .ForMember(dest => dest.StudentCode, opt => opt.MapFrom(src => src.Student != null ? src.Student.StudentCode : null))
+                .ForMember(dest => dest.StudentName, opt => opt.MapFrom(src => src.Student != null && src.Student.User != null ? src.Student.User.FullName : null))
+                .ForMember(dest => dest.StudentEmail, opt => opt.MapFrom(src => src.Student != null && src.Student.User != null ? src.Student.User.Email : null))
+                .ForMember(dest => dest.SubjectId, opt => opt.MapFrom(src => src.SubjectId))
+                .ForMember(dest => dest.SubjectCode, opt => opt.MapFrom(src => src.Subject != null ? src.Subject.SubjectCode : null))
+                .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src => src.Subject != null ? src.Subject.SubjectName : null))
+                .ForMember(dest => dest.Credits, opt => opt.MapFrom(src => src.Subject != null ? src.Subject.Credits : 0))
+                .ForMember(dest => dest.GradeComponentId, opt => opt.MapFrom(src => src.GradeComponentId))
+                .ForMember(dest => dest.ComponentName, opt => opt.MapFrom(src => src.GradeComponent != null ? src.GradeComponent.Name : null))
+                .ForMember(dest => dest.ComponentWeight, opt => opt.MapFrom(src => src.GradeComponent != null ? src.GradeComponent.WeightPercent : 0))
+                .ForMember(dest => dest.ClassName, opt => opt.Ignore())
+                .ForMember(dest => dest.TeacherName, opt => opt.Ignore());
 
             // ======================================================================
             // GRADE COMPONENT MAPPINGS
@@ -335,102 +335,102 @@ namespace Fap.Api.Mappings
 
             CreateMap<GradeComponent, GradeComponentDto>()
                 .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
-       .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name))
-                  .ForMember(dest => dest.WeightPercent, opt => opt.MapFrom(src => src.WeightPercent))
-         .ForMember(dest => dest.GradeCount, opt => opt.MapFrom(src => src.Grades != null ? src.Grades.Count : 0));
+                .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name))
+                .ForMember(dest => dest.WeightPercent, opt => opt.MapFrom(src => src.WeightPercent))
+                .ForMember(dest => dest.GradeCount, opt => opt.MapFrom(src => src.Grades != null ? src.Grades.Count : 0));
 
             // ======================================================================
             // SEMESTER MAPPINGS
             // ======================================================================
 
             CreateMap<Semester, SemesterDto>()
-         .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
-    .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name))
-        .ForMember(dest => dest.StartDate, opt => opt.MapFrom(src => src.StartDate))
-        .ForMember(dest => dest.EndDate, opt => opt.MapFrom(src => src.EndDate))
-            .ForMember(dest => dest.TotalSubjects, opt => opt.MapFrom(src => src.Subjects != null ? src.Subjects.Count : 0))
+                .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
+                .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name))
+                .ForMember(dest => dest.StartDate, opt => opt.MapFrom(src => src.StartDate))
+                .ForMember(dest => dest.EndDate, opt => opt.MapFrom(src => src.EndDate))
+                .ForMember(dest => dest.TotalSubjects, opt => opt.MapFrom(src => src.Subjects != null ? src.Subjects.Count : 0))
                 .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => src.IsActive))
-              .ForMember(dest => dest.IsClosed, opt => opt.MapFrom(src => src.IsClosed));
+                .ForMember(dest => dest.IsClosed, opt => opt.MapFrom(src => src.IsClosed));
 
             CreateMap<Semester, SemesterDetailDto>()
-            .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
-  .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name))
-        .ForMember(dest => dest.StartDate, opt => opt.MapFrom(src => src.StartDate))
-        .ForMember(dest => dest.EndDate, opt => opt.MapFrom(src => src.EndDate))
-     .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => src.IsActive))
-           .ForMember(dest => dest.IsClosed, opt => opt.MapFrom(src => src.IsClosed))
+                .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
+                .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name))
+                .ForMember(dest => dest.StartDate, opt => opt.MapFrom(src => src.StartDate))
+                .ForMember(dest => dest.EndDate, opt => opt.MapFrom(src => src.EndDate))
+                .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => src.IsActive))
+                .ForMember(dest => dest.IsClosed, opt => opt.MapFrom(src => src.IsClosed))
                 .ForMember(dest => dest.TotalSubjects, opt => opt.MapFrom(src => src.Subjects != null ? src.Subjects.Count : 0))
-         .ForMember(dest => dest.TotalClasses, opt => opt.MapFrom(src => src.Subjects != null
-       ? src.Subjects.Sum(s => s.Classes != null ? s.Classes.Count : 0)
-         : 0))
-           .ForMember(dest => dest.TotalStudentsEnrolled, opt => opt.MapFrom(src => src.Subjects != null
-  ? src.Subjects.SelectMany(s => s.Classes ?? new List<Class>())
-     .SelectMany(c => c.Members ?? new List<ClassMember>())
-  .Select(m => m.StudentId)
-          .Distinct()
-         .Count()
-          : 0))
-         .ForMember(dest => dest.Subjects, opt => opt.MapFrom(src => src.Subjects));
+                .ForMember(dest => dest.TotalClasses, opt => opt.MapFrom(src => src.Subjects != null
+                        ? src.Subjects.Sum(s => s.Classes != null ? s.Classes.Count : 0)
+                        : 0))
+                .ForMember(dest => dest.TotalStudentsEnrolled, opt => opt.MapFrom(src => src.Subjects != null
+                        ? src.Subjects.SelectMany(s => s.Classes ?? new List<Class>())
+                            .SelectMany(c => c.Members ?? new List<ClassMember>())
+                            .Select(m => m.StudentId)
+                            .Distinct()
+                            .Count()
+                        : 0))
+                .ForMember(dest => dest.Subjects, opt => opt.MapFrom(src => src.Subjects));
 
             // ======================================================================
             // SUBJECT MAPPINGS
             // ======================================================================
 
             CreateMap<Subject, SubjectDto>()
-               .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
-              .ForMember(dest => dest.SubjectCode, opt => opt.MapFrom(src => src.SubjectCode))
-                   .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src => src.SubjectName))
+                .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
+                .ForMember(dest => dest.SubjectCode, opt => opt.MapFrom(src => src.SubjectCode))
+                .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src => src.SubjectName))
                 .ForMember(dest => dest.Credits, opt => opt.MapFrom(src => src.Credits))
-                    .ForMember(dest => dest.SemesterId, opt => opt.MapFrom(src => src.SemesterId))
-                  .ForMember(dest => dest.SemesterName, opt => opt.MapFrom(src => src.Semester != null ? src.Semester.Name : null))
-            .ForMember(dest => dest.TotalClasses, opt => opt.MapFrom(src => src.Classes != null ? src.Classes.Count : 0));
+                .ForMember(dest => dest.SemesterId, opt => opt.MapFrom(src => src.SemesterId))
+                .ForMember(dest => dest.SemesterName, opt => opt.MapFrom(src => src.Semester != null ? src.Semester.Name : null))
+                .ForMember(dest => dest.TotalClasses, opt => opt.MapFrom(src => src.Classes != null ? src.Classes.Count : 0));
 
             CreateMap<Subject, SubjectDetailDto>()
-           .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
-      .ForMember(dest => dest.SubjectCode, opt => opt.MapFrom(src => src.SubjectCode))
-         .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src => src.SubjectName))
- .ForMember(dest => dest.Credits, opt => opt.MapFrom(src => src.Credits))
-          .ForMember(dest => dest.SemesterId, opt => opt.MapFrom(src => src.SemesterId))
-.ForMember(dest => dest.SemesterName, opt => opt.MapFrom(src => src.Semester != null ? src.Semester.Name : null))
-       .ForMember(dest => dest.SemesterStartDate, opt => opt.MapFrom(src => src.Semester != null ? src.Semester.StartDate : DateTime.MinValue))
-         .ForMember(dest => dest.SemesterEndDate, opt => opt.MapFrom(src => src.Semester != null ? src.Semester.EndDate : DateTime.MinValue))
+                .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
+                .ForMember(dest => dest.SubjectCode, opt => opt.MapFrom(src => src.SubjectCode))
+                .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src => src.SubjectName))
+                .ForMember(dest => dest.Credits, opt => opt.MapFrom(src => src.Credits))
+                .ForMember(dest => dest.SemesterId, opt => opt.MapFrom(src => src.SemesterId))
+                .ForMember(dest => dest.SemesterName, opt => opt.MapFrom(src => src.Semester != null ? src.Semester.Name : null))
+                .ForMember(dest => dest.SemesterStartDate, opt => opt.MapFrom(src => src.Semester != null ? src.Semester.StartDate : DateTime.MinValue))
+                .ForMember(dest => dest.SemesterEndDate, opt => opt.MapFrom(src => src.Semester != null ? src.Semester.EndDate : DateTime.MinValue))
                 .ForMember(dest => dest.Classes, opt => opt.MapFrom(src => src.Classes))
-              .ForMember(dest => dest.TotalStudentsEnrolled, opt => opt.MapFrom(src => src.Classes != null
-        ? src.Classes.SelectMany(c => c.Members ?? new List<ClassMember>())
-  .Select(m => m.StudentId)
-.Distinct()
-        .Count()
-    : 0));
+                .ForMember(dest => dest.TotalStudentsEnrolled, opt => opt.MapFrom(src => src.Classes != null
+                        ? src.Classes.SelectMany(c => c.Members ?? new List<ClassMember>())
+                            .Select(m => m.StudentId)
+                            .Distinct()
+                            .Count()
+                        : 0));
 
             CreateMap<Subject, SubjectSummaryDto>()
-                       .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
+                .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
                 .ForMember(dest => dest.SubjectCode, opt => opt.MapFrom(src => src.SubjectCode))
-               .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src => src.SubjectName))
-           .ForMember(dest => dest.Credits, opt => opt.MapFrom(src => src.Credits))
-             .ForMember(dest => dest.TotalClasses, opt => opt.MapFrom(src => src.Classes != null ? src.Classes.Count : 0));
+                .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src => src.SubjectName))
+                .ForMember(dest => dest.Credits, opt => opt.MapFrom(src => src.Credits))
+                .ForMember(dest => dest.TotalClasses, opt => opt.MapFrom(src => src.Classes != null ? src.Classes.Count : 0));
 
             // ======================================================================
             // CLASS SUMMARY MAPPINGS
             // ======================================================================
 
             CreateMap<Class, ClassSummaryDto>()
-                            .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
-             .ForMember(dest => dest.ClassCode, opt => opt.MapFrom(src => src.ClassCode))
+                .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
+                .ForMember(dest => dest.ClassCode, opt => opt.MapFrom(src => src.ClassCode))
                 .ForMember(dest => dest.TeacherName, opt => opt.MapFrom(src => src.Teacher != null && src.Teacher.User != null ? src.Teacher.User.FullName : null))
-                 .ForMember(dest => dest.CurrentEnrollment, opt => opt.MapFrom(src => src.Members != null ? src.Members.Count : 0))
-                   .ForMember(dest => dest.MaxEnrollment, opt => opt.MapFrom(src => src.MaxEnrollment));
+                .ForMember(dest => dest.CurrentEnrollment, opt => opt.MapFrom(src => src.Members != null ? src.Members.Count : 0))
+                .ForMember(dest => dest.MaxEnrollment, opt => opt.MapFrom(src => src.MaxEnrollment));
 
             // ======================================================================
             // TIMESLOT MAPPINGS
             // ======================================================================
 
             CreateMap<TimeSlot, TimeSlotDto>()
-     .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
-            .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name))
-            .ForMember(dest => dest.StartTime, opt => opt.MapFrom(src => src.StartTime.ToString(@"hh\:mm")))
-          .ForMember(dest => dest.EndTime, opt => opt.MapFrom(src => src.EndTime.ToString(@"hh\:mm")))
-                  .ForMember(dest => dest.DurationMinutes, opt => opt.MapFrom(src => (int)(src.EndTime - src.StartTime).TotalMinutes))
-        .ForMember(dest => dest.TotalSlots, opt => opt.MapFrom(src => src.Slots != null ? src.Slots.Count : 0));
+                .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
+                .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name))
+                .ForMember(dest => dest.StartTime, opt => opt.MapFrom(src => src.StartTime.ToString(@"hh\:mm")))
+                .ForMember(dest => dest.EndTime, opt => opt.MapFrom(src => src.EndTime.ToString(@"hh\:mm")))
+                .ForMember(dest => dest.DurationMinutes, opt => opt.MapFrom(src => (int)(src.EndTime - src.StartTime).TotalMinutes))
+                .ForMember(dest => dest.TotalSlots, opt => opt.MapFrom(src => src.Slots != null ? src.Slots.Count : 0));
         }
     }
 }
