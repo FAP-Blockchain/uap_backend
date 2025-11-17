@@ -8,7 +8,7 @@ on:
   workflow_dispatch:  # Cho phép trigger thủ công từ GitHub UI
 
 env:
-  AZURE_WEBAPP_NAME: uap-blockchain    # ⚠️ THAY TÊN WEB APP CỦA BẠN TẠI ĐÂY
+  AZURE_WEBAPP_NAME: uap-blockchain    
   DOTNET_VERSION: '8.0.x'
   PROJECT_PATH: './Fap.Api/Fap.Api.csproj'
 
