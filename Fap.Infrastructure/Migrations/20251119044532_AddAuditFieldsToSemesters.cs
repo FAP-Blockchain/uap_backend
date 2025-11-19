@@ -39,6 +39,7 @@ namespace Fap.Infrastructure.Migrations
                 name: "SubjectId",
                 table: "Slots");
 
+            // ⚠️ IMPORTANT: Rename BEFORE data migration
             migrationBuilder.RenameColumn(
                 name: "SubjectId",
                 table: "Classes",
@@ -166,6 +167,56 @@ namespace Fap.Infrastructure.Migrations
                         onDelete: ReferentialAction.Restrict);
                 });
 
+            // ✅ DATA MIGRATION: Create SubjectOffering for each unique Subject in existing Classes
+            // This ensures Classes.SubjectOfferingId will reference valid SubjectOffering records
+            migrationBuilder.Sql(@"
+  -- Step 1: Get or create default semester
+          DECLARE @DefaultSemesterId uniqueidentifier;
+                SELECT TOP 1 @DefaultSemesterId = Id FROM Semesters ORDER BY StartDate DESC;
+    
+     -- Step 2: Create SubjectOfferings for each UNIQUE Subject (not per class!)
+    -- SubjectOfferingId currently contains the OLD SubjectId values
+         INSERT INTO SubjectOfferings (Id, SubjectId, SemesterId, MaxClasses, IsActive, CreatedAt, UpdatedAt)
+  SELECT 
+        NEWID() as Id,        -- ✅ Generate NEW unique ID
+      SubjectOfferingId as SubjectId,    -- ✅ This is the actual Subject ID
+         @DefaultSemesterId as SemesterId,
+       10 as MaxClasses,
+      1 as IsActive,
+             GETUTCDATE() as CreatedAt,
+              GETUTCDATE() as UpdatedAt
+                FROM (
+     SELECT DISTINCT SubjectOfferingId 
+          FROM Classes 
+  WHERE SubjectOfferingId IS NOT NULL
+      ) AS UniqueSubjects
+             WHERE @DefaultSemesterId IS NOT NULL;
+
+  -- Step 3: Create temp mapping table to track old SubjectId -> new SubjectOfferingId
+        CREATE TABLE #SubjectOfferingMapping (
+OldSubjectId uniqueidentifier,
+     NewSubjectOfferingId uniqueidentifier
+             );
+
+            -- Step 4: Populate mapping
+          INSERT INTO #SubjectOfferingMapping (OldSubjectId, NewSubjectOfferingId)
+                SELECT DISTINCT 
+           SubjectOfferingId as OldSubjectId,
+          so.Id as NewSubjectOfferingId
+    FROM Classes c
+      INNER JOIN SubjectOfferings so ON c.SubjectOfferingId = so.SubjectId
+        WHERE so.SemesterId = (SELECT TOP 1 Id FROM Semesters ORDER BY StartDate DESC);
+
+      -- Step 5: Update Classes.SubjectOfferingId with new IDs
+       UPDATE c
+       SET SubjectOfferingId = m.NewSubjectOfferingId
+    FROM Classes c
+     INNER JOIN #SubjectOfferingMapping m ON c.SubjectOfferingId = m.OldSubjectId;
+
+       -- Step 6: Cleanup
+  DROP TABLE #SubjectOfferingMapping;
+         ");
+
             migrationBuilder.CreateIndex(
                 name: "IX_SubjectOfferings_SemesterId",
                 table: "SubjectOfferings",
@@ -177,6 +228,7 @@ namespace Fap.Infrastructure.Migrations
                 columns: new[] { "SubjectId", "SemesterId" },
                 unique: true);
 
+            // ✅ NOW it's safe to add FK - SubjectOffering records exist!
             migrationBuilder.AddForeignKey(
                 name: "FK_Classes_SubjectOfferings_SubjectOfferingId",
                 table: "Classes",
