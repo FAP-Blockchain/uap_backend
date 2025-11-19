@@ -178,59 +178,57 @@ namespace Fap.Infrastructure.Repositories
   .Select(p => p.Trim())
            .ToList();
 
-      // Build query for eligible students
-var query = _context.Students
-      .Include(s => s.User)
-    .Include(s => s.Roadmaps.Where(r => r.SubjectId == subjectId && r.SemesterId == semesterId))
-        .ThenInclude(r => r.Subject)
-    .Include(s => s.Roadmaps.Where(r => r.Status == "Completed"))
-        .ThenInclude(r => r.Subject)
-     .AsQueryable();
+   // ✅ FIX: Load ALL roadmaps, then filter in memory
+      var query = _context.Students
+    .Include(s => s.User)
+  .Include(s => s.Roadmaps)  // Load ALL roadmaps without filter
+   .ThenInclude(r => r.Subject)
+    .AsQueryable();
 
-       // Filter: Must have subject in roadmap for this semester
+      // Filter: Must have subject in roadmap for this semester with status "Planned"
             query = query.Where(s => s.Roadmaps.Any(r => 
      r.SubjectId == subjectId && 
      r.SemesterId == semesterId &&
-           r.Status == "Planned"));
+ r.Status == "Planned"));
 
-        // Filter: Prerequisites must be completed
+     // Filter: Prerequisites must be completed
   if (prerequisiteCodes.Any())
- {
-query = query.Where(s => 
-     prerequisiteCodes.All(prereqCode =>
-        s.Roadmaps.Any(r => 
-    r.Subject.SubjectCode == prereqCode && 
-                  r.Status == "Completed")));
+   {
+            query = query.Where(s => 
+         prerequisiteCodes.All(prereqCode =>
+     s.Roadmaps.Any(r => 
+              r.Subject.SubjectCode == prereqCode && 
+  r.Status == "Completed")));
      }
 
-        // Filter: Not already in this class (if classId provided)
-      if (classId.HasValue)
+       // Filter: Not already in this class (if classId provided)
+   if (classId.HasValue)
    {
-      query = query.Where(s => !s.ClassMembers.Any(cm => cm.ClassId == classId.Value));
-          }
+ query = query.Where(s => !s.ClassMembers.Any(cm => cm.ClassId == classId.Value));
+   }
 
       // Filter: Not graduated
-   query = query.Where(s => !s.IsGraduated);
+     query = query.Where(s => !s.IsGraduated);
 
-     // Apply search term
+      // Apply search term
 if (!string.IsNullOrWhiteSpace(searchTerm))
-    {
-        query = query.Where(s =>
- s.StudentCode.Contains(searchTerm) ||
-      s.User.FullName.Contains(searchTerm) ||
-      s.User.Email.Contains(searchTerm));
+   {
+ query = query.Where(s =>
+    s.StudentCode.Contains(searchTerm) ||
+              s.User.FullName.Contains(searchTerm) ||
+        s.User.Email.Contains(searchTerm));
    }
 
   var totalCount = await query.CountAsync();
 
-            var students = await query
-   .OrderBy(s => s.StudentCode)
-        .Skip((page - 1) * pageSize)
-         .Take(pageSize)
-     .ToListAsync();
+     var students = await query
+  .OrderBy(s => s.StudentCode)
+      .Skip((page - 1) * pageSize)
+          .Take(pageSize)
+        .ToListAsync();
 
-return (students, totalCount);
-  }
+   return (students, totalCount);
+   }
 
      /// <summary>
         /// Get students enrolled in a specific semester (have roadmap entries)
