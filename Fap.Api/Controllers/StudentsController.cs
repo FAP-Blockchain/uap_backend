@@ -60,6 +60,34 @@ namespace Fap.Api.Controllers
         }
 
         /// <summary>
+        /// GET /api/students/eligible-for-class/{classId} - Get students eligible for a class (Admin)
+        /// </summary>
+        [HttpGet("eligible-for-class/{classId}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> GetEligibleStudentsForClass(
+            Guid classId,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 20,
+            [FromQuery] string? searchTerm = null)
+        {
+            try
+            {
+                var result = await _studentService.GetEligibleStudentsForClassAsync(
+                    classId,
+                    page,
+                    pageSize,
+                    searchTerm);
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting eligible students for class {ClassId}", classId);
+                return StatusCode(500, new { message = "An error occurred while retrieving eligible students" });
+            }
+        }
+
+        /// <summary>
         /// GET /api/students/{id} - Get student details by ID (Admin)
         /// </summary>
         [HttpGet("{id}")]

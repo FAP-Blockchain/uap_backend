@@ -294,7 +294,7 @@ namespace Fap.Api.Services
 
             try
             {
-                // 1. Validate class exists
+                // 1. Validate class exists and get details
                 var @class = await _uow.Classes.GetByIdWithDetailsAsync(classId);
                 if (@class == null)
                 {
@@ -302,6 +302,18 @@ namespace Fap.Api.Services
                     response.Message = "Assignment failed";
                     return response;
                 }
+
+                // ✅ Get subject and semester from SubjectOffering
+                var subjectOffering = @class.SubjectOffering;
+                if (subjectOffering == null)
+                {
+                    response.Errors.Add("Class has no subject offering");
+                    response.Message = "Assignment failed";
+                    return response;
+                }
+
+                var subjectId = subjectOffering.SubjectId;
+                var semesterId = subjectOffering.SemesterId;
 
                 // 2. Check max enrollment limit using ClassMembers
                 var currentStudentCount = await _uow.ClassMembers.GetClassMemberCountAsync(classId);
@@ -314,13 +326,13 @@ namespace Fap.Api.Services
                     return response;
                 }
 
-                // 3. Process each student
+                // 3. Process each student with validation
                 var assignedStudents = new List<AssignedStudentInfo>();
                 var failedCount = 0;
 
                 foreach (var studentId in request.StudentIds)
                 {
-                    // Check if student exists
+                    // ✅ Check if student exists
                     var student = await _uow.Students.GetByIdAsync(studentId);
                     if (student == null)
                     {
@@ -329,7 +341,19 @@ namespace Fap.Api.Services
                         continue;
                     }
 
-                    // ✅ Check if student is already in class using ClassMembers
+                    // ✅ Check if student is eligible for this subject in this semester
+                    var (isEligible, reasons) = await _uow.Students.CheckSubjectEligibilityAsync(
+                        studentId, subjectId, semesterId
+                    );
+
+                    if (!isEligible)
+                    {
+                        response.Errors.Add($"Student '{student.StudentCode}': {string.Join("; ", reasons)}");
+                        failedCount++;
+                        continue;
+                    }
+
+                    // ✅ Check if student is already in class
                     var isAlreadyInClass = await _uow.ClassMembers.IsStudentInClassAsync(classId, studentId);
                     if (isAlreadyInClass)
                     {
@@ -367,10 +391,10 @@ namespace Fap.Api.Services
                 response.TotalFailed = failedCount;
                 response.AssignedStudents = assignedStudents;
                 response.Message = assignedStudents.Count > 0
-                    ? $"Successfully assigned {assignedStudents.Count} student(s) to class {@class.ClassCode}"
+                    ? $"Successfully assigned {assignedStudents.Count} student(s) to class {@class.ClassCode}. {failedCount} failed."
                     : "No students were assigned";
 
-                _logger.LogInformation($"✅ Assigned {assignedStudents.Count} students to class {classId}");
+                _logger.LogInformation($"✅ Assigned {assignedStudents.Count} students to class {classId}. {failedCount} failed eligibility check.");
 
                 return response;
             }

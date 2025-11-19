@@ -149,6 +149,7 @@ namespace Fap.Api.Services
                     return (false, "The date range overlaps with an existing semester", null);
                 }
 
+                // Create semester
                 var semester = new Semester
                 {
                     Id = Guid.NewGuid(),
@@ -162,12 +163,41 @@ namespace Fap.Api.Services
                 await _uow.Semesters.AddAsync(semester);
                 await _uow.SaveChangesAsync();
 
-                _logger.LogInformation($"Semester created: {semester.Name}");
-                return (true, "Semester created successfully", semester.Id);
+                // ✅✅ AUTO-CREATE SubjectOfferings for ALL active subjects
+                var activeSubjects = await _uow.Subjects.FindAsync(s => s.IsActive);
+                var subjectOfferingsCreated = 0;
+
+                foreach (var subject in activeSubjects)
+                {
+                    var subjectOffering = new SubjectOffering
+                    {
+                        Id = Guid.NewGuid(),
+                        SubjectId = subject.Id,
+                        SemesterId = semester.Id,
+                        MaxClasses = request.DefaultMaxClassesPerSubject,
+                        SemesterCapacity = request.DefaultSemesterCapacityPerSubject,
+                        RegistrationStartDate = request.StartDate.AddDays(-request.RegistrationStartDaysBeforeSemester),
+                        RegistrationEndDate = request.StartDate.AddDays(request.RegistrationEndDaysAfterSemesterStart),
+                        IsActive = true,
+                        Notes = $"Auto-created for {semester.Name}"
+                    };
+
+                    await _uow.SubjectOfferings.AddAsync(subjectOffering);
+                    subjectOfferingsCreated++;
+                }
+
+                await _uow.SaveChangesAsync();
+
+                _logger.LogInformation(
+                   "Semester created: {SemesterName}. Auto-created {Count} SubjectOfferings.", 
+               semester.Name, 
+                  subjectOfferingsCreated);
+
+               return (true, $"Semester created successfully with {subjectOfferingsCreated} subject offerings", semester.Id);
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error creating semester: {ex.Message}");
+                _logger.LogError(ex, "Error creating semester");
                 return (false, "An error occurred while creating the semester", null);
             }
         }

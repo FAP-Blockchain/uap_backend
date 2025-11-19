@@ -149,5 +149,71 @@ namespace Fap.Api.Services
                 throw;
             }
         }
+
+        /// <summary>
+        /// Get students eligible for a specific class
+        /// Validates: roadmap, prerequisites, not already in class
+        /// </summary>
+        public async Task<PagedResult<StudentDto>> GetEligibleStudentsForClassAsync(
+            Guid classId,
+            int page = 1,
+            int pageSize = 20,
+            string? searchTerm = null)
+        {
+            try
+            {
+                // Get class details
+                var classEntity = await _uow.Classes.GetByIdWithDetailsAsync(classId);
+                if (classEntity == null)
+                {
+                    return new PagedResult<StudentDto>(
+                        new List<StudentDto>(),
+                        0,
+                        page,
+                        pageSize
+                    );
+                }
+
+                var subjectId = classEntity.SubjectOffering.SubjectId;
+                var semesterId = classEntity.SubjectOffering.SemesterId;
+
+                // Get eligible students
+                var (students, totalCount) = await _uow.Students.GetEligibleStudentsForSubjectAsync(
+                    subjectId,
+                    semesterId,
+                    classId,
+                    page,
+                    pageSize,
+                    searchTerm
+                );
+
+                var studentDtos = students.Select(s => new StudentDto
+                {
+                    Id = s.Id,
+                    StudentCode = s.StudentCode,
+                    FullName = s.User?.FullName ?? "N/A",
+                    Email = s.User?.Email ?? "N/A",
+                    EnrollmentDate = s.EnrollmentDate,
+                    GPA = s.GPA,
+                    IsGraduated = s.IsGraduated,
+                    GraduationDate = s.GraduationDate,
+                    IsActive = s.User?.IsActive ?? false,
+                    TotalEnrollments = s.Enrolls?.Count ?? 0,
+                    TotalClasses = s.ClassMembers?.Count ?? 0
+                }).ToList();
+
+                return new PagedResult<StudentDto>(
+                    studentDtos,
+                    totalCount,
+                    page,
+                    pageSize
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting eligible students for class {ClassId}", classId);
+                throw;
+            }
+        }
     }
 }
