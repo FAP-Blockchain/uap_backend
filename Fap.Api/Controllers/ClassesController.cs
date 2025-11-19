@@ -263,6 +263,28 @@ IGradeService gradeService,
         // ==================== ASSIGN STUDENTS TO CLASS ====================
 
         /// <summary>
+        /// GET /api/classes/{id}/students - Get list of students in a class
+        /// </summary>
+        [HttpGet("{id}/students")]
+        public async Task<IActionResult> GetClassStudents(Guid id, [FromQuery] ClassRosterRequest request)
+        {
+            try
+            {
+                var result = await _classService.GetClassRosterAsync(id, request);
+                return Ok(new
+                {
+                    success = true,
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error getting students for class {id}: {ex.Message}");
+                return StatusCode(500, new { success = false, message = "An error occurred while retrieving class students" });
+            }
+        }
+
+        /// <summary>
         /// POST /api/classes/{id}/students - Assign multiple students to a class
         /// </summary>
         [HttpPost("{id}/students")]

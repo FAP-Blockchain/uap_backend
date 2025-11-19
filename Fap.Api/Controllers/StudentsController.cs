@@ -38,6 +38,50 @@ namespace Fap.Api.Controllers
             _logger = logger;
         }
 
+        // ==================== ADMIN ENDPOINTS ====================
+
+        /// <summary>
+        /// GET /api/students - Get paginated list of all students (Admin only)
+        /// </summary>
+        [HttpGet]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> GetAllStudents([FromQuery] GetStudentsRequest request)
+        {
+            try
+            {
+                var result = await _studentService.GetStudentsAsync(request);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting students list");
+                return StatusCode(500, new { message = "An error occurred while retrieving students" });
+            }
+        }
+
+        /// <summary>
+        /// GET /api/students/{id} - Get student details by ID (Admin)
+        /// </summary>
+        [HttpGet("{id}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> GetStudentById(Guid id)
+        {
+            try
+            {
+                var student = await _studentService.GetStudentByIdAsync(id);
+
+                if (student == null)
+                    return NotFound(new { message = $"Student with ID {id} not found" });
+
+                return Ok(student);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting student {StudentId}", id);
+                return StatusCode(500, new { message = "An error occurred while retrieving student details" });
+            }
+        }
+
         // ==================== HELPER METHODS ====================
 
         private Guid GetCurrentUserId()
@@ -141,12 +185,75 @@ namespace Fap.Api.Controllers
             return date.Date.AddDays(-daysToSubtract);
         }
 
-        // ==================== EXISTING ENDPOINTS (keep as is) ====================
+        // ==================== STUDENT SELF-SERVICE ENDPOINTS ====================
 
         /// <summary>
-        /// GET /api/students/{id}/enrollments - Get student's enrollment history
+        /// GET /api/students/me/enrollments - Get my enrollment history (Student)
+        /// </summary>
+        [HttpGet("me/enrollments")]
+        [Authorize(Roles = "Student")]
+        public async Task<IActionResult> GetMyEnrollments([FromQuery] GetStudentEnrollmentsRequest request)
+        {
+            try
+            {
+                var studentId = await GetCurrentStudentIdAsync();
+                var result = await _enrollmentService.GetStudentEnrollmentHistoryAsync(studentId, request);
+                return Ok(result);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting my enrollments");
+                return StatusCode(500, new { message = "An error occurred while retrieving enrollments" });
+            }
+        }
+
+        /// <summary>
+        /// GET /api/students/me/grades - Get my grade transcript (Student)
+        /// </summary>
+        [HttpGet("me/grades")]
+        [Authorize(Roles = "Student")]
+        public async Task<IActionResult> GetMyGrades([FromQuery] GetStudentGradesRequest request)
+        {
+            try
+            {
+                var studentId = await GetCurrentStudentIdAsync();
+                var result = await _gradeService.GetStudentGradesAsync(studentId, request);
+
+                if (result == null)
+                    return NotFound(new { message = "Grade transcript not found" });
+
+                return Ok(result);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting my grades");
+                return StatusCode(500, new { message = "An error occurred while retrieving grades" });
+            }
+        }
+
+        // ==================== ADMIN/TEACHER ENDPOINTS (with {id}) ====================
+
+        /// <summary>
+        /// GET /api/students/{id}/enrollments - Get student's enrollment history (Admin/Teacher)
         /// </summary>
         [HttpGet("{id}/enrollments")]
+        [Authorize(Roles = "Admin,Teacher")]
         public async Task<IActionResult> GetStudentEnrollments(Guid id, [FromQuery] GetStudentEnrollmentsRequest request)
         {
             try
@@ -162,9 +269,10 @@ namespace Fap.Api.Controllers
         }
 
         /// <summary>
-        /// GET /api/students/{id}/grades - Get student grade transcript
+        /// GET /api/students/{id}/grades - Get student grade transcript (Admin/Teacher)
         /// </summary>
         [HttpGet("{id}/grades")]
+        [Authorize(Roles = "Admin,Teacher")]
         public async Task<IActionResult> GetStudentGrades(Guid id, [FromQuery] GetStudentGradesRequest request)
         {
             try
@@ -180,55 +288,6 @@ namespace Fap.Api.Controllers
             {
                 _logger.LogError($"Error getting grades for student {id}: {ex.Message}");
                 return StatusCode(500, new { message = "An error occurred while retrieving student grades" });
-            }
-        }
-
-        /// <summary>
-        /// GET /api/students/{id}/attendance - Get attendance history for a student
-        /// </summary>
-        [HttpGet("{id}/attendance")]
-        public async Task<IActionResult> GetStudentAttendanceHistory(Guid id)
-        {
-            try
-            {
-                var result = await _attendanceService.GetAttendancesByStudentIdAsync(id);
-                return Ok(new
-                {
-                    success = true,
-                    message = $"Retrieved {result.Count()} attendance records",
-                    data = result
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"Error getting attendance for student {id}: {ex.Message}");
-                return StatusCode(500, new { success = false, message = "An error occurred", error = ex.Message });
-            }
-        }
-
-        /// <summary>
-        /// GET /api/students/{id}/attendance/statistics - Get attendance statistics for a student
-        /// </summary>
-        [HttpGet("{id}/attendance/statistics")]
-        public async Task<IActionResult> GetStudentAttendanceStatistics(Guid id, [FromQuery] Guid? classId = null)
-        {
-            try
-            {
-                var result = await _attendanceService.GetStudentAttendanceStatisticsAsync(id, classId);
-                return Ok(new
-                {
-                    success = true,
-                    data = result
-                });
-            }
-            catch (InvalidOperationException ex)
-            {
-                return NotFound(new { success = false, message = ex.Message });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"Error getting attendance statistics for student {id}: {ex.Message}");
-                return StatusCode(500, new { success = false, message = "An error occurred", error = ex.Message });
             }
         }
     }
