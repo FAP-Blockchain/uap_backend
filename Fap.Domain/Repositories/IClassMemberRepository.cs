@@ -11,6 +11,11 @@ namespace Fap.Domain.Repositories
         Task<List<ClassMember>> GetByClassIdAsync(Guid classId);
 
         /// <summary>
+        /// Get class members with full student details (for admin display)
+        /// </summary>
+        Task<List<ClassMember>> GetClassMembersWithDetailsAsync(Guid classId);
+
+        /// <summary>
         /// Get all classes a student is enrolled in
         /// </summary>
         Task<List<ClassMember>> GetByStudentIdAsync(Guid studentId);

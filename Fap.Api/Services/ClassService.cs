@@ -247,7 +247,8 @@ namespace Fap.Api.Services
         {
             try
             {
-                var classMembers = await _uow.Classes.GetClassRosterAsync(id);
+                // ✅ FIX: Get class members directly from ClassMembers table (fresh data)
+                var classMembers = await _uow.ClassMembers.GetClassMembersWithDetailsAsync(id);
 
                 // Apply filtering
                 var query = classMembers.AsQueryable();
@@ -281,7 +282,7 @@ namespace Fap.Api.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError($"? Error getting class roster for {id}: {ex.Message}");
+                _logger.LogError($"❌ Error getting class roster for {id}: {ex.Message}");
                 throw;
             }
         }
@@ -302,8 +303,8 @@ namespace Fap.Api.Services
                     return response;
                 }
 
-                // 2. Check max enrollment limit
-                var currentStudentCount = await _uow.Classes.GetCurrentStudentCountAsync(classId);
+                // 2. Check max enrollment limit using ClassMembers
+                var currentStudentCount = await _uow.ClassMembers.GetClassMemberCountAsync(classId);
                 var availableSlots = @class.MaxEnrollment - currentStudentCount;
 
                 if (request.StudentIds.Count > availableSlots)
@@ -328,8 +329,8 @@ namespace Fap.Api.Services
                         continue;
                     }
 
-                    // Check if student is already in class
-                    var isAlreadyInClass = await _uow.Classes.IsStudentInClassAsync(classId, studentId);
+                    // ✅ Check if student is already in class using ClassMembers
+                    var isAlreadyInClass = await _uow.ClassMembers.IsStudentInClassAsync(classId, studentId);
                     if (isAlreadyInClass)
                     {
                         response.Errors.Add($"Student '{student.StudentCode}' is already in this class");
@@ -337,7 +338,7 @@ namespace Fap.Api.Services
                         continue;
                     }
 
-                    // Add student to class
+                    // ✅ Add student to class via ClassMembers
                     var classMember = new Domain.Entities.ClassMember
                     {
                         Id = Guid.NewGuid(),
@@ -346,7 +347,7 @@ namespace Fap.Api.Services
                         JoinedAt = DateTime.UtcNow
                     };
 
-                    await _uow.Classes.AddStudentToClassAsync(classMember);
+                    await _uow.ClassMembers.AddAsync(classMember);
 
                     // Add to response
                     assignedStudents.Add(new AssignedStudentInfo
@@ -398,17 +399,17 @@ namespace Fap.Api.Services
                     return response;
                 }
 
-                // 2. Check if student is in class
-                var classMember = await _uow.Classes.GetClassMemberAsync(classId, studentId);
-                if (classMember == null)
+                // 2. ✅ Check if student is in class using ClassMembers
+                var isInClass = await _uow.ClassMembers.IsStudentInClassAsync(classId, studentId);
+                if (!isInClass)
                 {
                     response.Errors.Add($"Student is not enrolled in this class");
                     response.Message = "Removal failed";
                     return response;
                 }
 
-                // 3. Remove student from class
-                await _uow.Classes.RemoveStudentFromClassAsync(classMember);
+                // 3. ✅ Remove student from class via ClassMembers
+                await _uow.ClassMembers.RemoveStudentFromClassAsync(classId, studentId);
                 await _uow.SaveChangesAsync();
 
                 response.Success = true;
