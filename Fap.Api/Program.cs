@@ -78,7 +78,7 @@ builder.Services.AddScoped<IOtpRepository, OtpRepository>();
 builder.Services.AddScoped<ISemesterRepository, SemesterRepository>();
 builder.Services.AddScoped<IClassRepository, ClassRepository>();
 builder.Services.AddScoped<ISubjectRepository, SubjectRepository>();
-builder.Services.AddScoped<ISubjectOfferingRepository, SubjectOfferingRepository>(); // ✅ NEW
+builder.Services.AddScoped<ISubjectOfferingRepository, SubjectOfferingRepository>();
 builder.Services.AddScoped<ITimeSlotRepository, TimeSlotRepository>();
 builder.Services.AddScoped<IEnrollRepository, EnrollRepository>();
 builder.Services.AddScoped<IGradeRepository, GradeRepository>();
@@ -91,7 +91,7 @@ builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 // ==================================================
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.Configure<OtpSettings>(builder.Configuration.GetSection("OtpSettings"));
-builder.Services.Configure<BlockchainSettings>(builder.Configuration.GetSection("BlockchainSettings")); // ✅ NEW
+builder.Services.Configure<BlockchainSettings>(builder.Configuration.GetSection("BlockchainSettings"));
 
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
@@ -103,7 +103,7 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IOtpService, OtpService>();
 builder.Services.AddScoped<IClassService, ClassService>();
 builder.Services.AddScoped<ITimeSlotService, TimeSlotService>();
-builder.Services.AddScoped<IBlockchainService, BlockchainService>(); // ✅ NEW
+builder.Services.AddScoped<IBlockchainService, BlockchainService>();
 builder.Services.AddScoped<ISubjectService, SubjectService>();
 builder.Services.AddScoped<ISemesterService, SemesterService>();
 builder.Services.AddScoped<IEnrollmentService, EnrollmentService>();
@@ -111,7 +111,8 @@ builder.Services.AddScoped<IGradeService, GradeService>();
 builder.Services.AddScoped<IGradeComponentService, GradeComponentService>();
 builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 builder.Services.AddScoped<ISlotService, SlotService>();
-builder.Services.AddScoped<IScheduleService, ScheduleService>(); // ✅ NEW - Schedule/Timetable Service
+builder.Services.AddScoped<IScheduleService, ScheduleService>();
+builder.Services.AddScoped<IStudentRoadmapService, StudentRoadmapService>();
 
 // Register AutoMapper - scan all Profile classes in the assembly
 builder.Services.AddAutoMapper(cfg => { }, typeof(Program).Assembly);
