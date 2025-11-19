@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using Fap.Domain.DTOs.Slot;
+using Fap.Domain.DTOs.Class;
 using Fap.Domain.Entities;
 
 namespace Fap.Api.Mappings
@@ -42,6 +43,17 @@ namespace Fap.Api.Mappings
                 .ForMember(dest => dest.TotalAttendances, opt => opt.Ignore())
                 .ForMember(dest => dest.PresentCount, opt => opt.Ignore())
                 .ForMember(dest => dest.AbsentCount, opt => opt.Ignore());
+
+            // ======================================================================
+            // SLOT SUMMARY MAPPINGS (for ClassDetailDto)
+            // ======================================================================
+
+            CreateMap<Slot, SlotSummaryDto>()
+                .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
+                .ForMember(dest => dest.Date, opt => opt.MapFrom(src => src.Date))
+                .ForMember(dest => dest.TimeSlotName, opt => opt.MapFrom(src =>
+                    src.TimeSlot != null ? src.TimeSlot.Name : "TBA"))
+                .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status));
         }
     }
 }
