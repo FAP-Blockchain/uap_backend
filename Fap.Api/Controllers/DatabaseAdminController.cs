@@ -12,125 +12,137 @@ namespace Fap.Api.Controllers
     [ApiController]
     public class DatabaseAdminController : ControllerBase
     {
-        private readonly FapDbContext _context;
+      private readonly FapDbContext _context;
         private readonly DatabaseSettings _dbSettings;
         private readonly ILogger<DatabaseAdminController> _logger;
 
-        public DatabaseAdminController(
-             FapDbContext context,
-            IOptions<DatabaseSettings> dbSettings,
-           ILogger<DatabaseAdminController> logger)
+  public DatabaseAdminController(
+            FapDbContext context,
+        IOptions<DatabaseSettings> dbSettings,
+       ILogger<DatabaseAdminController> logger)
         {
-            _context = context;
+       _context = context;
             _dbSettings = dbSettings.Value;
-            _logger = logger;
+      _logger = logger;
         }
 
-        /// <summary>
+ /// <summary>
         /// Reset database - Drop all data, apply migrations, and reseed
         /// ⚠️ DANGER: This will delete ALL data in the database
         /// </summary>
-        [HttpPost("reset")]
-        [AllowAnonymous] // You can add [Authorize(Roles = "Admin")] for security
-        public async Task<IActionResult> ResetDatabase([FromQuery] string confirmationToken)
+ [HttpPost("reset")]
+        [AllowAnonymous]
+    public async Task<IActionResult> ResetDatabase([FromQuery] string confirmationToken)
         {
-            // Security check
-            if (!_dbSettings.AllowDatabaseAdminApi)
-            {
-                _logger.LogWarning("Database Admin API is disabled in settings");
-                return StatusCode(403, new
-                {
-                    success = false,
-                    message = "Database Admin API is disabled. Enable it in appsettings.json"
-                });
-            }
+    if (!_dbSettings.AllowDatabaseAdminApi)
+      {
+    _logger.LogWarning("Database Admin API is disabled in settings");
+    return StatusCode(403, new
+ {
+   success = false,
+      message = "Database Admin API is disabled. Enable it in appsettings.json"
+     });
+      }
 
-            // Require confirmation token to prevent accidental deletion
-            if (confirmationToken != "CONFIRM_RESET_DATABASE")
-            {
-                return BadRequest(new
-                {
-                    success = false,
-                    message = "Invalid confirmation token. Use 'CONFIRM_RESET_DATABASE'"
-                });
-            }
+if (confirmationToken != "CONFIRM_RESET_DATABASE")
+      {
+           return BadRequest(new
+     {
+     success = false,
+             message = "Invalid confirmation token. Use 'CONFIRM_RESET_DATABASE'"
+         });
+     }
 
             try
-            {
-                _logger.LogWarning("🗑️ Database reset initiated...");
+     {
+  _logger.LogWarning("🗑️ Database reset initiated...");
 
-                // Step 1: Delete database
-                _logger.LogInformation("Dropping database...");
-                await _context.Database.EnsureDeletedAsync();
-                _logger.LogInformation("✅ Database dropped");
+        // ✅ INCREASE TIMEOUT for Azure SQL Database (default is 30s)
+       var oldTimeout = _context.Database.GetCommandTimeout();
+       _context.Database.SetCommandTimeout(600); // 10 minutes for Azure
+      _logger.LogInformation($"⏱️  Command timeout increased: {oldTimeout ?? 30}s → 600s");
 
-                // Step 2: Apply migrations
-                _logger.LogInformation("Applying migrations...");
-                await _context.Database.MigrateAsync();
-                _logger.LogInformation("✅ Migrations applied");
+      // Step 1: Delete database
+       _logger.LogInformation("🗑️  Dropping database...");
+          await _context.Database.EnsureDeletedAsync();
+    _logger.LogInformation("✅ Database dropped");
 
-                // Step 3: Seed data
-                _logger.LogInformation("Seeding data...");
-                await DataSeeder.SeedAsync(_context);
-                _logger.LogInformation("✅ Data seeded");
+ // Step 2: Apply migrations
+        _logger.LogInformation("🔄 Applying migrations...");
+       await _context.Database.MigrateAsync();
+   _logger.LogInformation("✅ Migrations applied");
+
+       // Step 3: Seed data
+ _logger.LogInformation("🌱 Seeding data...");
+  await DataSeeder.SeedAsync(_context);
+   _logger.LogInformation("✅ Data seeded");
+
+      // Restore original timeout
+        _context.Database.SetCommandTimeout(oldTimeout);
+        _logger.LogInformation($"⏱️  Command timeout restored to {oldTimeout ?? 30}s");
 
                 _logger.LogWarning("✅ Database reset completed successfully!");
 
-                return Ok(new
-                {
-                    success = true,
-                    message = "Database reset successfully!",
-                    timestamp = DateTime.UtcNow
-                });
-            }
-            catch (Exception ex)
+          return Ok(new
+        {
+  success = true,
+           message = "Database reset successfully!",
+      timestamp = DateTime.UtcNow
+ });
+    }
+  catch (Exception ex)
             {
-                _logger.LogError(ex, "❌ Database reset failed");
-                return StatusCode(500, new
+_logger.LogError(ex, "❌ Database reset failed");
+           return StatusCode(500, new
                 {
-                    success = false,
-                    message = $"Database reset failed: {ex.Message}",
-                    error = ex.ToString()
-                });
-            }
-        }
+          success = false,
+  message = $"Database reset failed: {ex.Message}",
+   error = ex.ToString()
+       });
+    }
+      }
 
-        /// <summary>
+     /// <summary>
         /// Apply pending migrations without resetting data
-        /// </summary>
-        [HttpPost("migrate")]
-        [AllowAnonymous]
-        public async Task<IActionResult> ApplyMigrations()
+      /// </summary>
+    [HttpPost("migrate")]
+    [AllowAnonymous]
+      public async Task<IActionResult> ApplyMigrations()
         {
             if (!_dbSettings.AllowDatabaseAdminApi)
-            {
-                return StatusCode(403, new
-                {
-                    success = false,
-                    message = "Database Admin API is disabled"
+    {
+      return StatusCode(403, new
+ {
+         success = false,
+       message = "Database Admin API is disabled"
                 });
-            }
+     }
 
-            try
-            {
-                _logger.LogInformation("Applying pending migrations...");
-                await _context.Database.MigrateAsync();
-                _logger.LogInformation("✅ Migrations applied successfully");
+    try
+  {
+   // ✅ Increase timeout for migrations
+       var oldTimeout = _context.Database.GetCommandTimeout();
+_context.Database.SetCommandTimeout(300); // 5 minutes  
+     _logger.LogInformation("🔄 Applying pending migrations...");
+             await _context.Database.MigrateAsync();
+          _logger.LogInformation("✅ Migrations applied successfully");
 
-                return Ok(new
-                {
-                    success = true,
-                    message = "Migrations applied successfully",
-                    timestamp = DateTime.UtcNow
-                });
+     _context.Database.SetCommandTimeout(oldTimeout);
+
+   return Ok(new
+    {
+        success = true,
+       message = "Migrations applied successfully",
+           timestamp = DateTime.UtcNow
+        });
             }
-            catch (Exception ex)
+  catch (Exception ex)
             {
-                _logger.LogError(ex, "Migration failed");
-                return StatusCode(500, new
-                {
-                    success = false,
-                    message = $"Migration failed: {ex.Message}"
+   _logger.LogError(ex, "❌ Migration failed");
+           return StatusCode(500, new
+     {
+       success = false,
+             message = $"Migration failed: {ex.Message}"
                 });
             }
         }
@@ -141,86 +153,92 @@ namespace Fap.Api.Controllers
         [HttpPost("reseed")]
         [AllowAnonymous]
         public async Task<IActionResult> ReseedData()
-        {
-            if (!_dbSettings.AllowDatabaseAdminApi)
-            {
-                return StatusCode(403, new
-                {
-                    success = false,
-                    message = "Database Admin API is disabled"
-                });
-            }
+     {
+     if (!_dbSettings.AllowDatabaseAdminApi)
+      {
+ return StatusCode(403, new
+       {
+              success = false,
+       message = "Database Admin API is disabled"
+              });
+       }
 
-            try
-            {
-                _logger.LogInformation("Reseeding data...");
-                await DataSeeder.SeedAsync(_context);
-                _logger.LogInformation("✅ Data reseeded successfully");
+        try
+    {
+        // ✅ Increase timeout for seeding
+    var oldTimeout = _context.Database.GetCommandTimeout();
+           _context.Database.SetCommandTimeout(300); // 5 minutes
+    
+      _logger.LogInformation("🌱 Reseeding data...");
+ await DataSeeder.SeedAsync(_context);
+      _logger.LogInformation("✅ Data reseeded successfully");
 
-                return Ok(new
-                {
-                    success = true,
-                    message = "Data reseeded successfully",
-                    warning = "This may create duplicate data if it already exists",
-                    timestamp = DateTime.UtcNow
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Reseeding failed");
-                return StatusCode(500, new
-                {
-                    success = false,
-                    message = $"Reseeding failed: {ex.Message}"
-                });
-            }
-        }
+    _context.Database.SetCommandTimeout(oldTimeout);
 
-        /// <summary>
+          return Ok(new
+      {
+         success = true,
+       message = "Data reseeded successfully",
+  warning = "This may create duplicate data if it already exists",
+   timestamp = DateTime.UtcNow
+   });
+            }
+ catch (Exception ex)
+          {
+      _logger.LogError(ex, "❌ Reseeding failed");
+             return StatusCode(500, new
+         {
+          success = false,
+ message = $"Reseeding failed: {ex.Message}"
+  });
+            }
+ }
+
+ /// <summary>
         /// Get database status and pending migrations
-        /// </summary>
+   /// </summary>
         [HttpGet("status")]
         [AllowAnonymous]
         public async Task<IActionResult> GetDatabaseStatus()
-        {
-            if (!_dbSettings.AllowDatabaseAdminApi)
+{
+      if (!_dbSettings.AllowDatabaseAdminApi)
             {
-                return StatusCode(403, new
-                {
-                    success = false,
-                    message = "Database Admin API is disabled"
-                });
-            }
+       return StatusCode(403, new
+    {
+    success = false,
+     message = "Database Admin API is disabled"
+    });
+        }
 
             try
-            {
+ {
                 var canConnect = await _context.Database.CanConnectAsync();
-                var pendingMigrations = await _context.Database.GetPendingMigrationsAsync();
+        var pendingMigrations = await _context.Database.GetPendingMigrationsAsync();
                 var appliedMigrations = await _context.Database.GetAppliedMigrationsAsync();
 
-                return Ok(new
-                {
-                    success = true,
-                    canConnect,
-                    pendingMigrations = pendingMigrations.ToList(),
-                    appliedMigrations = appliedMigrations.ToList(),
-                    hasPendingMigrations = pendingMigrations.Any(),
-                    settings = new
-                    {
-                        autoResetOnStartup = _dbSettings.AutoResetOnStartup,
-                        allowDatabaseAdminApi = _dbSettings.AllowDatabaseAdminApi
-                    }
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to get database status");
-                return StatusCode(500, new
-                {
-                    success = false,
-                    message = $"Failed to get database status: {ex.Message}"
-                });
-            }
+     return Ok(new
+          {
+   success = true,
+  canConnect,
+      pendingMigrations = pendingMigrations.ToList(),
+        appliedMigrations = appliedMigrations.ToList(),
+        hasPendingMigrations = pendingMigrations.Any(),
+      settings = new
+        {
+          autoResetOnStartup = _dbSettings.AutoResetOnStartup,
+   allowDatabaseAdminApi = _dbSettings.AllowDatabaseAdminApi
+              }
+   });
+        }
+      catch (Exception ex)
+     {
+  _logger.LogError(ex, "❌ Failed to get database status");
+    return StatusCode(500, new
+             {
+           success = false,
+         message = $"Failed to get database status: {ex.Message}"
+    });
+     }
         }
     }
 }
