@@ -20,14 +20,6 @@ namespace Fap.Infrastructure.Repositories
                 .FirstOrDefaultAsync(u => u.Email == email);
         }
 
-        public async Task<User?> GetByIdWithRoleAsync(Guid id)
-        {
-            return await _dbSet
-                .Include(u => u.Role)
-                .FirstOrDefaultAsync(u => u.Id == id);
-        }
-
-        
         public async Task<User?> GetByIdWithDetailsAsync(Guid id)
         {
             return await _dbSet
@@ -53,7 +45,6 @@ namespace Fap.Infrastructure.Repositories
                 .Include(u => u.Teacher)
                 .AsQueryable();
 
-            // Filter by search term (FullName or Email)
             if (!string.IsNullOrWhiteSpace(searchTerm))
             {
                 searchTerm = searchTerm.ToLower();
@@ -62,25 +53,20 @@ namespace Fap.Infrastructure.Repositories
                     u.Email.ToLower().Contains(searchTerm));
             }
 
-            // Filter by role
             if (!string.IsNullOrWhiteSpace(roleName))
             {
                 query = query.Where(u => u.Role.Name.ToLower() == roleName.ToLower());
             }
 
-            // Filter by active status
             if (isActive.HasValue)
             {
                 query = query.Where(u => u.IsActive == isActive.Value);
             }
 
-            // Get total count before pagination
             var totalCount = await query.CountAsync();
 
-            // Sorting
             query = ApplySorting(query, sortBy, sortOrder);
 
-            // Pagination
             var users = await query
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
@@ -107,7 +93,7 @@ namespace Fap.Infrastructure.Repositories
                 "role" => isDescending
                     ? query.OrderByDescending(u => u.Role.Name)
                     : query.OrderBy(u => u.Role.Name),
-                _ => query.OrderByDescending(u => u.CreatedAt) // Default sort
+                _ => query.OrderByDescending(u => u.CreatedAt)
             };
         }
     }

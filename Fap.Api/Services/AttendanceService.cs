@@ -26,13 +26,15 @@ namespace Fap.Api.Services
 
         public async Task<AttendanceDto?> GetAttendanceByIdAsync(Guid id)
         {
-            var attendances = await _unitOfWork.Attendances.FindAsync(a => a.Id == id);
-            var attendance = attendances.FirstOrDefault();
-
+            var attendance = await _unitOfWork.Attendances.GetByIdAsync(id);
             if (attendance == null) return null;
 
-            // Reload with full details
-            return _mapper.Map<AttendanceDto>(await _unitOfWork.Attendances.GetByStudentAndSlotAsync(attendance.StudentId, attendance.SlotId));
+            var detailedAttendance = await _unitOfWork.Attendances.GetByStudentAndSlotAsync(
+                attendance.StudentId, 
+                attendance.SlotId
+            );
+
+            return _mapper.Map<AttendanceDto>(detailedAttendance);
         }
 
         public async Task<IEnumerable<AttendanceDto>> GetAttendancesBySlotIdAsync(Guid slotId)
@@ -59,57 +61,43 @@ namespace Fap.Api.Services
 
         public async Task<IEnumerable<AttendanceDto>> TakeAttendanceAsync(TakeAttendanceRequest request)
         {
-            // Get the slot with full details
             var slot = await _unitOfWork.Slots.GetByIdWithDetailsAsync(request.SlotId);
 
             if (slot == null)
-            {
                 throw new InvalidOperationException("Slot not found");
-            }
 
             var classData = await _unitOfWork.Classes.GetByIdAsync(slot.ClassId);
             if (classData == null)
-            {
                 throw new InvalidOperationException("Class not found");
-            }
 
-            // Check if attendance already exists for this slot
             if (await _unitOfWork.Attendances.HasAttendanceForSlotAsync(request.SlotId))
-            {
                 throw new InvalidOperationException("Attendance has already been taken for this slot");
-            }
 
-            // Verify slot belongs to a valid class and is scheduled
             if (slot.Status != "Scheduled" && slot.Status != "Completed")
-            {
                 throw new InvalidOperationException($"Cannot take attendance for a slot with status: {slot.Status}");
-            }
 
             var attendances = new List<Attendance>();
 
             foreach (var studentAttendance in request.Students)
             {
-                // Verify student exists and is enrolled in the class
                 var student = await _unitOfWork.Students.GetByIdAsync(studentAttendance.StudentId);
                 if (student == null)
-                {
                     throw new InvalidOperationException($"Student with ID {studentAttendance.StudentId} not found");
-                }
 
-                // Check if student is a member of this class
-                var isMember = await _unitOfWork.Classes.FindAsync(c => c.Id == slot.ClassId && c.Members.Any(m => m.StudentId == studentAttendance.StudentId));
+                var isMember = await _unitOfWork.Classes.FindAsync(c => 
+                    c.Id == slot.ClassId && 
+                    c.Members.Any(m => m.StudentId == studentAttendance.StudentId)
+                );
 
                 if (!isMember.Any())
-                {
                     throw new InvalidOperationException($"Student {student.StudentCode} is not a member of class {classData.ClassCode}");
-                }
 
                 var attendance = new Attendance
                 {
                     Id = Guid.NewGuid(),
                     SlotId = request.SlotId,
                     StudentId = studentAttendance.StudentId,
-                    SubjectId = classData.SubjectOffering.SubjectId, // ? FIXED
+                    SubjectId = classData.SubjectOffering.SubjectId,
                     IsPresent = studentAttendance.IsPresent,
                     Notes = studentAttendance.Notes,
                     IsExcused = false,
@@ -122,27 +110,21 @@ namespace Fap.Api.Services
 
             await _unitOfWork.SaveChangesAsync();
 
-            // Reload with full details
             var attendancesWithDetails = await _unitOfWork.Attendances.GetBySlotIdAsync(request.SlotId);
             return _mapper.Map<IEnumerable<AttendanceDto>>(attendancesWithDetails);
         }
 
         public async Task<AttendanceDto?> UpdateAttendanceAsync(Guid id, UpdateAttendanceRequest request)
         {
-            var attendances = await _unitOfWork.Attendances.FindAsync(a => a.Id == id);
-            var attendance = attendances.FirstOrDefault();
+            var attendance = (await _unitOfWork.Attendances.FindAsync(a => a.Id == id)).FirstOrDefault();
 
-            if (attendance == null)
-            {
-                return null;
-            }
+            if (attendance == null) return null;
 
-            // If changing from absent to present, clear excuse information
             if (request.IsPresent && !attendance.IsPresent)
-            {
+{
                 attendance.IsExcused = false;
-                attendance.ExcuseReason = null;
-            }
+    attendance.ExcuseReason = null;
+    }
 
             attendance.IsPresent = request.IsPresent;
             attendance.Notes = request.Notes;
@@ -155,25 +137,15 @@ namespace Fap.Api.Services
 
         public async Task<AttendanceDto?> ExcuseAbsenceAsync(Guid id, ExcuseAbsenceRequest request)
         {
-            var attendances = await _unitOfWork.Attendances.FindAsync(a => a.Id == id);
-            var attendance = attendances.FirstOrDefault();
+            var attendance = (await _unitOfWork.Attendances.FindAsync(a => a.Id == id)).FirstOrDefault();
 
-            if (attendance == null)
-            {
-                return null;
-            }
+            if (attendance == null) return null;
 
-            // Only allow excuse for absent students
             if (attendance.IsPresent)
-            {
                 throw new InvalidOperationException("Cannot excuse a student who was present");
-            }
 
-            // Check if already excused
             if (attendance.IsExcused)
-            {
                 throw new InvalidOperationException("This absence has already been excused");
-            }
 
             attendance.IsExcused = true;
             attendance.ExcuseReason = request.Reason;

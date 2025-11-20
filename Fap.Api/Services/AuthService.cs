@@ -42,37 +42,17 @@ namespace Fap.Api.Services
             _blockchainSettings = blockchainSettings.Value;
         }
 
-        // LOGIN
         public async Task<LoginResponse?> LoginAsync(LoginRequest req)
         {
             var user = await _uow.Users.GetByEmailAsync(req.Email);
 
             if (user == null || !user.IsActive) return null;
 
-            // ✅ DEBUG: Log initial user state
-            _logger.LogWarning("🔍 ===== LOGIN DEBUG =====");
-            _logger.LogWarning("🔍 Step 1: GetByEmailAsync returned");
-            _logger.LogWarning("🔍 User ID: {UserId}", user.Id);
-            _logger.LogWarning("🔍 User Email: {Email}", user.Email);
-            _logger.LogWarning("🔍 User.Role: {Role}", user.Role?.Name ?? "NULL");
-            _logger.LogWarning("🔍 User.Student (initial): {Student}", user.Student != null ? $"ID={user.Student.Id}" : "NULL");
-            _logger.LogWarning("🔍 User.Teacher (initial): {Teacher}", user.Teacher != null ? $"ID={user.Teacher.Id}" : "NULL");
-
-            // ✅ Always reload user with full details (Role + Student + Teacher) for JWT token generation
-            if (user.Role == null || user.Student == null && user.Teacher == null)
+            if (user.Role == null)
             {
-                _logger.LogWarning("🔍 Step 2: Need to reload user with details...");
-                user = await _uow.Users.GetByIdWithDetailsAsync(user.Id);
-
-                _logger.LogWarning("🔍 After GetByIdWithDetailsAsync:");
-                _logger.LogWarning("🔍 User.Role: {Role}", user?.Role?.Name ?? "NULL");
-                _logger.LogWarning("🔍 User.Student (after reload): {Student}", user?.Student != null ? $"ID={user.Student.Id}" : "NULL");
-                _logger.LogWarning("🔍 User.Teacher (after reload): {Teacher}", user?.Teacher != null ? $"ID={user.Teacher.Id}" : "NULL");
-
-                if (user?.Role == null)
-                    throw new Exception($"User {user?.Email} không có Role hoặc RoleId trỏ sai.");
+                _logger.LogError("User {Email} has no Role assigned", user.Email);
+                throw new Exception($"User {user.Email} không có Role hoặc RoleId trỏ sai.");
             }
-            _logger.LogWarning("🔍 =========================");
 
             var result = _hasher.VerifyHashedPassword(user, user.PasswordHash, req.Password);
             if (result == PasswordVerificationResult.Failed) return null;
@@ -92,30 +72,23 @@ namespace Fap.Api.Services
         // REFRESH TOKEN
         public async Task<RefreshTokenResponse?> RefreshTokenAsync(string refreshTokenValue)
         {
-            // 1. Validate refresh token
             var storedToken = (await _uow.RefreshTokens.FindAsync(rt => rt.Token == refreshTokenValue))
                 .FirstOrDefault();
 
-            if (storedToken == null)
-                return null; // Token không tồn tại
+            if (storedToken == null) return null;
 
             if (storedToken.Expires < DateTime.UtcNow)
             {
-                // Token hết hạn, xóa nó đi
                 _uow.RefreshTokens.Remove(storedToken);
                 await _uow.SaveChangesAsync();
                 return null;
             }
 
-            // 2. Lấy user từ refresh token - ✅ Load full details for JWT token
             var user = await _uow.Users.GetByIdWithDetailsAsync(storedToken.UserId);
-            if (user == null || !user.IsActive)
-                return null;
+            if (user == null || !user.IsActive) return null;
 
-            // 3. Xóa refresh token cũ
             _uow.RefreshTokens.Remove(storedToken);
 
-            // 4. Tạo access token mới và refresh token mới
             var newAccessToken = GenerateJwtToken(user);
             var newRefreshToken = await CreateRefreshTokenAsync(user);
 
@@ -165,7 +138,6 @@ namespace Fap.Api.Services
 
             try
             {
-                // 1️⃣ Validate email không trùng
                 var existingUser = await _uow.Users.GetByEmailAsync(request.Email);
                 if (existingUser != null)
                 {
@@ -174,7 +146,6 @@ namespace Fap.Api.Services
                     return response;
                 }
 
-                // 2️⃣ Validate Role
                 var role = await _uow.Roles.GetByNameAsync(request.RoleName);
                 if (role == null)
                 {
@@ -183,7 +154,6 @@ namespace Fap.Api.Services
                     return response;
                 }
 
-                // 3️⃣ Validate StudentCode/TeacherCode
                 if (request.RoleName.Equals("Student", StringComparison.OrdinalIgnoreCase))
                 {
                     if (string.IsNullOrWhiteSpace(request.StudentCode))
@@ -219,7 +189,6 @@ namespace Fap.Api.Services
                     }
                 }
 
-                // 4️⃣ GENERATE OR USE WALLET ADDRESS
                 var walletResult = await _walletService.GetOrCreateWalletAsync(
                     request.WalletAddress,
                     userId: null  // Will associate after user creation
@@ -233,21 +202,20 @@ namespace Fap.Api.Services
                 }
 
                 var walletAddress = walletResult.Wallet.Address;
-                _logger.LogInformation("✅ Wallet ready: {Address} (IsNew: {IsNew})",
+                _logger.LogInformation("Wallet ready: {Address} (IsNew: {IsNew})",
                     walletAddress, walletResult.Wallet.IsNewWallet);
 
-                // 5️⃣ CREATE USER IN SQL DATABASE
                 var user = _mapper.Map<User>(request);
                 user.Id = Guid.NewGuid();
                 user.PasswordHash = _hasher.HashPassword(user, request.Password);
                 user.RoleId = role.Id;
-                user.WalletAddress = walletAddress;  // Save wallet address
+                user.WalletAddress = walletAddress;
                 user.CreatedAt = DateTime.UtcNow;
 
                 await _uow.Users.AddAsync(user);
                 await _uow.SaveChangesAsync();
 
-                _logger.LogInformation("✅ User created with ID: {Id}", user.Id);
+                _logger.LogInformation("User created with ID: {Id}", user.Id);
 
                 // Associate wallet with user in Wallets table
                 if (await _walletService.WalletExistsAsync(walletAddress))
@@ -255,7 +223,6 @@ namespace Fap.Api.Services
                     await _walletService.AssociateWalletWithUserAsync(walletAddress, user.Id);
                 }
 
-                // 6️⃣ CREATE STUDENT/TEACHER
                 if (request.RoleName.Equals("Student", StringComparison.OrdinalIgnoreCase))
                 {
                     var student = _mapper.Map<Student>(request);
@@ -273,31 +240,18 @@ namespace Fap.Api.Services
 
                 await _uow.SaveChangesAsync();
 
-                // 7️⃣ REGISTER ON BLOCKCHAIN (OPTIONAL)
                 BlockchainInfo? blockchainInfo = null;
-                // ✅ FIX: Use BlockchainSettings:EnableRegistration instead of Blockchain:EnableRegistration
                 var enableBlockchain = _config.GetValue<bool>("BlockchainSettings:EnableRegistration", false);
-
-                // 🔍 DIAGNOSTIC LOGS
-                _logger.LogWarning("🔍 ===== BLOCKCHAIN REGISTRATION DIAGNOSTICS =====");
-                _logger.LogWarning("🔍 EnableRegistration from config: {EnableBlockchain}", enableBlockchain);
-                _logger.LogWarning("🔍 Config path checked: BlockchainSettings:EnableRegistration");
-                _logger.LogWarning("🔍 BlockchainSettings.EnableRegistration (from Options): {SettingsValue}", _blockchainSettings.EnableRegistration);
-                _logger.LogWarning("🔍 Contract Address: {ContractAddress}", _blockchainSettings.Contracts?.UniversityManagement ?? "NULL");
-                _logger.LogWarning("🔍 User WalletAddress: {WalletAddress}", walletAddress);
-                _logger.LogWarning("🔍 User Role: {Role}", user.Role?.Name ?? "NULL");
-                _logger.LogWarning("🔍 ================================================");
 
                 if (enableBlockchain)
                 {
                     try
                     {
-                        _logger.LogInformation("🔗 Registering user on blockchain...");
+                        _logger.LogInformation("Registering user on blockchain...");
                         blockchainInfo = await RegisterOnBlockchainAsync(user, walletAddress);
 
                         if (blockchainInfo != null)
                         {
-                            // Update user with blockchain info
                             user.BlockchainTxHash = blockchainInfo.TransactionHash;
                             user.BlockNumber = blockchainInfo.BlockNumber;
                             user.BlockchainRegisteredAt = blockchainInfo.RegisteredAt;
@@ -306,14 +260,13 @@ namespace Fap.Api.Services
                             _uow.Users.Update(user);
                             await _uow.SaveChangesAsync();
 
-                            _logger.LogInformation("✅ Blockchain registration successful");
+                            _logger.LogInformation("Blockchain registration successful");
                         }
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "❌ Blockchain registration failed");
+                        _logger.LogError(ex, "Blockchain registration failed");
 
-                        // Mark blockchain as failed but continue
                         user.BlockchainTxHash = $"FAILED: {ex.Message}";
                         user.UpdatedAt = DateTime.UtcNow;
                         _uow.Users.Update(user);
@@ -324,11 +277,9 @@ namespace Fap.Api.Services
                 }
                 else
                 {
-                    _logger.LogWarning("⚠️ Blockchain registration is DISABLED in configuration");
-                    _logger.LogWarning("⚠️ To enable: Set BlockchainSettings:EnableRegistration = true in appsettings.json");
+                    _logger.LogWarning("Blockchain registration is disabled in configuration");
                 }
 
-                // 8️⃣ RETURN SUCCESS
                 response.Success = true;
                 response.Message = "User registered successfully";
                 response.UserId = user.Id;
@@ -338,7 +289,7 @@ namespace Fap.Api.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "❌ Registration failed for: {Email}", request.Email);
+                _logger.LogError(ex, "Registration failed for: {Email}", request.Email);
                 response.Errors.Add($"Internal error: {ex.Message}");
                 response.Message = "Registration failed";
                 return response;
@@ -445,56 +396,29 @@ namespace Fap.Api.Services
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
             var claimsList = new List<Claim>
-   {
-            new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new Claim(ClaimTypes.Role, user.Role.Name),
-            new Claim(JwtRegisteredClaimNames.Email, user.Email)
+            {
+                new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                new Claim(ClaimTypes.Role, user.Role.Name),
+                new Claim(JwtRegisteredClaimNames.Email, user.Email)
             };
 
-            // ✅ DEBUG: Log user details
-            _logger.LogWarning("🔍 ===== JWT TOKEN GENERATION DEBUG =====");
-            _logger.LogWarning("🔍 User ID: {UserId}", user.Id);
-            _logger.LogWarning("🔍 User Email: {Email}", user.Email);
-            _logger.LogWarning("🔍 User Role: {Role}", user.Role?.Name);
-            _logger.LogWarning("🔍 User.Student: {Student}", user.Student != null ? $"ID={user.Student.Id}" : "NULL");
-            _logger.LogWarning("🔍 User.Teacher: {Teacher}", user.Teacher != null ? $"ID={user.Teacher.Id}" : "NULL");
-
-            // ✅ Add StudentId claim if user is a student
             if (user.Student != null)
             {
                 claimsList.Add(new Claim("StudentId", user.Student.Id.ToString()));
-                _logger.LogWarning("✅ Added StudentId claim: {StudentId}", user.Student.Id);
-            }
-            else
-            {
-                _logger.LogWarning("⚠️ No Student data found - StudentId claim NOT added");
             }
 
-            // ✅ Add TeacherId claim if user is a teacher
             if (user.Teacher != null)
             {
                 claimsList.Add(new Claim("TeacherId", user.Teacher.Id.ToString()));
-                _logger.LogWarning("✅ Added TeacherId claim: {TeacherId}", user.Teacher.Id);
             }
-            else
-            {
-                _logger.LogWarning("⚠️ No Teacher data found - TeacherId claim NOT added");
-            }
-
-            _logger.LogWarning("🔍 Total claims in token: {Count}", claimsList.Count);
-            foreach (var claim in claimsList)
-            {
-                _logger.LogWarning("🔍 Claim: {Type} = {Value}", claim.Type, claim.Value);
-            }
-            _logger.LogWarning("🔍 ========================================");
 
             var token = new JwtSecurityToken(
-  issuer: _config["Jwt:Issuer"],
-     audience: _config["Jwt:Audience"],
-   claims: claimsList,
-    expires: DateTime.UtcNow.AddMinutes(Convert.ToDouble(_config["Jwt:ExpireMinutes"])),
-        signingCredentials: creds
+                issuer: _config["Jwt:Issuer"],
+              audience: _config["Jwt:Audience"],
+                claims: claimsList,
+                expires: DateTime.UtcNow.AddMinutes(Convert.ToDouble(_config["Jwt:ExpireMinutes"])),
+                signingCredentials: creds
             );
 
             return new JwtSecurityTokenHandler().WriteToken(token);
@@ -506,7 +430,7 @@ namespace Fap.Api.Services
             {
                 Id = Guid.NewGuid(),
                 Token = Guid.NewGuid().ToString("N"),
-                Expires = DateTime.UtcNow.AddDays(7), // Refresh token hết hạn sau 7 ngày
+                Expires = DateTime.UtcNow.AddDays(7),
                 UserId = user.Id
             };
 
@@ -522,21 +446,20 @@ namespace Fap.Api.Services
         /// </summary>
         private async Task<BlockchainInfo?> RegisterOnBlockchainAsync(User user, string walletAddress)
         {
-            // Smart contract ABI for registerUser function
             const string CONTRACT_ABI = @"[{""inputs"":[{""internalType"":""address"",""name"":""_userAddress"",""type"":""address""},{""internalType"":""string"",""name"":""_userId"",""type"":""string""},{""internalType"":""string"",""name"":""_fullName"",""type"":""string""},{""internalType"":""string"",""name"":""_email"",""type"":""string""},{""internalType"":""uint8"",""name"":""_role"",""type"":""uint8""}],""name"":""registerUser"",""outputs"":[],""stateMutability"":""nonpayable"",""type"":""function""}]";
 
             var contractAddress = _blockchainSettings.Contracts.UniversityManagement;
 
             if (string.IsNullOrEmpty(contractAddress) || contractAddress == "0x0000000000000000000000000000000000000000")
             {
-                _logger.LogWarning("⚠️ Contract address not configured");
+                _logger.LogWarning("Contract address not configured");
                 throw new InvalidOperationException("Blockchain contract not configured");
             }
 
             var isDeployed = await _blockchainService.IsContractDeployedAsync(contractAddress);
             if (!isDeployed)
             {
-                _logger.LogWarning("⚠️ Contract not deployed at: {Address}", contractAddress);
+                _logger.LogWarning("Contract not deployed at: {Address}", contractAddress);
                 throw new InvalidOperationException($"Contract not deployed at {contractAddress}");
             }
 
@@ -553,7 +476,7 @@ namespace Fap.Api.Services
                 blockchainRole
             );
 
-            _logger.LogInformation("✅ Blockchain TX: {TxHash}", txHash);
+            _logger.LogInformation("Blockchain TX: {TxHash}", txHash);
 
             var receipt = await _blockchainService.GetTransactionReceiptAsync(txHash);
             if (receipt == null)
