@@ -10,6 +10,7 @@ using Fap.Infrastructure.Repositories;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
@@ -93,6 +94,7 @@ builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.Configure<OtpSettings>(builder.Configuration.GetSection("OtpSettings"));
 builder.Services.Configure<BlockchainSettings>(builder.Configuration.GetSection("BlockchainSettings"));
+builder.Services.Configure<DatabaseSettings>(builder.Configuration.GetSection("DatabaseSettings"));
 
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
@@ -181,18 +183,21 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<FapDbContext>();
+    var dbSettings = scope.ServiceProvider.GetRequiredService<IOptions<DatabaseSettings>>().Value;
+
     try
     {
         Console.WriteLine("==============================================");
         Console.WriteLine("🔄 Database initialization started...");
         Console.WriteLine("==============================================");
 
-        // Check if --force-seed argument is provided
-        bool forceSeed = args.Contains("--force-seed");
+        // Check if --force-seed argument is provided OR AutoResetOnStartup is enabled
+        bool forceSeed = args.Contains("--force-seed") || dbSettings.AutoResetOnStartup;
 
         if (forceSeed)
         {
-            Console.WriteLine("⚠️  --force-seed detected: Dropping database...");
+            Console.WriteLine("⚠️  Database reset triggered (--force-seed or AutoResetOnStartup)");
+            Console.WriteLine("🗑️  Dropping database...");
             await db.Database.EnsureDeletedAsync();
             Console.WriteLine("✅ Database dropped successfully");
         }
