@@ -25,9 +25,9 @@ namespace Fap.Api.Services
         private readonly BlockchainSettings _blockchainSettings;
 
         public AuthService(
-            IUnitOfWork uow, 
-            IConfiguration config, 
-            IMapper mapper, 
+            IUnitOfWork uow,
+            IConfiguration config,
+            IMapper mapper,
             ILogger<AuthService> logger,
             IWalletService walletService,
             IBlockchainService blockchainService,
@@ -49,12 +49,30 @@ namespace Fap.Api.Services
 
             if (user == null || !user.IsActive) return null;
 
-            if (user.Role == null)
+            // ✅ DEBUG: Log initial user state
+            _logger.LogWarning("🔍 ===== LOGIN DEBUG =====");
+            _logger.LogWarning("🔍 Step 1: GetByEmailAsync returned");
+            _logger.LogWarning("🔍 User ID: {UserId}", user.Id);
+            _logger.LogWarning("🔍 User Email: {Email}", user.Email);
+            _logger.LogWarning("🔍 User.Role: {Role}", user.Role?.Name ?? "NULL");
+            _logger.LogWarning("🔍 User.Student (initial): {Student}", user.Student != null ? $"ID={user.Student.Id}" : "NULL");
+            _logger.LogWarning("🔍 User.Teacher (initial): {Teacher}", user.Teacher != null ? $"ID={user.Teacher.Id}" : "NULL");
+
+            // ✅ Always reload user with full details (Role + Student + Teacher) for JWT token generation
+            if (user.Role == null || user.Student == null && user.Teacher == null)
             {
-                user = await _uow.Users.GetByIdWithRoleAsync(user.Id);
+                _logger.LogWarning("🔍 Step 2: Need to reload user with details...");
+                user = await _uow.Users.GetByIdWithDetailsAsync(user.Id);
+
+                _logger.LogWarning("🔍 After GetByIdWithDetailsAsync:");
+                _logger.LogWarning("🔍 User.Role: {Role}", user?.Role?.Name ?? "NULL");
+                _logger.LogWarning("🔍 User.Student (after reload): {Student}", user?.Student != null ? $"ID={user.Student.Id}" : "NULL");
+                _logger.LogWarning("🔍 User.Teacher (after reload): {Teacher}", user?.Teacher != null ? $"ID={user.Teacher.Id}" : "NULL");
+
                 if (user?.Role == null)
                     throw new Exception($"User {user?.Email} không có Role hoặc RoleId trỏ sai.");
             }
+            _logger.LogWarning("🔍 =========================");
 
             var result = _hasher.VerifyHashedPassword(user, user.PasswordHash, req.Password);
             if (result == PasswordVerificationResult.Failed) return null;
@@ -89,8 +107,8 @@ namespace Fap.Api.Services
                 return null;
             }
 
-            // 2. Lấy user từ refresh token
-            var user = await _uow.Users.GetByIdWithRoleAsync(storedToken.UserId);
+            // 2. Lấy user từ refresh token - ✅ Load full details for JWT token
+            var user = await _uow.Users.GetByIdWithDetailsAsync(storedToken.UserId);
             if (user == null || !user.IsActive)
                 return null;
 
@@ -215,7 +233,7 @@ namespace Fap.Api.Services
                 }
 
                 var walletAddress = walletResult.Wallet.Address;
-                _logger.LogInformation("✅ Wallet ready: {Address} (IsNew: {IsNew})", 
+                _logger.LogInformation("✅ Wallet ready: {Address} (IsNew: {IsNew})",
                     walletAddress, walletResult.Wallet.IsNewWallet);
 
                 // 5️⃣ CREATE USER IN SQL DATABASE
@@ -259,7 +277,7 @@ namespace Fap.Api.Services
                 BlockchainInfo? blockchainInfo = null;
                 // ✅ FIX: Use BlockchainSettings:EnableRegistration instead of Blockchain:EnableRegistration
                 var enableBlockchain = _config.GetValue<bool>("BlockchainSettings:EnableRegistration", false);
-                
+
                 // 🔍 DIAGNOSTIC LOGS
                 _logger.LogWarning("🔍 ===== BLOCKCHAIN REGISTRATION DIAGNOSTICS =====");
                 _logger.LogWarning("🔍 EnableRegistration from config: {EnableBlockchain}", enableBlockchain);
@@ -284,7 +302,7 @@ namespace Fap.Api.Services
                             user.BlockNumber = blockchainInfo.BlockNumber;
                             user.BlockchainRegisteredAt = blockchainInfo.RegisteredAt;
                             user.UpdatedAt = DateTime.UtcNow;
-                            
+
                             _uow.Users.Update(user);
                             await _uow.SaveChangesAsync();
 
@@ -294,7 +312,7 @@ namespace Fap.Api.Services
                     catch (Exception ex)
                     {
                         _logger.LogError(ex, "❌ Blockchain registration failed");
-                        
+
                         // Mark blockchain as failed but continue
                         user.BlockchainTxHash = $"FAILED: {ex.Message}";
                         user.UpdatedAt = DateTime.UtcNow;
@@ -351,7 +369,7 @@ namespace Fap.Api.Services
                 await Task.Delay(500);
             }
 
-            _logger.LogInformation("✅ Bulk registration complete: {Success}/{Total} successful", 
+            _logger.LogInformation("✅ Bulk registration complete: {Success}/{Total} successful",
                 response.SuccessCount, response.TotalRequested);
 
             return response;
@@ -426,20 +444,57 @@ namespace Fap.Api.Services
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-            var claims = new[]
-            {
-                new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new Claim(ClaimTypes.Role, user.Role.Name),
-                new Claim(JwtRegisteredClaimNames.Email, user.Email)
+            var claimsList = new List<Claim>
+   {
+            new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new Claim(ClaimTypes.Role, user.Role.Name),
+            new Claim(JwtRegisteredClaimNames.Email, user.Email)
             };
 
+            // ✅ DEBUG: Log user details
+            _logger.LogWarning("🔍 ===== JWT TOKEN GENERATION DEBUG =====");
+            _logger.LogWarning("🔍 User ID: {UserId}", user.Id);
+            _logger.LogWarning("🔍 User Email: {Email}", user.Email);
+            _logger.LogWarning("🔍 User Role: {Role}", user.Role?.Name);
+            _logger.LogWarning("🔍 User.Student: {Student}", user.Student != null ? $"ID={user.Student.Id}" : "NULL");
+            _logger.LogWarning("🔍 User.Teacher: {Teacher}", user.Teacher != null ? $"ID={user.Teacher.Id}" : "NULL");
+
+            // ✅ Add StudentId claim if user is a student
+            if (user.Student != null)
+            {
+                claimsList.Add(new Claim("StudentId", user.Student.Id.ToString()));
+                _logger.LogWarning("✅ Added StudentId claim: {StudentId}", user.Student.Id);
+            }
+            else
+            {
+                _logger.LogWarning("⚠️ No Student data found - StudentId claim NOT added");
+            }
+
+            // ✅ Add TeacherId claim if user is a teacher
+            if (user.Teacher != null)
+            {
+                claimsList.Add(new Claim("TeacherId", user.Teacher.Id.ToString()));
+                _logger.LogWarning("✅ Added TeacherId claim: {TeacherId}", user.Teacher.Id);
+            }
+            else
+            {
+                _logger.LogWarning("⚠️ No Teacher data found - TeacherId claim NOT added");
+            }
+
+            _logger.LogWarning("🔍 Total claims in token: {Count}", claimsList.Count);
+            foreach (var claim in claimsList)
+            {
+                _logger.LogWarning("🔍 Claim: {Type} = {Value}", claim.Type, claim.Value);
+            }
+            _logger.LogWarning("🔍 ========================================");
+
             var token = new JwtSecurityToken(
-                issuer: _config["Jwt:Issuer"],
-                audience: _config["Jwt:Audience"],
-                claims: claims,
-                expires: DateTime.UtcNow.AddMinutes(Convert.ToDouble(_config["Jwt:ExpireMinutes"])),
-                signingCredentials: creds
+  issuer: _config["Jwt:Issuer"],
+     audience: _config["Jwt:Audience"],
+   claims: claimsList,
+    expires: DateTime.UtcNow.AddMinutes(Convert.ToDouble(_config["Jwt:ExpireMinutes"])),
+        signingCredentials: creds
             );
 
             return new JwtSecurityTokenHandler().WriteToken(token);
@@ -522,7 +577,6 @@ namespace Fap.Api.Services
             {
                 "admin" => 0,
                 "teacher" => 1,
-                "lecturer" => 1,
                 "student" => 2,
                 _ => throw new ArgumentException($"Invalid role: {roleName}")
             };

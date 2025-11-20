@@ -119,6 +119,7 @@ builder.Services.AddScoped<ISlotService, SlotService>();
 builder.Services.AddScoped<IScheduleService, ScheduleService>();
 builder.Services.AddScoped<IStudentRoadmapService, StudentRoadmapService>();
 builder.Services.AddScoped<ICredentialService, CredentialService>(); // ✅ NEW - Credential/Certificate Service
+builder.Services.AddScoped<ISubjectOfferingService, SubjectOfferingService>(); // ✅ NEW - SubjectOffering Service
 
 // Register AutoMapper - scan all Profile classes in the assembly
 builder.Services.AddAutoMapper(cfg => { }, typeof(Program).Assembly);

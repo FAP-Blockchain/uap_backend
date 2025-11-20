@@ -15,5 +15,6 @@ namespace Fap.Domain.Repositories
         Task AddAsync(T entity);
         void Update(T entity);
         void Remove(T entity);
+        IQueryable<T> GetQueryable(); // ✅ NEW - For complex queries
     }
 }

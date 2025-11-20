@@ -15,6 +15,8 @@ namespace Fap.Infrastructure.Repositories
         {
             return await _dbSet
                 .Include(u => u.Role)
+                .Include(u => u.Student)  // Load Student data
+                .Include(u => u.Teacher) // Load Teacher data
                 .FirstOrDefaultAsync(u => u.Email == email);
         }
 
