@@ -8,14 +8,20 @@ namespace Fap.Api.Interfaces
         Task<PagedResult<StudentDto>> GetStudentsAsync(GetStudentsRequest request);
         Task<StudentDetailDto?> GetStudentByIdAsync(Guid id);
         Task<StudentDetailDto?> GetStudentByUserIdAsync(Guid userId);
+        
+        /// <summary>
+     /// Get current logged-in student's profile
+        /// </summary>
+  Task<StudentDetailDto?> GetCurrentStudentProfileAsync(Guid userId);
+        
         /// <summary>
         /// Get students eligible for a specific subject/class
         /// For admin to select students when assigning to a class
-        /// </summary>
+ /// </summary>
         Task<PagedResult<StudentDto>> GetEligibleStudentsForClassAsync(
-            Guid classId,
-            int page = 1,
-            int pageSize = 20,
-            string? searchTerm = null);
+ Guid classId,
+    int page = 1,
+        int pageSize = 20,
+    string? searchTerm = null);
     }
 }

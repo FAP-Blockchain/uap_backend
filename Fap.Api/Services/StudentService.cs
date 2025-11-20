@@ -151,8 +151,32 @@ namespace Fap.Api.Services
         }
 
         /// <summary>
+        /// Get current logged-in student's profile with full details
+        /// </summary>
+        public async Task<StudentDetailDto?> GetCurrentStudentProfileAsync(Guid userId)
+        {
+            try
+            {
+                var student = await _uow.Students.GetByUserIdAsync(userId);
+                if (student == null)
+                {
+                    _logger.LogWarning($"No student found for user {userId}");
+                    return null;
+                }
+
+                // Reuse GetByIdWithDetailsAsync to get full profile
+                return await GetStudentByIdAsync(student.Id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting current student profile for user {UserId}", userId);
+                throw;
+            }
+        }
+
+        /// <summary>
         /// Get students eligible for a specific class
-        /// Validates: roadmap, prerequisites, not already in class
+    /// Validates: roadmap, prerequisites, not already in class
         /// </summary>
         public async Task<PagedResult<StudentDto>> GetEligibleStudentsForClassAsync(
             Guid classId,

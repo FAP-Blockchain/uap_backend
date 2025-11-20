@@ -110,6 +110,35 @@ namespace Fap.Api.Controllers
             }
         }
 
+        /// <summary>
+        /// GET /api/students/me - Get current logged-in student's profile
+        /// </summary>
+        [HttpGet("me")]
+        [Authorize(Roles = "Student")]
+        public async Task<IActionResult> GetMyProfile()
+        {
+            try
+            {
+                var userId = GetCurrentUserId();
+                var student = await _studentService.GetCurrentStudentProfileAsync(userId);
+
+                if (student == null)
+                    return NotFound(new { message = "Student profile not found" });
+
+                return Ok(student);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning(ex, "Unauthorized access to student profile");
+                return Unauthorized(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting current student profile");
+                return StatusCode(500, new { message = "An error occurred while retrieving your profile" });
+            }
+        }
+
         // ==================== HELPER METHODS ====================
 
         private Guid GetCurrentUserId()
