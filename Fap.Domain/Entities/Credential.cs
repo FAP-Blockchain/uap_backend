@@ -30,6 +30,12 @@ namespace Fap.Domain.Entities
         public DateTime? BlockchainStoredAt { get; set; }
         public bool IsOnBlockchain { get; set; } = false;
 
+        /// <summary>
+        /// Credential ID on the blockchain smart contract (uint256)
+        /// Maps to credentialCount in CredentialManagement.sol
+        /// </summary>
+        public long? BlockchainCredentialId { get; set; }
+
         // ✅ NEW: CERTIFICATE TYPE & REFERENCES
         [Required, MaxLength(50)]
         public string CertificateType { get; set; } = "SubjectCompletion"; // "SubjectCompletion", "SemesterCompletion", "RoadmapCompletion"

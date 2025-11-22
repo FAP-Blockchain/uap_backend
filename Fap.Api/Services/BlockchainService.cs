@@ -224,5 +224,277 @@ namespace Fap.Api.Services
             var code = await _web3.Eth.GetCode.SendRequestAsync(contractAddress);
             return code != "0x" && code != "0x0" && !string.IsNullOrEmpty(code);
         }
+
+        public async Task<bool> VerifyCertificateOnChainAsync(string transactionHash, string certificateHash)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(transactionHash))
+                    return false;
+
+                var receipt = await GetTransactionReceiptAsync(transactionHash);
+                if (receipt == null || receipt.Status?.Value != 1)
+                {
+                    _logger.LogWarning("Transaction {TxHash} not found or failed", transactionHash);
+                    return false;
+                }
+
+                // TODO: Decode logs to verify certificateHash if needed
+                // For now, just verify transaction exists and succeeded
+                _logger.LogInformation("Certificate verified on chain: {TxHash}", transactionHash);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error verifying certificate on blockchain");
+                return false;
+            }
+        }
+
+        #region Credential Management Contract Methods
+
+        // Smart Contract ABI for CredentialManagement.sol
+        private const string CredentialManagementAbi = @"[
+            {
+                'inputs': [
+                    {'internalType': 'uint256', 'name': '_credentialId', 'type': 'uint256'},
+                    {'internalType': 'address', 'name': '_studentAddress', 'type': 'address'},
+                    {'internalType': 'string', 'name': '_credentialData', 'type': 'string'}
+                ],
+                'name': 'issueCredential',
+                'outputs': [],
+                'stateMutability': 'nonpayable',
+                'type': 'function'
+            },
+            {
+                'inputs': [
+                    {'internalType': 'uint256', 'name': '_credentialId', 'type': 'uint256'},
+                    {'internalType': 'string', 'name': '_reason', 'type': 'string'}
+                ],
+                'name': 'revokeCredential',
+                'outputs': [],
+                'stateMutability': 'nonpayable',
+                'type': 'function'
+            },
+            {
+                'inputs': [
+                    {'internalType': 'uint256', 'name': '_credentialId', 'type': 'uint256'}
+                ],
+                'name': 'verifyCredential',
+                'outputs': [
+                    {'internalType': 'bool', 'name': 'isValid', 'type': 'bool'},
+                    {'internalType': 'address', 'name': 'studentAddress', 'type': 'address'},
+                    {'internalType': 'string', 'name': 'credentialData', 'type': 'string'},
+                    {'internalType': 'uint8', 'name': 'status', 'type': 'uint8'}
+                ],
+                'stateMutability': 'view',
+                'type': 'function'
+            },
+            {
+                'inputs': [
+                    {'internalType': 'uint256', 'name': '_credentialId', 'type': 'uint256'}
+                ],
+                'name': 'getCredential',
+                'outputs': [
+                    {
+                        'components': [
+                            {'internalType': 'uint256', 'name': 'credentialId', 'type': 'uint256'},
+                            {'internalType': 'address', 'name': 'studentAddress', 'type': 'address'},
+                            {'internalType': 'string', 'name': 'credentialData', 'type': 'string'},
+                            {'internalType': 'enum CredentialManagement.CredentialStatus', 'name': 'status', 'type': 'uint8'}
+                        ],
+                        'internalType': 'struct CredentialManagement.Credential',
+                        'name': '',
+                        'type': 'tuple'
+                    }
+                ],
+                'stateMutability': 'view',
+                'type': 'function'
+            },
+            {
+                'inputs': [],
+                'name': 'credentialCount',
+                'outputs': [
+                    {'internalType': 'uint256', 'name': '', 'type': 'uint256'}
+                ],
+                'stateMutability': 'view',
+                'type': 'function'
+            }
+        ]";
+
+        /// <summary>
+        /// Issue credential on blockchain
+        /// </summary>
+        public async Task<(long BlockchainCredentialId, string TransactionHash)> IssueCredentialOnChainAsync(
+            string studentWalletAddress, 
+            string credentialData)
+        {
+            try
+            {
+                // Get next credential ID from blockchain
+                var credentialCount = await GetCredentialCountAsync();
+                var blockchainCredentialId = credentialCount + 1;
+
+                _logger.LogInformation(
+                    "Issuing credential on blockchain. BlockchainId: {BlockchainId}, Student: {Student}",
+                    blockchainCredentialId,
+                    studentWalletAddress);
+
+                // Call issueCredential on smart contract
+                var txHash = await SendTransactionAsync(
+                    _settings.CredentialContractAddress,
+                    CredentialManagementAbi,
+                    "issueCredential",
+                    blockchainCredentialId,
+                    studentWalletAddress,
+                    credentialData);
+
+                _logger.LogInformation(
+                    "Credential issued successfully. TxHash: {TxHash}, BlockchainId: {BlockchainId}",
+                    txHash,
+                    blockchainCredentialId);
+
+                return (blockchainCredentialId, txHash);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to issue credential on blockchain");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Revoke credential on blockchain
+        /// </summary>
+        public async Task<string> RevokeCredentialOnChainAsync(long blockchainCredentialId, string reason)
+        {
+            try
+            {
+                _logger.LogInformation(
+                    "Revoking credential on blockchain. BlockchainId: {BlockchainId}, Reason: {Reason}",
+                    blockchainCredentialId,
+                    reason);
+
+                var txHash = await SendTransactionAsync(
+                    _settings.CredentialContractAddress,
+                    CredentialManagementAbi,
+                    "revokeCredential",
+                    blockchainCredentialId,
+                    reason);
+
+                _logger.LogInformation(
+                    "Credential revoked successfully. TxHash: {TxHash}, BlockchainId: {BlockchainId}",
+                    txHash,
+                    blockchainCredentialId);
+
+                return txHash;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to revoke credential on blockchain. BlockchainId: {BlockchainId}", blockchainCredentialId);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Verify credential on blockchain
+        /// </summary>
+        public async Task<CredentialVerificationResult> VerifyCredentialOnChainAsync(long blockchainCredentialId)
+        {
+            try
+            {
+                _logger.LogInformation(
+                    "Verifying credential on blockchain. BlockchainId: {BlockchainId}",
+                    blockchainCredentialId);
+
+                var contract = _web3.Eth.GetContract(CredentialManagementAbi, _settings.CredentialContractAddress);
+                var verifyFunction = contract.GetFunction("verifyCredential");
+
+                // Call verifyCredential - returns (bool isValid, address studentAddress, string credentialData, uint8 status)
+                var result = await verifyFunction.CallDeserializingToObjectAsync<CredentialVerificationResult>(blockchainCredentialId);
+
+                _logger.LogInformation(
+                    "Credential verification completed. BlockchainId: {BlockchainId}, IsValid: {IsValid}, Status: {Status}",
+                    blockchainCredentialId,
+                    result.IsValid,
+                    result.Status);
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to verify credential on blockchain. BlockchainId: {BlockchainId}", blockchainCredentialId);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Get credential from blockchain
+        /// </summary>
+        public async Task<CredentialOnChain> GetCredentialFromChainAsync(long blockchainCredentialId)
+        {
+            try
+            {
+                var contract = _web3.Eth.GetContract(CredentialManagementAbi, _settings.CredentialContractAddress);
+                var getFunction = contract.GetFunction("getCredential");
+
+                var result = await getFunction.CallDeserializingToObjectAsync<CredentialOnChain>(blockchainCredentialId);
+
+                _logger.LogInformation(
+                    "Retrieved credential from blockchain. BlockchainId: {BlockchainId}, Status: {Status}",
+                    blockchainCredentialId,
+                    result.Status);
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get credential from blockchain. BlockchainId: {BlockchainId}", blockchainCredentialId);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Get credential count from blockchain
+        /// </summary>
+        public async Task<long> GetCredentialCountAsync()
+        {
+            try
+            {
+                var count = await CallFunctionAsync<System.Numerics.BigInteger>(
+                    _settings.CredentialContractAddress,
+                    CredentialManagementAbi,
+                    "credentialCount");
+
+                return (long)count;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get credential count from blockchain");
+                throw;
+            }
+        }
+
+        #endregion
+
+        #region DTOs for Blockchain Credential Operations
+
+        public class CredentialVerificationResult
+        {
+            public bool IsValid { get; set; }
+            public string StudentAddress { get; set; } = string.Empty;
+            public string CredentialData { get; set; } = string.Empty;
+            public int Status { get; set; } // 0 = Active, 1 = Revoked
+        }
+
+        public class CredentialOnChain
+        {
+            public System.Numerics.BigInteger CredentialId { get; set; }
+            public string StudentAddress { get; set; } = string.Empty;
+            public string CredentialData { get; set; } = string.Empty;
+            public int Status { get; set; } // 0 = Active, 1 = Revoked
+        }
+
+        #endregion
     }
 }

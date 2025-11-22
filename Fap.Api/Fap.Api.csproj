@@ -23,9 +23,9 @@
 		<PackageReference Include="Swashbuckle.AspNetCore" Version="6.*" />
 		
 		<!-- ✅ BLOCKCHAIN PACKAGES - Sử dụng version 4.19.0 thống nhất -->
-		<PackageReference Include="Nethereum.Web3" Version="4.19.0" />
-		<PackageReference Include="Nethereum.Contracts" Version="4.19.0" />
-		<PackageReference Include="Nethereum.Accounts" Version="4.19.0" />
+		<PackageReference Include="Nethereum.Web3" Version="5.0.0" />
+		<PackageReference Include="Nethereum.Contracts" Version="5.0.0" />
+		<PackageReference Include="Nethereum.Accounts" Version="5.0.0" />
 		<PackageReference Include="Nethereum.HdWallet" Version="4.19.0" />
 	</ItemGroup>
 

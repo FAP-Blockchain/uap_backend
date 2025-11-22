@@ -246,7 +246,7 @@ namespace Fap.Infrastructure.Data.Seed
             var credentials = new List<Credential>();
             var counter = 1;
 
-            // Test Case 1: Subject completion - Issued
+            // ====== TEST CASE 1: Issued with Blockchain + QR Code (Fully Complete) ======
             var cred1 = CreateCredential(
                 students[0].Id,
                 templates.First(t => t.TemplateType == "SubjectCompletion").Id,
@@ -255,11 +255,14 @@ namespace Fap.Infrastructure.Data.Seed
                 subjectId: subjects[0].Id,
                 finalGrade: 8.5m,
                 letterGrade: "B+",
-                status: "Issued"
+                status: "Issued",
+                withQRCode: true,
+                viewCount: 25,
+                blockchainCredentialId: 1
             );
             credentials.Add(cred1);
 
-            // Test Case 2: Subject completion - Issued with QR code
+            // ====== TEST CASE 2: Issued WITHOUT QR Code (Lazy Generation Test) ======
             var cred2 = CreateCredential(
                 students[1].Id,
                 templates.First(t => t.TemplateType == "SubjectCompletion").Id,
@@ -269,11 +272,13 @@ namespace Fap.Infrastructure.Data.Seed
                 finalGrade: 9.0m,
                 letterGrade: "A",
                 status: "Issued",
-                withQRCode: true
+                withQRCode: false,  // QR will be generated on first public view
+                viewCount: 0,
+                blockchainCredentialId: 2
             );
             credentials.Add(cred2);
 
-            // Test Case 3: Subject completion - Revoked
+            // ====== TEST CASE 3: Revoked Certificate (Cannot be Shared) ======
             var cred3 = CreateCredential(
                 students[2].Id,
                 templates.First(t => t.TemplateType == "SubjectCompletion").Id,
@@ -284,11 +289,14 @@ namespace Fap.Infrastructure.Data.Seed
                 letterGrade: "C",
                 status: "Revoked",
                 isRevoked: true,
-                revocationReason: "Certificate issued in error - student did not meet attendance requirements"
+                revocationReason: "Certificate issued in error - student did not meet attendance requirements",
+                withQRCode: false,  // Revoked certificates lose QR code
+                viewCount: 5,  // Had some views before revocation
+                blockchainCredentialId: 3  // Still has blockchain ID even when revoked
             );
             credentials.Add(cred3);
 
-            // Test Case 4: Semester completion - Issued
+            // ====== TEST CASE 4: Semester Completion - Issued with QR ======
             var semesters = await _context.Semesters.Take(1).ToListAsync();
             if (semesters.Any() && templates.Any(t => t.TemplateType == "SemesterCompletion"))
             {
@@ -300,12 +308,15 @@ namespace Fap.Infrastructure.Data.Seed
                     semesterId: semesters[0].Id,
                     finalGrade: 7.8m,
                     classification: "Good",
-                    status: "Issued"
+                    status: "Issued",
+                    withQRCode: true,
+                    viewCount: 12,
+                    blockchainCredentialId: 4
                 );
                 credentials.Add(cred4);
             }
 
-            // Test Case 5: High view count credential (popular)
+            // ====== TEST CASE 5: High View Count (Popular Certificate) ======
             var cred5 = CreateCredential(
                 students[4].Id,
                 templates.First(t => t.TemplateType == "SubjectCompletion").Id,
@@ -316,11 +327,12 @@ namespace Fap.Infrastructure.Data.Seed
                 letterGrade: "A+",
                 status: "Issued",
                 viewCount: 150,
-                withQRCode: true
+                withQRCode: true,
+                blockchainCredentialId: 5
             );
             credentials.Add(cred5);
 
-            // Test Case 6: Roadmap completion (Graduation)
+            // ====== TEST CASE 6: Graduation Certificate (Roadmap) ======
             var roadmaps = await _context.StudentRoadmaps.Take(1).ToListAsync();
             if (roadmaps.Any() && templates.Any(t => t.TemplateType == "RoadmapCompletion"))
             {
@@ -333,12 +345,14 @@ namespace Fap.Infrastructure.Data.Seed
                     finalGrade: 8.2m,
                     classification: "Second Class Honours (Upper)",
                     status: "Issued",
-                    withQRCode: true
+                    withQRCode: true,
+                    viewCount: 45,
+                    blockchainCredentialId: 6
                 );
                 credentials.Add(cred6);
             }
 
-            // Test Case 7: Pending credential (not yet issued)
+            // ====== TEST CASE 7: Pending Credential (Not Yet Issued) ======
             var cred7 = CreateCredential(
                 students[1].Id,
                 templates.First(t => t.TemplateType == "SubjectCompletion").Id,
@@ -347,19 +361,59 @@ namespace Fap.Infrastructure.Data.Seed
                 subjectId: subjects[1].Id,
                 finalGrade: 7.0m,
                 letterGrade: "B",
-                status: "Pending"
+                status: "Pending",
+                withQRCode: false,  // No QR for pending
+                viewCount: 0
+                // No blockchainCredentialId for pending
             );
             credentials.Add(cred7);
+
+            // ====== TEST CASE 8: Recently Issued (No Views Yet) ======
+            var cred8 = CreateCredential(
+                students[2].Id,
+                templates.First(t => t.TemplateType == "SubjectCompletion").Id,
+                "SubjectCompletion",
+                counter++,
+                subjectId: subjects[2].Id,
+                finalGrade: 8.0m,
+                letterGrade: "B+",
+                status: "Issued",
+                withQRCode: true,
+                viewCount: 0,
+                recentlyIssued: true,
+                blockchainCredentialId: 7
+            );
+            credentials.Add(cred8);
+
+            // ====== TEST CASE 9: Issued but Blockchain Pending ======
+            var cred9 = CreateCredential(
+                students[3].Id,
+                templates.First(t => t.TemplateType == "SubjectCompletion").Id,
+                "SubjectCompletion",
+                counter++,
+                subjectId: subjects[0].Id,
+                finalGrade: 7.5m,
+                letterGrade: "B",
+                status: "Issued",
+                withQRCode: true,
+                blockchainPending: true,  // Blockchain transaction pending
+                viewCount: 3
+                // No blockchainCredentialId yet - pending
+            );
+            credentials.Add(cred9);
 
             await _context.Credentials.AddRangeAsync(credentials);
             await SaveAsync("Credentials");
      
-      Console.WriteLine($"   ✅ Created {credentials.Count} credentials:");
-      Console.WriteLine($"      • Issued: {credentials.Count(c => c.Status == "Issued")}");
-        Console.WriteLine($"   • Pending: {credentials.Count(c => c.Status == "Pending")}");
-     Console.WriteLine($"      • Revoked: {credentials.Count(c => c.Status == "Revoked")}");
-     Console.WriteLine($"      • With QR Code: {credentials.Count(c => !string.IsNullOrEmpty(c.QRCodeData))}");
-   Console.WriteLine($"      • On Blockchain: {credentials.Count(c => c.IsOnBlockchain)}");
+            Console.WriteLine($"   ✅ Created {credentials.Count} credentials:");
+            Console.WriteLine($"      • Issued: {credentials.Count(c => c.Status == "Issued")}");
+            Console.WriteLine($"      • Pending: {credentials.Count(c => c.Status == "Pending")}");
+            Console.WriteLine($"      • Revoked: {credentials.Count(c => c.Status == "Revoked")}");
+            Console.WriteLine($"      • With QR Code: {credentials.Count(c => !string.IsNullOrEmpty(c.QRCodeData))}");
+            Console.WriteLine($"      • Without QR (Lazy Gen): {credentials.Count(c => c.Status == "Issued" && string.IsNullOrEmpty(c.QRCodeData))}");
+            Console.WriteLine($"      • On Blockchain: {credentials.Count(c => c.IsOnBlockchain)}");
+            Console.WriteLine($"      • Blockchain Pending: {credentials.Count(c => c.Status == "Issued" && !c.IsOnBlockchain)}");
+            Console.WriteLine($"      • With Views: {credentials.Count(c => c.ViewCount > 0)}");
         }
 
         private Credential CreateCredential(
@@ -377,7 +431,10 @@ namespace Fap.Infrastructure.Data.Seed
             bool isRevoked = false,
             string? revocationReason = null,
             bool withQRCode = false,
-            int viewCount = 0)
+            int viewCount = 0,
+            bool recentlyIssued = false,
+            bool blockchainPending = false,
+            long? blockchainCredentialId = null)
         {
             var year = DateTime.UtcNow.Year;
 
@@ -391,10 +448,15 @@ namespace Fap.Infrastructure.Data.Seed
 
             var credentialNumber = $"{prefix}-{year}-{sequenceNumber:D6}";
             var verificationHash = GenerateVerificationHash(credentialNumber, studentId);
-            var baseUrl = "https://fap-api.example.com";
-            var shareableUrl = $"{baseUrl}/verify/{credentialNumber}";
+            
+            // Use frontend URL from settings
+            var frontendUrl = "http://localhost:3000";  // This matches appsettings.json
+            var shareableUrl = status == "Issued" && !isRevoked
+                ? $"{frontendUrl}/certificates/verify/{credentialNumber}"
+                : null;  // No shareable URL for pending/revoked
 
             var random = new Random();
+            var daysAgo = recentlyIssued ? random.Next(1, 3) : random.Next(10, 180);
 
             var credential = new Credential
             {
@@ -406,13 +468,15 @@ namespace Fap.Infrastructure.Data.Seed
                 SubjectId = subjectId,
                 SemesterId = semesterId,
                 StudentRoadmapId = roadmapId,
-                IssuedDate = DateTime.UtcNow.AddDays(-random.Next(10, 180)),
-                CompletionDate = DateTime.UtcNow.AddDays(-random.Next(15, 200)),
+                IssuedDate = status == "Issued" 
+                    ? DateTime.UtcNow.AddDays(-daysAgo) 
+                    : DateTime.UtcNow,  // Set to now for pending, will be updated when issued
+                CompletionDate = DateTime.UtcNow.AddDays(-random.Next(15, 200)),  // Always set
                 FinalGrade = finalGrade,
                 LetterGrade = letterGrade,
                 Classification = classification,
                 VerificationHash = verificationHash,
-                ShareableUrl = shareableUrl,
+                ShareableUrl = shareableUrl,  // Only for issued, non-revoked
                 Status = status,
                 IsRevoked = isRevoked,
                 RevokedAt = isRevoked ? DateTime.UtcNow.AddDays(-5) : null,
@@ -427,34 +491,34 @@ namespace Fap.Infrastructure.Data.Seed
                 CreatedAt = DateTime.UtcNow.AddDays(-random.Next(10, 180)),
 
                 // Blockchain data
-                IsOnBlockchain = status == "Issued" && !isRevoked,
-                BlockchainTransactionHash = status == "Issued"
+                IsOnBlockchain = status == "Issued" && !isRevoked && !blockchainPending,
+                BlockchainTransactionHash = (status == "Issued" && !blockchainPending)
                     ? $"0x{Guid.NewGuid():N}"
                     : null,
-                BlockchainStoredAt = status == "Issued"
+                BlockchainStoredAt = (status == "Issued" && !blockchainPending)
                     ? DateTime.UtcNow.AddDays(-random.Next(5, 10))
                     : null,
+                BlockchainCredentialId = blockchainCredentialId,  // Maps to smart contract uint256 ID
 
-                // ✅ FIX: Add required FileUrl and IPFSHash with safe substring
+                // Required fields
                 IPFSHash = status == "Issued" 
-         ? $"Qm{Guid.NewGuid():N}{Guid.NewGuid():N}".Substring(0, 46)  // Mock IPFS hash (46 chars standard)
-      : "QmPendingHash000000000000000000000000000000",
-        
-    FileUrl = status == "Issued"
-  ? $"https://ipfs.io/ipfs/Qm{Guid.NewGuid():N}"  // Don't substring URL
-   : "https://ipfs.io/ipfs/QmPending",
+                    ? $"Qm{Guid.NewGuid():N}{Guid.NewGuid():N}".Substring(0, 46)
+                    : "QmPendingHash000000000000000000000000000000",
+                
+                FileUrl = status == "Issued"
+                    ? $"https://ipfs.io/ipfs/Qm{Guid.NewGuid():N}"
+                    : "https://ipfs.io/ipfs/QmPending",
 
-      // PDF (placeholder)
-    PdfUrl = status == "Issued"
-          ? $"{baseUrl}/credentials/{credentialNumber}/download"
-      : null
-          };
-
-            // Generate QR code data if requested
-            if (withQRCode && status == "Issued")
-            {
-                credential.QRCodeData = GenerateSampleQRCode(shareableUrl);
-            }
+                // PDF (placeholder)
+                PdfUrl = status == "Issued"
+                    ? $"https://api.fap.edu.vn/credentials/{credentialNumber}/download"
+                    : null,
+                
+                // QR Code - only if explicitly requested OR null for lazy generation
+                QRCodeData = withQRCode && status == "Issued" && !isRevoked
+                    ? GenerateSampleQRCode(shareableUrl!)
+                    : null  // Null means lazy generation on first view
+            };
 
             return credential;
         }

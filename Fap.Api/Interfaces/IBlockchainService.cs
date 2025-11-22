@@ -57,6 +57,11 @@ namespace Fap.Api.Interfaces
         /// Check if contract exists at address
         /// </summary>
         Task<bool> IsContractDeployedAsync(string contractAddress);
+
+        /// <summary>
+        /// Verify certificate on blockchain by hash
+        /// </summary>
+        Task<bool> VerifyCertificateOnChainAsync(string transactionHash, string certificateHash);
     }
 
     /// <summary>

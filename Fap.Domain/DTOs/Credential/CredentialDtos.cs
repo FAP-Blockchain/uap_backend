@@ -112,4 +112,38 @@ namespace Fap.Domain.DTOs.Credential
         public int Size { get; set; }
         public string? ShareableUrl { get; set; }
     }
+
+    /// <summary>
+    /// DTO dành cho Public View - Người ngoài xem chứng chỉ qua QR/Link (Không cần đăng nhập)
+    /// </summary>
+    public class CertificatePublicDto
+    {
+        public Guid Id { get; set; }
+        public string CredentialNumber { get; set; } = string.Empty;
+        public string StudentName { get; set; } = string.Empty;
+        public string StudentCode { get; set; } = string.Empty;
+        public string CertificateType { get; set; } = string.Empty;
+        public string? SubjectName { get; set; }
+        public string? SemesterName { get; set; }
+        public DateTime IssuedDate { get; set; }
+        public DateTime? CompletionDate { get; set; }
+        public decimal? FinalGrade { get; set; }
+        public string? LetterGrade { get; set; }
+        public string? Classification { get; set; }
+        
+        // Blockchain Info
+        public bool IsOnBlockchain { get; set; }
+        public string? BlockchainTransactionHash { get; set; }
+        public bool IsRevoked { get; set; }
+        
+        // Sharing Info
+        public string PublicUrl { get; set; } = string.Empty;
+        public string QrCodeData { get; set; } = string.Empty;
+        
+        // Verification Status
+        public string VerificationStatus { get; set; } = "Unknown"; // "Verified", "Revoked", "Pending"
+        public string? VerificationMessage { get; set; }
+        
+        public string? TemplateName { get; set; }
+    }
 }

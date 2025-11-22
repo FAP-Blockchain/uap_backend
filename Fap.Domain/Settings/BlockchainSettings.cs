@@ -16,8 +16,8 @@ namespace Fap.Domain.Settings
         public int ChainId { get; set; } = 31337;
 
         /// <summary>
-        /// Private key c?a account dùng ?? sign transactions
-        /// ?? KHÔNG commit vào Git trong production!
+        /// Private key c?a account dï¿½ng ?? sign transactions
+        /// ?? KHï¿½NG commit vï¿½o Git trong production!
         /// </summary>
         public string PrivateKey { get; set; } = string.Empty;
 
@@ -60,6 +60,11 @@ namespace Fap.Domain.Settings
         /// Set = 0 ?? auto-estimate ho?c s? d?ng legacy GasPrice
         /// </summary>
         public long MaxPriorityFeePerGas { get; set; } = 0;
+
+        /// <summary>
+        /// Credential Management Contract Address (for backward compatibility)
+        /// </summary>
+        public string CredentialContractAddress => Contracts.CredentialManagement;
     }
 
     /// <summary>

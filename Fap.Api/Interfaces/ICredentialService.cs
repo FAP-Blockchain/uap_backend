@@ -22,6 +22,18 @@ namespace Fap.Api.Interfaces
         Task<CredentialShareDto> GetCredentialShareInfoAsync(Guid credentialId, Guid? userId);
         Task<CredentialVerificationDto> VerifyCredentialAsync(VerifyCredentialRequest request);
 
+        // ==================== PUBLIC VIEW (No Auth Required) ====================
+        
+        /// <summary>
+        /// Lấy thông tin chứng chỉ công khai (dành cho người xem qua QR/Link)
+        /// </summary>
+        Task<CertificatePublicDto?> GetPublicCertificateAsync(Guid credentialId);
+        
+        /// <summary>
+        /// Lấy danh sách chứng chỉ của sinh viên để chia sẻ (kèm QR + URL)
+        /// </summary>
+        Task<List<CertificatePublicDto>> GetMyCertificatesForSharingAsync(Guid userId);
+
         // ==================== STUDENT OPERATIONS ====================
 
         Task<List<CredentialDto>> GetStudentCredentialsAsync(Guid userId, string? certificateType = null);

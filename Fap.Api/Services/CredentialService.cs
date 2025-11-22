@@ -4,7 +4,9 @@ using Fap.Domain.DTOs.Credential;
 using Fap.Domain.DTOs.Common;
 using Fap.Domain.Entities;
 using Fap.Domain.Repositories;
+using Fap.Domain.Settings;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using System.Security.Cryptography;
 using System.Text;
 using QRCoder; // ? Import QRCoder
@@ -17,17 +19,23 @@ namespace Fap.Api.Services
         private readonly IMapper _mapper;
         private readonly ILogger<CredentialService> _logger;
         private readonly IConfiguration _configuration;
+        private readonly FrontendSettings _frontendSettings;
+        private readonly IBlockchainService _blockchainService;
 
         public CredentialService(
              IUnitOfWork uow,
                IMapper mapper,
                     ILogger<CredentialService> logger,
-          IConfiguration configuration)
+          IConfiguration configuration,
+          IOptions<FrontendSettings> frontendOptions,
+          IBlockchainService blockchainService)
         {
             _uow = uow;
             _mapper = mapper;
             _logger = logger;
             _configuration = configuration;
+            _frontendSettings = frontendOptions.Value;
+            _blockchainService = blockchainService;
         }
 
         // ==================== AUTO-REQUEST METHODS ====================
@@ -1274,6 +1282,164 @@ using var qrGenerator = new QRCodeGenerator();
 
                 default:
                     throw new InvalidOperationException($"Invalid certificate type: {request.CertificateType}");
+            }
+        }
+
+        // ==================== HELPER METHODS (NEW) ====================
+
+        /// <summary>
+        /// Tạo URL xác thực công khai cho chứng chỉ
+        /// </summary>
+        private string BuildVerificationUrl(Credential credential)
+        {
+            var baseUrl = _frontendSettings.BaseUrl.TrimEnd('/');
+            var verifyPath = _frontendSettings.VerifyPath.Trim('/');
+            var identifier = credential.CredentialId; // Dùng CredentialId (readable) thay vì GUID
+            return $"{baseUrl}/{verifyPath}/{identifier}";
+        }
+
+        /// <summary>
+        /// Tạo QR Code từ URL
+        /// </summary>
+        private string GenerateQrCodeImage(string url, int size)
+        {
+            using var qrGenerator = new QRCodeGenerator();
+            var qrCodeData = qrGenerator.CreateQrCode(url, QRCodeGenerator.ECCLevel.Q);
+            using var qrCode = new PngByteQRCode(qrCodeData);
+            var qrCodeImage = qrCode.GetGraphic(size / 20); // pixels per module
+            return $"data:image/png;base64,{Convert.ToBase64String(qrCodeImage)}";
+        }
+
+        /// <summary>
+        /// Đảm bảo chứng chỉ đã có ShareableUrl và QRCode, nếu chưa thì tạo mới
+        /// </summary>
+        private async Task<(string url, string qrCode)> EnsureShareArtifactsAsync(Credential credential)
+        {
+            var needsUpdate = false;
+
+            if (string.IsNullOrWhiteSpace(credential.ShareableUrl))
+            {
+                credential.ShareableUrl = BuildVerificationUrl(credential);
+                needsUpdate = true;
+            }
+
+            if (string.IsNullOrWhiteSpace(credential.QRCodeData))
+            {
+                credential.QRCodeData = GenerateQrCodeImage(
+                    credential.ShareableUrl, 
+                    _frontendSettings.DefaultQrSize);
+                needsUpdate = true;
+            }
+
+            if (needsUpdate)
+            {
+                _uow.Credentials.Update(credential);
+                await _uow.SaveChangesAsync();
+            }
+
+            return (credential.ShareableUrl, credential.QRCodeData);
+        }
+
+        // ==================== PUBLIC VIEW METHODS (NEW) ====================
+
+        /// <summary>
+        /// Lấy thông tin chứng chỉ công khai - Dành cho người xem qua QR/Link (AllowAnonymous)
+        /// </summary>
+        public async Task<CertificatePublicDto?> GetPublicCertificateAsync(Guid credentialId)
+        {
+            try
+            {
+                var credential = await _uow.Credentials.GetByIdAsync(credentialId);
+                if (credential == null)
+                    return null;
+
+                // Đảm bảo có URL và QR Code
+                var (publicUrl, qrCode) = await EnsureShareArtifactsAsync(credential);
+
+                // Map sang DTO
+                var dto = _mapper.Map<CertificatePublicDto>(credential);
+                dto.PublicUrl = publicUrl;
+                dto.QrCodeData = qrCode;
+
+                // Xác định trạng thái xác thực
+                if (credential.IsRevoked)
+                {
+                    dto.VerificationStatus = "Revoked";
+                    dto.VerificationMessage = $"Certificate has been revoked on {credential.RevokedAt?.ToString("yyyy-MM-dd")}";
+                }
+                else if (credential.IsOnBlockchain && !string.IsNullOrEmpty(credential.BlockchainTransactionHash))
+                {
+                    // Verify on blockchain
+                    var isValid = await _blockchainService.VerifyCertificateOnChainAsync(
+                        credential.BlockchainTransactionHash,
+                        credential.VerificationHash ?? "");
+
+                    dto.VerificationStatus = isValid ? "Verified" : "Pending";
+                    dto.VerificationMessage = isValid 
+                        ? "Certificate is verified on blockchain" 
+                        : "Certificate verification pending";
+                }
+                else
+                {
+                    dto.VerificationStatus = "Pending";
+                    dto.VerificationMessage = "Certificate not yet recorded on blockchain";
+                }
+
+                // Increment view count
+                credential.ViewCount++;
+                credential.LastViewedAt = DateTime.UtcNow;
+                _uow.Credentials.Update(credential);
+                await _uow.SaveChangesAsync();
+
+                return dto;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting public certificate {CredentialId}", credentialId);
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Lấy danh sách chứng chỉ của sinh viên hiện tại để chia sẻ (kèm QR + URL)
+        /// </summary>
+        public async Task<List<CertificatePublicDto>> GetMyCertificatesForSharingAsync(Guid userId)
+        {
+            try
+            {
+                // Tìm student từ userId
+                var students = await _uow.Students.FindAsync(s => s.UserId == userId);
+                var student = students.FirstOrDefault();
+                
+                if (student == null)
+                {
+                    _logger.LogWarning("Student not found for userId {UserId}", userId);
+                    return new List<CertificatePublicDto>();
+                }
+
+                // Lấy tất cả chứng chỉ chưa bị thu hồi
+                var credentials = await _uow.Credentials.FindAsync(c => 
+                    c.StudentId == student.Id && 
+                    !c.IsRevoked &&
+                    c.Status == "Issued");
+
+                var result = new List<CertificatePublicDto>();
+
+                foreach (var credential in credentials)
+                {
+                    var dto = await GetPublicCertificateAsync(credential.Id);
+                    if (dto != null)
+                    {
+                        result.Add(dto);
+                    }
+                }
+
+                return result.OrderByDescending(c => c.IssuedDate).ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting shareable certificates for user {UserId}", userId);
+                return new List<CertificatePublicDto>();
             }
         }
     }

@@ -245,6 +245,44 @@ namespace Fap.Api.Controllers
         }
 
         /// <summary>
+        /// GET /api/credentials/public/{id} - Public certificate view (No authentication required)
+        /// Endpoint này dành cho người xem chứng chỉ qua QR Code hoặc link chia sẻ
+        /// </summary>
+        [HttpGet("public/{id:guid}")]
+        [AllowAnonymous]
+        [ProducesResponseType(typeof(CertificatePublicDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<CertificatePublicDto>> GetPublicCertificate(Guid id)
+        {
+            try
+            {
+                var certificate = await _credentialService.GetPublicCertificateAsync(id);
+                
+                if (certificate == null)
+                {
+                    return NotFound(new ProblemDetails
+                    {
+                        Status = 404,
+                        Title = "Certificate Not Found",
+                        Detail = "The requested certificate does not exist or has been removed."
+                    });
+                }
+
+                return Ok(certificate);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting public certificate {CredentialId}", id);
+                return StatusCode(500, new ProblemDetails 
+                { 
+                    Status = 500, 
+                    Title = "Internal Server Error",
+                    Detail = "An error occurred while retrieving the certificate."
+                });
+            }
+        }
+
+        /// <summary>
         /// POST /api/credentials/{id}/approve - Approve credential (Admin only)
         /// </summary>
         [HttpPost("{id:guid}/approve")]
@@ -398,6 +436,33 @@ namespace Fap.Api.Controllers
             {
                 _logger.LogError(ex, "Error getting credential summary");
                 return StatusCode(500, new ProblemDetails { Status = 500, Title = "Internal Server Error" });
+            }
+        }
+
+        /// <summary>
+        /// GET /api/students/me/certificates/share - Get my certificates for sharing (with QR + URL)
+        /// Endpoint này trả về danh sách chứng chỉ kèm QR Code và URL để sinh viên chia sẻ
+        /// </summary>
+        [HttpGet("/api/students/me/certificates/share")]
+        [Authorize(Roles = "Student")]
+        [ProducesResponseType(typeof(List<CertificatePublicDto>), StatusCodes.Status200OK)]
+        public async Task<ActionResult<List<CertificatePublicDto>>> GetMyCertificatesForSharing()
+        {
+            try
+            {
+                var userId = GetCurrentUserId();
+                var certificates = await _credentialService.GetMyCertificatesForSharingAsync(userId);
+                return Ok(certificates);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting shareable certificates for current student");
+                return StatusCode(500, new ProblemDetails 
+                { 
+                    Status = 500, 
+                    Title = "Internal Server Error",
+                    Detail = "An error occurred while retrieving your certificates."
+                });
             }
         }
     }
