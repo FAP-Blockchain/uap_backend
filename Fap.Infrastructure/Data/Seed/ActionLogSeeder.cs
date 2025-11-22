@@ -147,8 +147,8 @@ namespace Fap.Infrastructure.Data.Seed
                         {
                             StudentId = grade.StudentId,
                             ComponentId = grade.GradeComponentId,
-                            OldScore = Math.Round(grade.Score - (decimal)(random.NextDouble() * 2), 1),
-                            NewScore = grade.Score,
+                            OldScore = grade.Score.HasValue ? Math.Round(grade.Score.Value - (decimal)(random.NextDouble() * 2), 1) : 0,
+                            NewScore = grade.Score ?? 0,
                             Reason = "Score correction after review"
                         }),
                         UserId = teachers[random.Next(teachers.Count)].Id,

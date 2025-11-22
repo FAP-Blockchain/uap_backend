@@ -182,7 +182,10 @@ namespace Fap.Api.Services
                     }
 
                     totalCredits += subject.Credits;
-                    totalGradePoints += finalGrade.Score * subject.Credits;
+                    if (finalGrade.Score.HasValue)
+                    {
+                        totalGradePoints += finalGrade.Score.Value * subject.Credits;
+                    }
                 }
 
                 var semesterGPA = totalCredits > 0 ? totalGradePoints / totalCredits : 0m;

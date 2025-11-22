@@ -23,8 +23,8 @@ namespace Fap.Domain.Entities
         [ForeignKey(nameof(GradeComponentId))] public GradeComponent GradeComponent { get; set; }
 
         
-        [Range(0, 10)] public decimal Score { get; set; }
-        [MaxLength(5)] public string LetterGrade { get; set; }
+        [Range(0, 10)] public decimal? Score { get; set; }
+        [MaxLength(5)] public string? LetterGrade { get; set; }
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     }
 }

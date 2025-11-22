@@ -136,7 +136,10 @@ namespace Fap.Infrastructure.Repositories
 
             foreach (var grade in grades)
             {
-                totalWeightedScore += grade.Score * grade.GradeComponent.WeightPercent;
+                if (!grade.Score.HasValue)
+                    continue;
+                    
+                totalWeightedScore += grade.Score.Value * grade.GradeComponent.WeightPercent;
                 totalWeight += grade.GradeComponent.WeightPercent;
             }
 

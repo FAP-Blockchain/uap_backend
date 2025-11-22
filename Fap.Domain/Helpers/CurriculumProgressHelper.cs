@@ -145,19 +145,17 @@ namespace Fap.Domain.Helpers
                 decimal weightedTotal = 0m;
                 int totalWeight = 0;
 
-                foreach (var grade in group)
+            foreach (var grade in group)
+            {
+                var weight = grade.GradeComponent?.WeightPercent ?? 0;
+                if (weight <= 0 || !grade.Score.HasValue)
                 {
-                    var weight = grade.GradeComponent?.WeightPercent ?? 0;
-                    if (weight <= 0)
-                    {
-                        continue;
-                    }
-
-                    weightedTotal += grade.Score * weight;
-                    totalWeight += weight;
+                    continue;
                 }
 
-                decimal? finalScore = null;
+                weightedTotal += grade.Score.Value * weight;
+                totalWeight += weight;
+            }                decimal? finalScore = null;
                 if (totalWeight > 0)
                 {
                     finalScore = Math.Round(weightedTotal / 100m, 2);

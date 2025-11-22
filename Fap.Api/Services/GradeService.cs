@@ -116,8 +116,8 @@ namespace Fap.Api.Services
                 return new GradeDetailDto
                 {
                     Id = grade.Id,
-                    Score = grade.Score,
-                    LetterGrade = grade.LetterGrade,
+                    Score = grade.Score ?? 0,
+                    LetterGrade = grade.LetterGrade ?? string.Empty,
                     UpdatedAt = grade.UpdatedAt,
                     StudentId = grade.StudentId,
                     StudentCode = grade.Student.StudentCode,
@@ -453,7 +453,7 @@ SubjectCode = firstGrade.Subject.SubjectCode,
                     GradeComponentId = g.GradeComponentId,
                     ComponentName = g.GradeComponent.Name,
                     ComponentWeight = g.GradeComponent.WeightPercent,
-                    Score = g.Score,
+                    Score = g.Score ?? 0,
                     LetterGrade = g.LetterGrade ?? string.Empty,
                     UpdatedAt = g.UpdatedAt
                 }).ToList();
