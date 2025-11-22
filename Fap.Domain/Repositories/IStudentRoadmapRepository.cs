@@ -30,6 +30,11 @@ namespace Fap.Domain.Repositories
         Task<List<StudentRoadmap>> GetPlannedSubjectsAsync(Guid studentId, Guid? semesterId = null);
 
         /// <summary>
+        /// Get subjects ready to enroll (status = "Open" - prerequisites met, not yet enrolled)
+        /// </summary>
+        Task<List<StudentRoadmap>> GetOpenSubjectsAsync(Guid studentId);
+
+        /// <summary>
         /// Get completed subjects (status = "Completed")
         /// </summary>
         Task<List<StudentRoadmap>> GetCompletedSubjectsAsync(Guid studentId);

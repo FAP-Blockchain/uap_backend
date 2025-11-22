@@ -170,6 +170,18 @@ namespace Fap.Api.Services
                         response.Message = "Registration failed";
                         return response;
                     }
+
+                    // Validate CurriculumId if provided
+                    if (request.CurriculumId.HasValue)
+                    {
+                        var curriculum = await _uow.Curriculums.GetByIdAsync(request.CurriculumId.Value);
+                        if (curriculum == null)
+                        {
+                            response.Errors.Add($"Curriculum with ID '{request.CurriculumId}' not found");
+                            response.Message = "Registration failed";
+                            return response;
+                        }
+                    }
                 }
                 else if (request.RoleName.Equals("Teacher", StringComparison.OrdinalIgnoreCase))
                 {
@@ -228,6 +240,7 @@ namespace Fap.Api.Services
                     var student = _mapper.Map<Student>(request);
                     student.Id = Guid.NewGuid();
                     student.UserId = user.Id;
+                    // CurriculumId is mapped by AutoMapper from request.CurriculumId
                     await _uow.Students.AddAsync(student);
                 }
                 else if (request.RoleName.Equals("Teacher", StringComparison.OrdinalIgnoreCase))

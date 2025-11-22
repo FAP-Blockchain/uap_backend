@@ -185,6 +185,26 @@ namespace Fap.Domain.DTOs.StudentRoadmap
         public string RecommendationReason { get; set; } // "Next in roadmap", "Prerequisites completed", etc.
         public List<string> Prerequisites { get; set; } = new();
         public bool AllPrerequisitesMet { get; set; }
+        
+        // ✅ NEW: Class availability info
+        public bool HasAvailableClasses { get; set; }
+        public int AvailableClassCount { get; set; }
+        public List<AvailableClassInfoDto> AvailableClasses { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Available class information for a subject
+    /// </summary>
+    public class AvailableClassInfoDto
+    {
+        public Guid ClassId { get; set; }
+        public string ClassCode { get; set; }
+        public string TeacherName { get; set; }
+        public int CurrentEnrollment { get; set; }
+        public int MaxStudents { get; set; }
+        public int AvailableSlots { get; set; }
+        public bool IsFull { get; set; }
+        public string Schedule { get; set; } = string.Empty;
     }
 
     /// <summary>

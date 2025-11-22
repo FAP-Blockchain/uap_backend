@@ -27,6 +27,8 @@ namespace Fap.Infrastructure.Repositories
         public ISlotRepository Slots { get; }
         public IStudentRoadmapRepository StudentRoadmaps { get; }
         public IWalletRepository Wallets { get; }
+        public ICurriculumRepository Curriculums { get; }
+        public ICurriculumSubjectRepository CurriculumSubjects { get; }
         public ICredentialRepository Credentials { get; }
         public ICredentialRequestRepository CredentialRequests { get; }
         public ICertificateTemplateRepository CertificateTemplates { get; }
@@ -55,6 +57,8 @@ namespace Fap.Infrastructure.Repositories
             Slots = new SlotRepository(context);
             StudentRoadmaps = new StudentRoadmapRepository(context);
             Wallets = new WalletRepository(context);
+            Curriculums = new CurriculumRepository(context);
+            CurriculumSubjects = new CurriculumSubjectRepository(context);
             Credentials = new CredentialRepository(context);
             CredentialRequests = new CredentialRequestRepository(context);
             CertificateTemplates = new CertificateTemplateRepository(context);

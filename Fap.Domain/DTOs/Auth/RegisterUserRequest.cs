@@ -27,6 +27,8 @@ namespace Fap.Domain.DTOs.Auth
 
         public DateTime? EnrollmentDate { get; set; }
 
+        public int? CurriculumId { get; set; }  // ✅ Required for Student - links to curriculum
+
         // ===== TEACHER FIELDS (Optional - chỉ bắt buộc khi RoleName = "Teacher") =====
         [MaxLength(30)]
         public string? TeacherCode { get; set; }  // ✅ Nullable

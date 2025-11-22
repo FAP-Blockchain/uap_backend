@@ -75,6 +75,17 @@ namespace Fap.Infrastructure.Repositories
                 .ToListAsync();
         }
 
+        public async Task<List<StudentRoadmap>> GetOpenSubjectsAsync(Guid studentId)
+        {
+            return await _context.StudentRoadmaps
+                .Include(sr => sr.Subject)
+                .Include(sr => sr.Semester)
+                .Where(sr => sr.StudentId == studentId && sr.Status == "Open")
+                .OrderBy(sr => sr.SequenceOrder)
+                .ThenBy(sr => sr.Semester.StartDate)
+                .ToListAsync();
+        }
+
         public async Task<List<StudentRoadmap>> GetCompletedSubjectsAsync(Guid studentId)
         {
             return await _context.StudentRoadmaps

@@ -25,6 +25,8 @@ namespace Fap.Domain.Repositories
         ISlotRepository Slots { get; }
         IWalletRepository Wallets { get; }
         IStudentRoadmapRepository StudentRoadmaps { get; }
+        ICurriculumRepository Curriculums { get; }
+        ICurriculumSubjectRepository CurriculumSubjects { get; }
         
         // ✅ NEW: Credential repositories
         ICredentialRepository Credentials { get; }

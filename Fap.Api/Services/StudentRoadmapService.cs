@@ -5,6 +5,7 @@ using Fap.Domain.DTOs.StudentRoadmap;
 using Fap.Domain.Entities;
 using Fap.Domain.Helpers;
 using Fap.Domain.Repositories;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace Fap.Api.Services
@@ -113,27 +114,128 @@ namespace Fap.Api.Services
         {
             try
             {
-                // Get planned subjects for current or next semester
-                var plannedSubjects = await _uow.StudentRoadmaps.GetPlannedSubjectsAsync(studentId);
-
                 var recommendations = new List<RecommendedSubjectDto>();
-                var now = DateTime.UtcNow;
 
-                foreach (var roadmap in plannedSubjects.Take(5)) // Top 5 recommendations
+                // Load student with curriculum context to evaluate prerequisites
+                var student = await _uow.Students.GetWithCurriculumAsync(studentId);
+                if (student == null)
                 {
+                    _logger.LogWarning("Student {StudentId} not found when building recommendations", studentId);
+                    return recommendations;
+                }
+
+                if (student.Curriculum == null || student.Curriculum.CurriculumSubjects == null ||
+                    !student.Curriculum.CurriculumSubjects.Any())
+                {
+                    _logger.LogWarning("Student {StudentId} missing curriculum data for recommendations", studentId);
+                    return recommendations;
+                }
+
+                var snapshot = CurriculumProgressHelper.BuildSnapshot(student);
+                if (!snapshot.Subjects.Any())
+                {
+                    return recommendations;
+                }
+
+                var roadmapEntries = await _uow.StudentRoadmaps.GetStudentRoadmapAsync(studentId);
+                var roadmapLookup = roadmapEntries.ToDictionary(r => r.SubjectId, r => r);
+
+                var now = DateTime.UtcNow;
+                var currentSemester = await _uow.Semesters.GetQueryable()
+                    .Where(s => s.StartDate <= now && s.EndDate >= now)
+                    .FirstOrDefaultAsync();
+
+                var openSubjects = snapshot.Subjects.Values
+                    .Where(s => s.Status == "Open")
+                    .OrderBy(s => s.CurriculumSubject.SemesterNumber)
+                    .ThenBy(s => s.CurriculumSubject.Subject.SubjectCode)
+                    .Take(10)
+                    .ToList();
+
+                foreach (var subjectProgress in openSubjects)
+                {
+                    roadmapLookup.TryGetValue(subjectProgress.SubjectId, out var roadmap);
+                    var subject = subjectProgress.CurriculumSubject.Subject;
+
+                    // Preferred semester for class search: roadmap semester -> current semester -> null (all)
+                    Guid? preferredSemesterId = roadmap?.SemesterId ?? currentSemester?.Id;
+
+                    var classQuery = _uow.Classes.GetQueryable()
+                        .Where(c => c.SubjectOffering.SubjectId == subjectProgress.SubjectId &&
+                                    c.IsActive)
+                        .Include(c => c.Teacher)
+                            .ThenInclude(t => t.User)
+                        .Include(c => c.Enrolls)
+                        .Include(c => c.Slots)
+                            .ThenInclude(s => s.TimeSlot);
+
+                    List<Class> availableClasses;
+                    if (preferredSemesterId.HasValue)
+                    {
+                        availableClasses = await classQuery
+                            .Where(c => c.SubjectOffering.SemesterId == preferredSemesterId.Value)
+                            .ToListAsync();
+
+                        if (!availableClasses.Any())
+                        {
+                            availableClasses = await classQuery.ToListAsync();
+                        }
+                    }
+                    else
+                    {
+                        availableClasses = await classQuery.ToListAsync();
+                    }
+
+                    var availableClassDtos = availableClasses.Select(c =>
+                    {
+                        var approvedCount = c.Enrolls?.Count(e => e.IsApproved) ?? 0;
+                        return new AvailableClassInfoDto
+                        {
+                            ClassId = c.Id,
+                            ClassCode = c.ClassCode,
+                            TeacherName = c.Teacher?.User?.FullName ?? "TBA",
+                            CurrentEnrollment = approvedCount,
+                            MaxStudents = c.MaxEnrollment,
+                            AvailableSlots = c.MaxEnrollment - approvedCount,
+                            IsFull = approvedCount >= c.MaxEnrollment,
+                            Schedule = GetClassSchedule(c.Slots)
+                        };
+                    }).ToList();
+
+                    var reasonSegments = new List<string>();
+                    if (roadmap != null)
+                    {
+                        reasonSegments.Add("Listed in roadmap");
+                        if (!string.IsNullOrWhiteSpace(roadmap.Semester?.Name))
+                        {
+                            reasonSegments.Add($"Target semester {roadmap.Semester.Name}");
+                        }
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(subjectProgress.PrerequisiteSubjectCode))
+                    {
+                        reasonSegments.Add($"Prerequisite {subjectProgress.PrerequisiteSubjectCode} completed");
+                    }
+                    else
+                    {
+                        reasonSegments.Add("No prerequisites required");
+                    }
+
                     var recommendation = new RecommendedSubjectDto
                     {
-                        SubjectId = roadmap.SubjectId,
-                        SubjectCode = roadmap.Subject.SubjectCode,
-                        SubjectName = roadmap.Subject.SubjectName,
-                        Credits = roadmap.Subject.Credits,
-                        SemesterId = roadmap.SemesterId,
-                        SemesterName = roadmap.Semester.Name,
-                        SequenceOrder = roadmap.SequenceOrder,
-                        AllPrerequisitesMet = true, // TODO: Implement prerequisite check
-                        RecommendationReason = roadmap.Semester.StartDate <= now && roadmap.Semester.EndDate >= now
-    ? "Planned for current semester"
-    : "Next in your roadmap"
+                        SubjectId = subjectProgress.SubjectId,
+                        SubjectCode = subject.SubjectCode,
+                        SubjectName = subject.SubjectName,
+                        Credits = subject.Credits,
+                        SemesterId = roadmap?.SemesterId ?? Guid.Empty,
+                        SemesterName = roadmap?.Semester?.Name ?? $"Semester {subjectProgress.CurriculumSubject.SemesterNumber}",
+                        SequenceOrder = roadmap?.SequenceOrder ?? subjectProgress.CurriculumSubject.SemesterNumber * 10,
+                        RecommendationReason = string.Join(" • ", reasonSegments),
+                        Prerequisites = BuildPrerequisiteList(subject, subjectProgress),
+                        AllPrerequisitesMet = subjectProgress.PrerequisitesMet,
+                        HasAvailableClasses = availableClassDtos.Any(c => !c.IsFull),
+                        AvailableClassCount = availableClassDtos.Count(c => !c.IsFull),
+                        AvailableClasses = availableClassDtos
                     };
 
                     recommendations.Add(recommendation);
@@ -146,6 +248,45 @@ namespace Fap.Api.Services
                 _logger.LogError(ex, "Error getting recommended subjects for student {StudentId}", studentId);
                 throw;
             }
+        }
+
+        private static List<string> BuildPrerequisiteList(Subject subject, SubjectProgressInfo progress)
+        {
+            var prereqs = new List<string>();
+
+            if (!string.IsNullOrWhiteSpace(progress.PrerequisiteSubjectCode))
+            {
+                prereqs.Add(progress.PrerequisiteSubjectCode);
+            }
+
+            if (!string.IsNullOrWhiteSpace(subject.Prerequisites))
+            {
+                var codes = subject.Prerequisites
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Where(code => !string.IsNullOrWhiteSpace(code));
+
+                prereqs.AddRange(codes);
+            }
+
+            return prereqs.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        }
+
+        /// <summary>
+        /// Helper method to format class schedule from slots
+        /// </summary>
+        private string GetClassSchedule(ICollection<Slot>? slots)
+        {
+            if (slots == null || !slots.Any())
+                return "Schedule TBA";
+
+            var scheduleItems = slots
+                .Where(s => s.TimeSlot != null)
+                .OrderBy(s => s.Date)
+                .GroupBy(s => s.Date.DayOfWeek)
+                .Select(g => $"{g.Key} {g.First().TimeSlot!.StartTime:hh\\:mm}-{g.First().TimeSlot!.EndTime:hh\\:mm}")
+                .ToList();
+
+            return scheduleItems.Any() ? string.Join(", ", scheduleItems) : "Schedule TBA";
         }
 
         public async Task<PagedResult<StudentRoadmapDto>> GetPagedRoadmapAsync(
