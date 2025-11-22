@@ -376,6 +376,13 @@ overallGPA >= 8.0m ? "Second Class Honours (Upper)" :
                 var credentialNumber = await GenerateCredentialNumberAsync(request.CertificateType);
                 var verificationHash = GenerateVerificationHash(credentialNumber, request.StudentId);
 
+                // Generate IPFS hash placeholder (will be updated when actually uploaded to IPFS)
+                var ipfsHash = $"Qm{Guid.NewGuid():N}{Guid.NewGuid():N}".Substring(0, 46);
+                
+                // Generate shareable URL
+                var frontendBaseUrl = _frontendSettings.BaseUrl;
+                var shareableUrl = $"{frontendBaseUrl}/certificates/verify/{credentialNumber}";
+
                 var credential = new Credential
                 {
                     Id = Guid.NewGuid(),
@@ -387,16 +394,46 @@ overallGPA >= 8.0m ? "Second Class Honours (Upper)" :
                     SemesterId = request.SemesterId,
                     StudentRoadmapId = request.RoadmapId,
                     IssuedDate = DateTime.UtcNow,
-                    CompletionDate = request.CompletionDate,
+                    CompletionDate = request.CompletionDate ?? DateTime.UtcNow,
                     FinalGrade = request.FinalGrade,
                     LetterGrade = request.LetterGrade,
                     Classification = request.Classification,
                     VerificationHash = verificationHash,
+                    ShareableUrl = shareableUrl,
                     Status = "Issued",
                     ReviewedBy = createdBy,
                     ReviewedAt = DateTime.UtcNow,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = DateTime.UtcNow,
+                    
+                    // IPFS and File Storage (Required fields)
+                    IPFSHash = ipfsHash,
+                    FileUrl = $"https://ipfs.io/ipfs/{ipfsHash}",
+                    PdfUrl = $"{_frontendSettings.BaseUrl}/api/credentials/{credentialNumber}/download",
+                    
+                    // QR Code - will be generated lazily on first view
+                    QRCodeData = null,
+                    
+                    // Blockchain - initially not on blockchain (will be issued after creation)
+                    IsOnBlockchain = false,
+                    BlockchainCredentialId = null,
+                    BlockchainTransactionHash = null,
+                    BlockchainStoredAt = null,
+                    
+                    // Metrics
+                    ViewCount = 0,
+                    LastViewedAt = null,
+                    
+                    // Revocation
+                    IsRevoked = false,
+                    RevokedAt = null,
+                    RevocationReason = null
                 };
+
+                // DEBUG: Log SubjectId value before saving
+                _logger.LogWarning("DEBUG - SubjectId value: {SubjectId}, HasValue: {HasValue}, IsEmpty: {IsEmpty}", 
+                    credential.SubjectId, 
+                    credential.SubjectId.HasValue,
+                    credential.SubjectId == Guid.Empty);
 
                 await _uow.Credentials.AddAsync(credential);
                 await _uow.SaveChangesAsync();

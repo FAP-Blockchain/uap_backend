@@ -37,7 +37,7 @@ namespace Fap.Api.Services
             }
 
             // Get class with members
-            var classEntity = await _unitOfWork.Classes.GetByIdAsync(slot.ClassId);
+            var classEntity = await _unitOfWork.Classes.GetByIdWithDetailsAsync(slot.ClassId);
             if (classEntity == null)
             {
                 throw new InvalidOperationException("Class not found");
@@ -118,7 +118,7 @@ namespace Fap.Api.Services
             var attendanceList = attendances.ToList();
 
             // Get all students in class
-            var classEntity = await _unitOfWork.Classes.GetByIdAsync(slot.ClassId);
+            var classEntity = await _unitOfWork.Classes.GetByIdWithDetailsAsync(slot.ClassId);
             if (classEntity == null) return null;
 
             var studentRecords = new List<StudentAttendanceRecord>();
@@ -188,7 +188,7 @@ namespace Fap.Api.Services
                 throw new InvalidOperationException("Slot not found");
             }
 
-            var classEntity = await _unitOfWork.Classes.GetByIdAsync(slot.ClassId);
+            var classEntity = await _unitOfWork.Classes.GetByIdWithDetailsAsync(slot.ClassId);
             if (classEntity == null)
             {
                 throw new InvalidOperationException("Class not found");
@@ -221,7 +221,7 @@ namespace Fap.Api.Services
                 throw new InvalidOperationException("Slot not found");
             }
 
-            var classEntity = await _unitOfWork.Classes.GetByIdAsync(slot.ClassId);
+            var classEntity = await _unitOfWork.Classes.GetByIdWithDetailsAsync(slot.ClassId);
             if (classEntity == null)
             {
                 throw new InvalidOperationException("Class not found");
