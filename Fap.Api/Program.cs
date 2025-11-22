@@ -142,12 +142,11 @@ builder.Services.AddCors(options =>
     options.AddPolicy("Production", policy =>
     {
         policy.WithOrigins(
-       "http://localhost:3000",
-     "http://localhost:4200",
-     "http://localhost:5173",
-   "http://localhost:8080",
-          "https://yourdomain.com",
-   "https://www.yourdomain.com"
+        "http://localhost:3000",
+        "http://localhost:4200",
+        "http://localhost:5173",
+        "http://localhost:8080",
+        "https://fapfrontend-five.vercel.app"
    )
         .AllowAnyMethod()
     .AllowAnyHeader()
