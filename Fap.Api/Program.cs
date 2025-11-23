@@ -146,7 +146,7 @@ builder.Services.AddCors(options =>
         "http://localhost:4200",
         "http://localhost:5173",
         "http://localhost:8080",
-        "https://fapfrontend-five.vercel.app"
+        "https://uapblockchain.vercel.app"
    )
         .AllowAnyMethod()
     .AllowAnyHeader()
