@@ -17,13 +17,11 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ==================================================
-// CONTROLLERS & SWAGGER
-// ==================================================
+// Controllers and Swagger
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
-// Swagger cấu hình JWT
+// Swagger configuration with JWT support
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo
@@ -61,14 +59,10 @@ builder.Services.AddSwaggerGen(c =>
     c.OperationFilter<SwaggerAuthorizeOperationFilter>();
 });
 
-// ==================================================
-// CLOUDINARY SETTINGS
-// ==================================================
+// Cloudinary settings
 builder.Services.Configure<CloudinarySettings>(builder.Configuration.GetSection("CloudinarySettings"));
 
-// ==================================================
-// DATABASE & REPOSITORIES
-// ==================================================
+// Database and repositories
 builder.Services.AddDbContext<FapDbContext>(opt =>
     opt.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
@@ -90,12 +84,10 @@ builder.Services.AddScoped<IEnrollRepository, EnrollRepository>();
 builder.Services.AddScoped<IGradeRepository, GradeRepository>();
 builder.Services.AddScoped<IGradeComponentRepository, GradeComponentRepository>();
 builder.Services.AddScoped<IAttendanceRepository, AttendanceRepository>();
-builder.Services.AddScoped<IWalletRepository, WalletRepository>();  // ✅ NEW - Wallet Repository
+builder.Services.AddScoped<IWalletRepository, WalletRepository>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
-// ==================================================
-// SETTINGS & SERVICES
-// ==================================================
+// Application settings and services
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.Configure<OtpSettings>(builder.Configuration.GetSection("OtpSettings"));
 builder.Services.Configure<BlockchainSettings>(builder.Configuration.GetSection("BlockchainSettings"));
@@ -113,10 +105,10 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IOtpService, OtpService>();
 builder.Services.AddScoped<IClassService, ClassService>();
 builder.Services.AddScoped<ITimeSlotService, TimeSlotService>();
-builder.Services.AddScoped<IBlockchainService, BlockchainService>(); // ✅ Blockchain Service
-builder.Services.AddScoped<IEncryptionService, EncryptionService>();  // ✅ NEW - Encryption Service
-builder.Services.AddScoped<IWalletService, WalletService>();  // ✅ NEW - Wallet Service
-builder.Services.AddHttpClient<IIpfsService, IpfsService>(); // ✅ NEW - IPFS Service
+builder.Services.AddScoped<IBlockchainService, BlockchainService>();
+builder.Services.AddScoped<IEncryptionService, EncryptionService>();
+builder.Services.AddScoped<IWalletService, WalletService>();
+builder.Services.AddHttpClient<IIpfsService, IpfsService>();
 builder.Services.AddScoped<ISubjectService, SubjectService>();
 builder.Services.AddScoped<ISemesterService, SemesterService>();
 builder.Services.AddScoped<IEnrollmentService, EnrollmentService>();
@@ -126,47 +118,43 @@ builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 builder.Services.AddScoped<ISlotService, SlotService>();
 builder.Services.AddScoped<IScheduleService, ScheduleService>();
 builder.Services.AddScoped<IStudentRoadmapService, StudentRoadmapService>();
-builder.Services.AddScoped<ICredentialService, CredentialService>(); // ✅ NEW - Credential/Certificate Service
-builder.Services.AddScoped<IPdfService, PdfService>(); // ✅ NEW - PDF Generation Service
-builder.Services.AddScoped<ICloudStorageService, CloudinaryStorageService>(); // ✅ NEW - Cloudinary Storage Service
-builder.Services.AddScoped<ISubjectOfferingService, SubjectOfferingService>(); // ✅ NEW - SubjectOffering Service
+builder.Services.AddScoped<ICredentialService, CredentialService>();
+builder.Services.AddScoped<IPdfService, PdfService>();
+builder.Services.AddScoped<ICloudStorageService, CloudinaryStorageService>();
+builder.Services.AddScoped<ISubjectOfferingService, SubjectOfferingService>();
 
-// Register AutoMapper - scan all Profile classes in the assembly
+// AutoMapper profiles
 builder.Services.AddAutoMapper(cfg => { }, typeof(Program).Assembly);
 
 
-// ==================================================
-// CORS CONFIGURATION
-// ==================================================
+// CORS policies
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyOrigin()
-      .AllowAnyMethod()
-              .AllowAnyHeader();
+        policy
+            .AllowAnyOrigin()
+            .AllowAnyMethod()
+            .AllowAnyHeader();
     });
 
-    // PRODUCTION: Chỉ cho phép domain cụ thể
     options.AddPolicy("Production", policy =>
     {
-        policy.WithOrigins(
-        "http://localhost:3000",
-        "http://localhost:4200",
-        "http://localhost:5173",
-        "http://localhost:8080",
-        "https://uapblockchain.vercel.app",
-        "http://localhost:8081"
-   )
-        .AllowAnyMethod()
-    .AllowAnyHeader()
- .AllowCredentials();
+        policy
+            .WithOrigins(
+                "http://localhost:3000",
+                "http://localhost:4200",
+                "http://localhost:5173",
+                "http://localhost:8080",
+                "http://localhost:8081",
+                "https://uapblockchain.vercel.app")
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .AllowCredentials();
     });
 });
 
-// ==================================================
-// JWT AUTHENTICATION
-// ==================================================
+// JWT authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -179,15 +167,13 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidIssuer = builder.Configuration["Jwt:Issuer"],
             ValidAudience = builder.Configuration["Jwt:Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(
-      Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key configuration is missing")))
+                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key configuration is missing")))
         };
     });
 
 builder.Services.AddAuthorization();
 
-// ==================================================
-// BUILD APP
-// ==================================================
+// Build application
 var app = builder.Build();
 
 // Apply migrations & seed data safely
@@ -198,48 +184,46 @@ using (var scope = app.Services.CreateScope())
 
     try
     {
-        Console.WriteLine("==============================================");
-        Console.WriteLine("🔄 Database initialization started...");
-        Console.WriteLine("==============================================");
+    Console.WriteLine("==============================================");
+    Console.WriteLine("Database initialization started...");
+    Console.WriteLine("==============================================");
 
-        // Check if --force-seed argument is provided OR AutoResetOnStartup is enabled
-        bool forceSeed = args.Contains("--force-seed") || dbSettings.AutoResetOnStartup;
+    // Check if --force-seed argument is provided or AutoResetOnStartup is enabled
+    bool forceSeed = args.Contains("--force-seed") || dbSettings.AutoResetOnStartup;
 
         if (forceSeed)
         {
-            Console.WriteLine("⚠️  Database reset triggered (--force-seed or AutoResetOnStartup)");
-            Console.WriteLine("🗑️  Dropping database...");
+            Console.WriteLine("Database reset triggered (--force-seed or AutoResetOnStartup)");
+            Console.WriteLine("Dropping database...");
             await db.Database.EnsureDeletedAsync();
-            Console.WriteLine("✅ Database dropped successfully");
+            Console.WriteLine("Database dropped successfully");
         }
 
-        Console.WriteLine("🔄 Applying migrations...");
+        Console.WriteLine("Applying migrations...");
         await db.Database.MigrateAsync();
-        Console.WriteLine("✅ Migrations applied successfully");
+        Console.WriteLine("Migrations applied successfully");
 
         Console.WriteLine("");
         await DataSeeder.SeedAsync(db);
         Console.WriteLine("");
 
         Console.WriteLine("==============================================");
-        Console.WriteLine("✅ Database initialization completed!");
+        Console.WriteLine("Database initialization completed!");
         Console.WriteLine("==============================================");
     }
     catch (Exception ex)
     {
         Console.WriteLine("==============================================");
-        Console.WriteLine($"❌ Database initialization failed: {ex.Message}");
+        Console.WriteLine($"Database initialization failed: {ex.Message}");
         Console.WriteLine($"Stack trace: {ex.StackTrace}");
         Console.WriteLine("==============================================");
-        Console.WriteLine("⚠️  Continuing app startup without seeding...");
+        Console.WriteLine("Continuing app startup without seeding...");
     }
 }
 
-// ==================================================
-// MIDDLEWARE PIPELINE
-// ==================================================
+// Middleware pipeline
 
-// ✅ BẬT SWAGGER CHO CẢ PRODUCTION (Azure)
+// Swagger UI exposed in all environments
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
@@ -247,9 +231,7 @@ app.UseSwaggerUI(c =>
     c.RoutePrefix = "swagger"; // URL: /swagger
 });
 
-// ==================================================
-// USE CORS (MUST BE BEFORE Authentication & Authorization)
-// ==================================================
+// Apply CORS before authentication
 if (app.Environment.IsDevelopment())
 {
     app.UseCors("AllowAll");

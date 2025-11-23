@@ -14,7 +14,7 @@ namespace Fap.Infrastructure.Data.Seed
         {
             if (await _context.Grades.AnyAsync())
             {
-                Console.WriteLine("⏭️  Grades already exist. Skipping...");
+                Console.WriteLine("Grades already exist. Skipping seeding...");
                 return;
             }
 
@@ -66,7 +66,7 @@ namespace Fap.Infrastructure.Data.Seed
             await _context.Grades.AddRangeAsync(grades);
             await SaveAsync("Grades");
 
-            Console.WriteLine($"   ✅ Created {grades.Count} grade records:");
+            Console.WriteLine($"   Created {grades.Count} grade records:");
             Console.WriteLine($"      • A/A+ grades: {grades.Count(g => g.LetterGrade == "A" || g.LetterGrade == "A+")}");
             Console.WriteLine($"      • B grades: {grades.Count(g => g.LetterGrade?.StartsWith("B") == true)}");
             Console.WriteLine($"      • C grades: {grades.Count(g => g.LetterGrade?.StartsWith("C") == true)}");

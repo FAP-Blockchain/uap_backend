@@ -15,7 +15,7 @@ namespace Fap.Infrastructure.Data.Seed
         {
             if (await _context.RefreshTokens.AnyAsync())
             {
-                Console.WriteLine("⏭️  Refresh Tokens already exist. Skipping...");
+                Console.WriteLine("Refresh tokens already exist. Skipping seeding...");
                 return;
             }
 
@@ -26,7 +26,7 @@ namespace Fap.Infrastructure.Data.Seed
 
             if (!users.Any())
             {
-                Console.WriteLine("⚠️  No users found. Skipping refresh tokens...");
+                Console.WriteLine("No users found. Skipping refresh tokens seeding...");
                 return;
             }
 
@@ -99,7 +99,7 @@ namespace Fap.Infrastructure.Data.Seed
             await _context.RefreshTokens.AddRangeAsync(tokens);
             await SaveAsync("Refresh Tokens");
 
-            Console.WriteLine($"   ✅ Created {tokens.Count} refresh tokens:");
+            Console.WriteLine($"   Created {tokens.Count} refresh tokens:");
             Console.WriteLine($"      • Active tokens: {tokens.Count(t => !t.IsExpired)}");
             Console.WriteLine($"      • Expired tokens: {tokens.Count(t => t.IsExpired)}");
             Console.WriteLine($"      • Users with multiple devices: {usersWithMultipleDevices.Count}");

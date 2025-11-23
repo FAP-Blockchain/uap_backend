@@ -14,7 +14,7 @@ namespace Fap.Infrastructure.Data.Seed
         {
             if (await _context.SubjectCriteria.AnyAsync())
             {
-                Console.WriteLine("⏭️  Subject Criteria already exist. Skipping...");
+                Console.WriteLine("Subject criteria already exist. Skipping seeding...");
                 return;
             }
 
@@ -25,7 +25,7 @@ namespace Fap.Infrastructure.Data.Seed
 
             if (!subjects.Any())
             {
-                Console.WriteLine("⚠️  No subjects found. Skipping subject criteria...");
+                Console.WriteLine("No subjects found. Skipping subject criteria seeding...");
                 return;
             }
 
@@ -215,7 +215,7 @@ namespace Fap.Infrastructure.Data.Seed
             await _context.SubjectCriteria.AddRangeAsync(criteria);
             await SaveAsync("Subject Criteria");
 
-            Console.WriteLine($"   ✅ Created {criteria.Count} subject criteria:");
+            Console.WriteLine($"   Created {criteria.Count} subject criteria:");
             Console.WriteLine($"      • Mandatory criteria: {criteria.Count(c => c.IsMandatory)}");
             Console.WriteLine($"      • Recommended criteria: {criteria.Count(c => !c.IsMandatory)}");
             Console.WriteLine($"      • Average per subject: {(criteria.Count / subjects.Count):F1}");

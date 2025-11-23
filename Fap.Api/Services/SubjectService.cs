@@ -24,17 +24,16 @@ namespace Fap.Api.Services
         {
             var query = await _uow.Subjects.GetAllWithDetailsAsync();
 
-            // Apply search filter
+                        // Apply search filter
             if (!string.IsNullOrWhiteSpace(request.SearchTerm))
             {
                 var searchLower = request.SearchTerm.ToLower();
                 query = query.Where(s =>
-        s.SubjectCode.ToLower().Contains(searchLower) ||
-                     s.SubjectName.ToLower().Contains(searchLower)
-                  );
+                                        s.SubjectCode.ToLower().Contains(searchLower) ||
+                                        s.SubjectName.ToLower().Contains(searchLower)
+                                );
             }
 
-            // ✅ FIXED: Filter by semester through SubjectOfferings
             if (request.SemesterId.HasValue)
             {
                 query = query.Where(s => s.Offerings.Any(o => o.SemesterId == request.SemesterId.Value));
@@ -44,35 +43,35 @@ namespace Fap.Api.Services
             query = request.SortBy.ToLower() switch
             {
                 "subjectname" => request.IsDescending
-                ? query.OrderByDescending(s => s.SubjectName)
-                  : query.OrderBy(s => s.SubjectName),
+                                        ? query.OrderByDescending(s => s.SubjectName)
+                                        : query.OrderBy(s => s.SubjectName),
                 "credits" => request.IsDescending
-              ? query.OrderByDescending(s => s.Credits)
-         : query.OrderBy(s => s.Credits),
+                                        ? query.OrderByDescending(s => s.Credits)
+                                        : query.OrderBy(s => s.Credits),
                 _ => request.IsDescending
-                ? query.OrderByDescending(s => s.SubjectCode)
-                     : query.OrderBy(s => s.SubjectCode)
+                                        ? query.OrderByDescending(s => s.SubjectCode)
+                                        : query.OrderBy(s => s.SubjectCode)
             };
 
             var totalCount = query.Count();
 
             // Pagination
             var subjects = query
-               .Skip((request.PageNumber - 1) * request.PageSize)
-              .Take(request.PageSize)
-         .Select(s => new SubjectDto
-         {
-             Id = s.Id,
-             SubjectCode = s.SubjectCode,
-             SubjectName = s.SubjectName,
-             Credits = s.Credits,
-             Description = s.Description,
-             Category = s.Category,
-             Department = s.Department,
-             Prerequisites = s.Prerequisites,
-             TotalOfferings = s.Offerings.Count
-         })
-            .ToList();
+                .Skip((request.PageNumber - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .Select(s => new SubjectDto
+                {
+                    Id = s.Id,
+                    SubjectCode = s.SubjectCode,
+                    SubjectName = s.SubjectName,
+                    Credits = s.Credits,
+                    Description = s.Description,
+                    Category = s.Category,
+                    Department = s.Department,
+                    Prerequisites = s.Prerequisites,
+                    TotalOfferings = s.Offerings.Count
+                })
+                .ToList();
 
             return (subjects, totalCount);
         }
@@ -127,7 +126,6 @@ namespace Fap.Api.Services
                     return (false, $"Subject with code '{request.SubjectCode}' already exists", null);
                 }
 
-                // ✅ Create Subject as master data (independent of semesters)
                 var subject = new Subject
                 {
                     Id = Guid.NewGuid(),
@@ -144,7 +142,6 @@ namespace Fap.Api.Services
                 await _uow.Subjects.AddAsync(subject);
                 await _uow.SaveChangesAsync();
 
-                // ✅✅ AUTO-CREATE SubjectOfferings for ALL active semesters (not closed)
                 var activeSemesters = await _uow.Semesters.FindAsync(s => s.IsActive && !s.IsClosed);
                 var subjectOfferingsCreated = 0;
 
@@ -155,10 +152,10 @@ namespace Fap.Api.Services
                         Id = Guid.NewGuid(),
                         SubjectId = subject.Id,
                         SemesterId = semester.Id,
-                        MaxClasses = 10, // Default value
-                        SemesterCapacity = 400, // Default value
-                        RegistrationStartDate = semester.StartDate.AddDays(-14), // 2 weeks before semester
-                        RegistrationEndDate = semester.StartDate.AddDays(7), // 1 week after semester start
+                        MaxClasses = 10,
+                        SemesterCapacity = 400,
+                        RegistrationStartDate = semester.StartDate.AddDays(-14),
+                        RegistrationEndDate = semester.StartDate.AddDays(7),
                         IsActive = true,
                         Notes = $"Auto-created for new subject {subject.SubjectCode}"
                     };
@@ -169,7 +166,7 @@ namespace Fap.Api.Services
 
                 await _uow.SaveChangesAsync();
 
-                _logger.LogInformation("✅ Subject created: {SubjectCode}. Auto-created {Count} SubjectOfferings for active semesters.", 
+                _logger.LogInformation("Subject created: {SubjectCode}. Auto-created {Count} subject offerings for active semesters.",
                     subject.SubjectCode, subjectOfferingsCreated);
                 
                 return (true, $"Subject created successfully with {subjectOfferingsCreated} subject offerings for active semesters.", subject.Id);
@@ -201,7 +198,6 @@ namespace Fap.Api.Services
                     }
                 }
 
-                // ✅ FIXED: Update subject master data only (no SemesterId)
                 subject.SubjectCode = request.SubjectCode;
                 subject.SubjectName = request.SubjectName;
                 subject.Credits = request.Credits;
@@ -213,12 +209,12 @@ namespace Fap.Api.Services
                 _uow.Subjects.Update(subject);
                 await _uow.SaveChangesAsync();
 
-                _logger.LogInformation($"✅ Subject updated: {subject.SubjectCode}");
+                _logger.LogInformation($"Subject updated: {subject.SubjectCode}");
                 return (true, "Subject updated successfully");
             }
             catch (Exception ex)
             {
-                _logger.LogError($"❌ Error updating subject: {ex.Message}");
+                _logger.LogError($"Error updating subject: {ex.Message}");
                 return (false, "An error occurred while updating the subject");
             }
         }
@@ -233,7 +229,6 @@ namespace Fap.Api.Services
                     return (false, "Subject not found");
                 }
 
-                // ✅ FIXED: Check if subject has any offerings with classes
                 if (subject.Offerings != null && subject.Offerings.Any(o => o.Classes != null && o.Classes.Any()))
                 {
                     return (false, "Cannot delete subject that has existing classes in any semester");
@@ -248,12 +243,12 @@ namespace Fap.Api.Services
                 _uow.Subjects.Remove(subject);
                 await _uow.SaveChangesAsync();
 
-                _logger.LogInformation($"✅ Subject deleted: {subject.SubjectCode}");
+                _logger.LogInformation($"Subject deleted: {subject.SubjectCode}");
                 return (true, "Subject deleted successfully");
             }
             catch (Exception ex)
             {
-                _logger.LogError($"❌ Error deleting subject: {ex.Message}");
+                _logger.LogError($"Error deleting subject: {ex.Message}");
                 return (false, "An error occurred while deleting the subject");
             }
         }

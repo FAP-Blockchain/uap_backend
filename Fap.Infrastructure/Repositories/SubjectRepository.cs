@@ -14,7 +14,7 @@ namespace Fap.Infrastructure.Repositories
         public async Task<Subject?> GetBySubjectCodeAsync(string subjectCode)
         {
             return await _dbSet
-                .Include(s => s.Offerings)  // ✅ CHANGED: Include offerings instead of semester
+                .Include(s => s.Offerings)
                 .ThenInclude(o => o.Semester)
                 .Include(s => s.SubjectCriterias)
                 .FirstOrDefaultAsync(s => s.SubjectCode == subjectCode);
@@ -23,10 +23,10 @@ namespace Fap.Infrastructure.Repositories
         public async Task<Subject?> GetByIdWithDetailsAsync(Guid id)
         {
             return await _dbSet
-                .Include(s => s.Offerings)  // ✅ CHANGED: Include offerings
+                .Include(s => s.Offerings)
                 .ThenInclude(o => o.Semester)
                 .Include(s => s.Offerings)
-                    .ThenInclude(o => o.Classes)  // ✅ CHANGED: Classes via offerings
+                    .ThenInclude(o => o.Classes)
                         .ThenInclude(c => c.Teacher)
                             .ThenInclude(t => t.User)
                 .Include(s => s.SubjectCriterias)
@@ -37,7 +37,7 @@ namespace Fap.Infrastructure.Repositories
         public async Task<IEnumerable<Subject>> GetAllWithDetailsAsync()
         {
             return await _dbSet
-                .Include(s => s.Offerings)  // ✅ CHANGED: Include offerings
+                .Include(s => s.Offerings)
                 .ThenInclude(o => o.Semester)
                 .Include(s => s.Offerings)
                     .ThenInclude(o => o.Classes)
@@ -46,7 +46,6 @@ namespace Fap.Infrastructure.Repositories
                 .ToListAsync();
         }
 
-        // ✅ CHANGED: Get subjects offered in a specific semester
         public async Task<IEnumerable<Subject>> GetBySemesterIdAsync(Guid semesterId)
         {
             return await _dbSet

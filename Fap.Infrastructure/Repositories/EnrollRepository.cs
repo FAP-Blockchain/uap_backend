@@ -17,7 +17,7 @@ namespace Fap.Infrastructure.Repositories
                 .Include(e => e.Student)
                     .ThenInclude(s => s.User)
                 .Include(e => e.Class)
-                    .ThenInclude(c => c.SubjectOffering)  // ✅ CHANGED
+                    .ThenInclude(c => c.SubjectOffering)
                         .ThenInclude(so => so.Subject)
                 .Include(e => e.Class)
                     .ThenInclude(c => c.SubjectOffering)
@@ -43,7 +43,7 @@ namespace Fap.Infrastructure.Repositories
                 .Include(e => e.Student)
                     .ThenInclude(s => s.User)
                 .Include(e => e.Class)
-                    .ThenInclude(c => c.SubjectOffering)  // ✅ CHANGED
+                    .ThenInclude(c => c.SubjectOffering)
                         .ThenInclude(so => so.Subject)
                 .Include(e => e.Class)
                     .ThenInclude(c => c.SubjectOffering)
@@ -117,7 +117,7 @@ namespace Fap.Infrastructure.Repositories
         {
             var query = _dbSet
                 .Include(e => e.Class)
-                    .ThenInclude(c => c.SubjectOffering)  // ✅ CHANGED
+                    .ThenInclude(c => c.SubjectOffering)
                         .ThenInclude(so => so.Subject)
                 .Include(e => e.Class)
                     .ThenInclude(c => c.SubjectOffering)
@@ -130,7 +130,7 @@ namespace Fap.Infrastructure.Repositories
 
             // Filters
             if (semesterId.HasValue)
-                query = query.Where(e => e.Class.SubjectOffering.SemesterId == semesterId.Value);  // ✅ CHANGED
+                query = query.Where(e => e.Class.SubjectOffering.SemesterId == semesterId.Value);
 
             if (isApproved.HasValue)
                 query = query.Where(e => e.IsApproved == isApproved.Value);
@@ -149,12 +149,12 @@ namespace Fap.Infrastructure.Repositories
                     : query.OrderBy(e => e.Class.ClassCode),
 
                 "subjectname" => sortOrder?.ToLower() == "desc"
-                    ? query.OrderByDescending(e => e.Class.SubjectOffering.Subject.SubjectName)  // ✅ CHANGED
-                    : query.OrderBy(e => e.Class.SubjectOffering.Subject.SubjectName),  // ✅ CHANGED
+                    ? query.OrderByDescending(e => e.Class.SubjectOffering.Subject.SubjectName)
+                    : query.OrderBy(e => e.Class.SubjectOffering.Subject.SubjectName),
 
                 "semester" => sortOrder?.ToLower() == "desc"
-                    ? query.OrderByDescending(e => e.Class.SubjectOffering.Semester.Name)  // ✅ CHANGED
-                    : query.OrderBy(e => e.Class.SubjectOffering.Semester.Name),  // ✅ CHANGED
+                    ? query.OrderByDescending(e => e.Class.SubjectOffering.Semester.Name)
+                    : query.OrderBy(e => e.Class.SubjectOffering.Semester.Name),
 
                 _ => query.OrderByDescending(e => e.RegisteredAt)
             };
@@ -178,7 +178,7 @@ namespace Fap.Infrastructure.Repositories
         {
             // Get all class IDs for this subject in this semester
             var classIds = await _context.Classes
-                .Where(c => c.SubjectOffering.SubjectId == subjectId &&  // ✅ CHANGED
+                .Where(c => c.SubjectOffering.SubjectId == subjectId &&
                             c.SubjectOffering.SemesterId == semesterId)
                 .Select(c => c.Id)
                 .ToListAsync();
@@ -187,7 +187,6 @@ namespace Fap.Infrastructure.Repositories
                 .AnyAsync(e => e.StudentId == studentId && classIds.Contains(e.ClassId) && e.IsApproved);
         }
 
-        // ✅ NEW: Get enrollments by class ID
         public async Task<List<Enroll>> GetEnrollmentsByClassIdAsync(Guid classId)
         {
             return await _dbSet
@@ -199,7 +198,6 @@ namespace Fap.Infrastructure.Repositories
                 .ToListAsync();
         }
 
-        // ✅ NEW: Get enrollments by student ID
         public async Task<List<Enroll>> GetEnrollmentsByStudentIdAsync(Guid studentId)
         {
             return await _dbSet
@@ -214,7 +212,6 @@ namespace Fap.Infrastructure.Repositories
                 .ToListAsync();
         }
 
-        // ✅ NEW: Get pending enrollments count
         public async Task<int> GetPendingEnrollmentsCountAsync(Guid classId)
         {
             return await _dbSet
@@ -222,7 +219,6 @@ namespace Fap.Infrastructure.Repositories
                 .CountAsync();
         }
 
-        // ✅ NEW: Get approved enrollments count
         public async Task<int> GetApprovedEnrollmentsCountAsync(Guid classId)
         {
             return await _dbSet

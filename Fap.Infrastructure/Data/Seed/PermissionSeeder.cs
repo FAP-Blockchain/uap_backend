@@ -15,7 +15,7 @@ namespace Fap.Infrastructure.Data.Seed
         {
     if (await _context.Permissions.AnyAsync())
        {
-      Console.WriteLine("⏭️  Permissions already exist. Skipping...");
+  Console.WriteLine("Permissions already exist. Skipping seeding...");
            return;
         }
 
@@ -190,7 +190,7 @@ namespace Fap.Infrastructure.Data.Seed
     await _context.Permissions.AddRangeAsync(permissions);
   await SaveAsync("Permissions");
 
-      Console.WriteLine($"   ✅ Created {permissions.Count} permissions:");
+  Console.WriteLine($"   Created {permissions.Count} permissions:");
             Console.WriteLine($"      • Admin permissions: {permissions.Count(p => p.RoleId == RoleSeeder.AdminRoleId)}");
             Console.WriteLine($"      • Teacher permissions: {permissions.Count(p => p.RoleId == RoleSeeder.TeacherRoleId)}");
      Console.WriteLine($"      • Student permissions: {permissions.Count(p => p.RoleId == RoleSeeder.StudentRoleId)}");

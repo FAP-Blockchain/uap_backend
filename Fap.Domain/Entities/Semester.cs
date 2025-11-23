@@ -22,12 +22,12 @@ namespace Fap.Domain.Entities
         
         public bool IsActive { get; set; } = true;
         
-        public bool IsClosed { get; set; } = false;  // Trạng thái đóng học kỳ
+    public bool IsClosed { get; set; } = false;  // Indicates the semester has ended
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
-        // ✅ NEW: SubjectOfferings - subjects offered in this semester
+        // Subjects offered during this semester
         public virtual ICollection<SubjectOffering> SubjectOfferings { get; set; } = new List<SubjectOffering>();
     }
 }

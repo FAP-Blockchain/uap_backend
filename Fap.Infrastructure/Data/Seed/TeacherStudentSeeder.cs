@@ -25,7 +25,7 @@ namespace Fap.Infrastructure.Data.Seed
         {
             if (await _context.Teachers.AnyAsync() || await _context.Students.AnyAsync())
             {
-                Console.WriteLine("⏭️  Teachers/Students already exist. Skipping...");
+                Console.WriteLine("Teachers and students already exist. Skipping seeding...");
                 return;
             }
 

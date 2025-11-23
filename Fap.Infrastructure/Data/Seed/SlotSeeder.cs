@@ -14,7 +14,7 @@ namespace Fap.Infrastructure.Data.Seed
         {
             if (await _context.Slots.AnyAsync())
             {
-                Console.WriteLine("⏭️  Slots already exist. Skipping...");
+                Console.WriteLine("Slots already exist. Skipping seeding...");
                 return;
             }
 
@@ -86,7 +86,7 @@ namespace Fap.Infrastructure.Data.Seed
             await _context.Slots.AddRangeAsync(slots);
             await SaveAsync("Slots");
 
-            Console.WriteLine($"   ✅ Created {slots.Count} slots with various scenarios:");
+            Console.WriteLine($"   Created {slots.Count} slots with various scenarios:");
             Console.WriteLine($" • Completed: {slots.Count(s => s.Status == "Completed")}");
             Console.WriteLine($"      • Scheduled: {slots.Count(s => s.Status == "Scheduled")}");
             Console.WriteLine($"      • Cancelled: {slots.Count(s => s.Status == "Cancelled")}");

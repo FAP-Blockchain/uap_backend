@@ -6,8 +6,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace Fap.Domain.Entities
 {
     /// <summary>
-    /// Master data for subjects (not tied to any specific semester)
-    /// Dữ liệu chính của môn học (không gắn với kỳ cụ thể)
+    /// Master data for subjects (not tied to a specific semester)
     /// </summary>
     [Table("Subjects")]
     public class Subject
@@ -52,7 +51,7 @@ namespace Fap.Domain.Entities
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
-        // ✅ NEW: Navigation to offerings
+    // Navigation to semester offerings
         public virtual ICollection<SubjectOffering> Offerings { get; set; } = new List<SubjectOffering>();
 
         // Existing navigations

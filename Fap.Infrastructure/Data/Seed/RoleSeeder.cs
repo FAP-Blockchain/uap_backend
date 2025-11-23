@@ -16,7 +16,7 @@ namespace Fap.Infrastructure.Data.Seed
         {
             if (await _context.Roles.AnyAsync())
             {
-                Console.WriteLine("⏭️  Roles already exist. Skipping...");
+                Console.WriteLine("Roles already exist. Skipping seeding...");
                 return;
             }
 

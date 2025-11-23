@@ -16,7 +16,7 @@ namespace Fap.Infrastructure.Data.Seed
         {
             if (await _context.Semesters.AnyAsync())
             {
-                Console.WriteLine("⏭️  Semesters already exist. Skipping...");
+                Console.WriteLine("Semesters already exist. Skipping seeding...");
                 return;
             }
 

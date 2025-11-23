@@ -34,7 +34,7 @@ namespace Fap.Infrastructure.Repositories
             return await _dbSet
                 .Include(t => t.User)
                 .Include(t => t.Classes)
-                    .ThenInclude(c => c.SubjectOffering)  // ✅ CHANGED
+                    .ThenInclude(c => c.SubjectOffering)
                         .ThenInclude(so => so.Subject)
                 .Include(t => t.Classes)
                     .ThenInclude(c => c.SubjectOffering)
@@ -77,7 +77,7 @@ namespace Fap.Infrastructure.Repositories
                     (t.User != null && t.User.FullName.Contains(searchTerm)) ||
                     (t.User != null && t.User.Email.Contains(searchTerm)) ||
                     (t.Specialization != null && t.Specialization.Contains(searchTerm)) ||
-                    (t.User != null && t.User.PhoneNumber != null && t.User.PhoneNumber.Contains(searchTerm))  // ✅ FIXED: Use User.PhoneNumber
+                    (t.User != null && t.User.PhoneNumber != null && t.User.PhoneNumber.Contains(searchTerm))
                 );
             }
 

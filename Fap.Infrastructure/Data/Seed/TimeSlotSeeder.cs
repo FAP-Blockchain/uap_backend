@@ -18,7 +18,7 @@ namespace Fap.Infrastructure.Data.Seed
         {
             if (await _context.TimeSlots.AnyAsync())
             {
-                Console.WriteLine("⏭️  TimeSlots already exist. Skipping...");
+                Console.WriteLine("TimeSlots already exist. Skipping seeding...");
                 return;
             }
 

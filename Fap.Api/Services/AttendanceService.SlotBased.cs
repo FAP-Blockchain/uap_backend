@@ -13,7 +13,7 @@ namespace Fap.Api.Services
 {
     public partial class AttendanceService
     {
-        // ==================== SLOT-BASED ATTENDANCE (RESTful) ====================
+    // Slot-based attendance (REST)
 
         public async Task<SlotAttendanceDto> TakeAttendanceForSlotAsync(Guid slotId, TakeSlotAttendanceRequest request)
         {
@@ -58,7 +58,7 @@ namespace Fap.Api.Services
                     Id = Guid.NewGuid(),
                     SlotId = slotId,
                     StudentId = studentDto.StudentId,
-                    SubjectId = classEntity.SubjectOffering.SubjectId, // ✅ FIXED
+                    SubjectId = classEntity.SubjectOffering.SubjectId,
                     IsPresent = studentDto.IsPresent,
                     Notes = studentDto.Notes,
                     IsExcused = false,
@@ -71,8 +71,8 @@ namespace Fap.Api.Services
             await _unitOfWork.SaveChangesAsync();
 
             // Return slot attendance
-            return await GetSlotAttendanceAsync(slotId)
-              ?? throw new InvalidOperationException("Failed to retrieve slot attendance");
+                        return await GetSlotAttendanceAsync(slotId)
+                                ?? throw new InvalidOperationException("Failed to retrieve slot attendance");
         }
 
         public async Task<SlotAttendanceDto> UpdateAttendanceForSlotAsync(Guid slotId, UpdateSlotAttendanceRequest request)
@@ -106,7 +106,7 @@ namespace Fap.Api.Services
             await _unitOfWork.SaveChangesAsync();
 
             return await GetSlotAttendanceAsync(slotId)
-                     ?? throw new InvalidOperationException("Failed to retrieve updated attendance");
+                ?? throw new InvalidOperationException("Failed to retrieve updated attendance");
         }
 
         public async Task<SlotAttendanceDto?> GetSlotAttendanceAsync(Guid slotId)
@@ -152,7 +152,7 @@ namespace Fap.Api.Services
                 SlotId = slotId,
                 ClassId = slot.ClassId,
                 ClassCode = classEntity.ClassCode,
-                SubjectName = classEntity.SubjectOffering?.Subject?.SubjectName ?? "Unknown", // ✅ FIXED
+                SubjectName = classEntity.SubjectOffering?.Subject?.SubjectName ?? "Unknown",
                 Date = slot.Date,
                 TimeSlotName = slot.TimeSlot?.Name ?? "Unknown",
                 TeacherName = classEntity.Teacher?.User?.FullName ?? "Unknown",
@@ -254,7 +254,7 @@ namespace Fap.Api.Services
                (slot.SubstituteTeacherId.HasValue && slot.SubstituteTeacherId.Value == teacherId);
         }
 
-        // ==================== STUDENT VIEW ====================
+    // Student view
 
         public async Task<List<AttendanceDto>> GetStudentAttendanceAsync(Guid studentId, AttendanceFilterRequest? filter = null)
         {
@@ -311,7 +311,7 @@ namespace Fap.Api.Services
             return await GetStudentAttendanceAsync(studentId, filter);
         }
 
-        // ==================== TEACHER VIEW ====================
+    // Teacher view
 
         public async Task<List<PendingAttendanceSlotDto>> GetPendingAttendanceSlotsAsync(Guid teacherId)
         {
@@ -327,10 +327,10 @@ namespace Fap.Api.Services
 
             // Filter slots that need attendance
             var pendingSlots = slots
-         .Where(s => s.Date <= today &&
-              s.Status == "Scheduled" &&
-              (s.Attendances == null || !s.Attendances.Any()))
-                     .OrderBy(s => s.Date)
+                .Where(s => s.Date <= today &&
+                            s.Status == "Scheduled" &&
+                            (s.Attendances == null || !s.Attendances.Any()))
+                .OrderBy(s => s.Date)
                 .ToList();
 
             var result = new List<PendingAttendanceSlotDto>();
@@ -344,7 +344,7 @@ namespace Fap.Api.Services
                     SlotId = slot.Id,
                     ClassId = slot.ClassId,
                     ClassCode = slot.Class?.ClassCode ?? "Unknown",
-                    SubjectName = slot.Class?.SubjectOffering?.Subject?.SubjectName ?? "Unknown", // ✅ FIXED
+                    SubjectName = slot.Class?.SubjectOffering?.Subject?.SubjectName ?? "Unknown",
                     Date = slot.Date,
                     DayOfWeek = slot.Date.ToString("dddd", CultureInfo.InvariantCulture),
                     StartTime = slot.TimeSlot?.StartTime,
@@ -388,14 +388,14 @@ namespace Fap.Api.Services
                 var totalAttendances = attendanceList.Count;
                 var presentCount = attendanceList.Count(a => a.IsPresent);
                 var averageRate = totalAttendances > 0
-        ? Math.Round((decimal)presentCount / totalAttendances * 100, 2)
-         : 0;
+                    ? Math.Round((decimal)presentCount / totalAttendances * 100, 2)
+                    : 0;
 
                 result.Add(new ClassAttendanceStatisticsDto
                 {
                     ClassId = classEntity.Id,
                     ClassCode = classEntity.ClassCode,
-                    SubjectName = classEntity.SubjectOffering?.Subject?.SubjectName ?? "Unknown", // ✅ FIXED
+                    SubjectName = classEntity.SubjectOffering?.Subject?.SubjectName ?? "Unknown",
                     TotalSlots = slots.Count,
                     SlotsWithAttendance = slotsWithAttendance,
                     PendingSlots = slots.Count - slotsWithAttendance,

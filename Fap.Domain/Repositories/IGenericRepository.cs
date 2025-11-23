@@ -17,6 +17,6 @@ namespace Fap.Domain.Repositories
         Task AddRangeAsync(IEnumerable<T> entities);
         void Update(T entity);
         void Remove(T entity);
-        IQueryable<T> GetQueryable(); // ✅ NEW - For complex queries
+        IQueryable<T> GetQueryable(); // Exposes IQueryable for complex queries
     }
 }

@@ -14,7 +14,7 @@ namespace Fap.Infrastructure.Data.Seed
         {
             if (await _context.Otps.AnyAsync())
             {
-                Console.WriteLine("⏭️  OTPs already exist. Skipping...");
+                Console.WriteLine("OTPs already exist. Skipping seeding...");
                 return;
             }
 
@@ -26,7 +26,7 @@ namespace Fap.Infrastructure.Data.Seed
 
             if (!users.Any())
             {
-                Console.WriteLine("⚠️  No users found. Skipping OTPs...");
+                Console.WriteLine("No users found. Skipping OTP seeding...");
                 return;
             }
 
@@ -150,7 +150,7 @@ namespace Fap.Infrastructure.Data.Seed
             await _context.Otps.AddRangeAsync(otps);
             await SaveAsync("OTPs");
 
-            Console.WriteLine($" ✅ Created {otps.Count} OTP records:");
+            Console.WriteLine($" Created {otps.Count} OTP records:");
             Console.WriteLine($"      • Active (unused, not expired): {otps.Count(o => !o.IsUsed && o.ExpiresAt > DateTime.UtcNow)}");
             Console.WriteLine($"      • Used (verified): {otps.Count(o => o.IsUsed)}");
             Console.WriteLine($"    • Expired (unused): {otps.Count(o => !o.IsUsed && o.ExpiresAt <= DateTime.UtcNow)}");

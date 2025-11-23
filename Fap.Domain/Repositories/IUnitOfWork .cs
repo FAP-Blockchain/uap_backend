@@ -28,7 +28,7 @@ namespace Fap.Domain.Repositories
         ICurriculumRepository Curriculums { get; }
         ICurriculumSubjectRepository CurriculumSubjects { get; }
         
-        // ✅ NEW: Credential repositories
+    // Credential repositories
         ICredentialRepository Credentials { get; }
         ICredentialRequestRepository CredentialRequests { get; }
         ICertificateTemplateRepository CertificateTemplates { get; }

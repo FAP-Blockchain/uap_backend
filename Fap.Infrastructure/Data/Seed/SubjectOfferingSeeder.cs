@@ -5,7 +5,7 @@ namespace Fap.Infrastructure.Data.Seed
 {
     /// <summary>
     /// Seeds Subjects (master data) and SubjectOfferings (semester-specific)
-    /// ✅ NEW: SubjectOffering pattern - one subject can be offered in multiple semesters
+    /// SubjectOffering pattern allows subjects to be offered in multiple semesters
     /// </summary>
     public class SubjectOfferingSeeder : BaseSeeder
     {
@@ -39,7 +39,7 @@ namespace Fap.Infrastructure.Data.Seed
         {
             if (await _context.Subjects.AnyAsync())
             {
-                Console.WriteLine("⏭️  Subjects already exist. Skipping...");
+                Console.WriteLine("Subjects already exist. Skipping seeding...");
                 return;
             }
 
@@ -366,7 +366,7 @@ namespace Fap.Infrastructure.Data.Seed
             await SaveAsync("SubjectOfferings (Semester-Specific)");
 
             Console.WriteLine($"📊 Created {offerings.Count} subject offerings across multiple semesters");
-            Console.WriteLine("✅ Same subjects can now be offered in different semesters!");
+            Console.WriteLine("Subjects can now be offered in different semesters.");
         }
     }
 }

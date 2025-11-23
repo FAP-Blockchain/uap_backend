@@ -1189,8 +1189,9 @@ overallGPA >= 8.0m ? "Second Class Honours (Upper)" :
 
                 var canShare = credential.Status == "Issued" && !credential.IsRevoked;
 
-                var baseUrl = _configuration["AppSettings:BaseUrl"] ?? "https://api.example.com";
-                var shareableUrl = $"{baseUrl}/verify/{credential.CredentialId}";
+                var baseUrl = _frontendSettings.BaseUrl.TrimEnd('/');
+                var verifyPath = _frontendSettings.VerifyPath.TrimStart('/').TrimEnd('/');
+                var shareableUrl = $"{baseUrl}/{verifyPath}/{credential.CredentialId}";
 
                 if (string.IsNullOrEmpty(credential.ShareableUrl))
                 {
@@ -1300,8 +1301,9 @@ overallGPA >= 8.0m ? "Second Class Honours (Upper)" :
       }
 
         // 3. Generate verification URL
-        var baseUrl = _configuration["AppSettings:BaseUrl"] ?? "https://api.example.com";
-        var verifyUrl = $"{baseUrl}/verify/{credential.CredentialId}";
+        var baseUrl = _frontendSettings.BaseUrl.TrimEnd('/');
+        var verifyPath = _frontendSettings.VerifyPath.TrimStart('/').TrimEnd('/');
+        var verifyUrl = $"{baseUrl}/{verifyPath}/{credential.CredentialId}";
 
         // 4. Generate QR code using PdfService
         var base64QRCode = _pdfService.GenerateQRCode(verifyUrl, size / 20);

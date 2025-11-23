@@ -11,7 +11,7 @@ namespace Fap.Domain.Settings
         /// Base URL của Frontend (VD: https://fap-portal.vercel.app)
         /// </summary>
         [Required]
-        public string BaseUrl { get; set; } = "http://localhost:3000";
+        public string BaseUrl { get; set; } = "https://uapblockchain.vercel.app";
 
         /// <summary>
         /// Đường dẫn để xác thực chứng chỉ (VD: certificates/verify)

@@ -82,7 +82,7 @@ namespace Fap.Domain.Helpers
 
                 snapshot.IncrementCounters(status, cs.Subject.Credits);
 
-                // ✅ CHỈ gán currentClass và finalScore nếu đang InProgress
+                // Only assign current class info when subject is in progress
                 Guid? assignedClassId = null;
                 string? assignedClassCode = null;
                 Guid? assignedSemesterId = null;
@@ -91,19 +91,19 @@ namespace Fap.Domain.Helpers
 
                 if (status == "InProgress")
                 {
-                    // Đang học - Gán thông tin lớp hiện tại và điểm tạm (nếu có)
+                    // Subject currently in progress: keep latest class and provisional score
                     assignedClassId = currentClassId;
                     assignedClassCode = currentClassCode;
                     assignedSemesterId = currentSemesterId;
                     assignedSemesterName = currentSemesterName;
-                    assignedFinalScore = finalScore; // Điểm tạm (midterm/progress)
+                    assignedFinalScore = finalScore;
                 }
                 else if (status == "Completed" || status == "Failed")
                 {
-                    // Đã hoàn thành hoặc trượt - Chỉ gán điểm cuối cùng, KHÔNG gán lớp
+                    // Subject finished or failed: keep final score only
                     assignedFinalScore = finalScore;
                 }
-                // Các trạng thái khác (Open, Locked) - Không gán gì cả
+                // Other states do not carry class info
 
                 var subjectProgress = new SubjectProgressInfo
                 {

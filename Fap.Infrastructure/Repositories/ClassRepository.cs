@@ -14,10 +14,10 @@ namespace Fap.Infrastructure.Repositories
         public async Task<Class?> GetByClassCodeAsync(string classCode)
         {
             return await _dbSet
-                .Include(c => c.SubjectOffering)  // ✅ CHANGED
-                   .ThenInclude(so => so.Subject)
                 .Include(c => c.SubjectOffering)
-                   .ThenInclude(so => so.Semester)
+                    .ThenInclude(so => so.Subject)
+                .Include(c => c.SubjectOffering)
+                    .ThenInclude(so => so.Semester)
                 .Include(c => c.Teacher)
                     .ThenInclude(t => t.User)
                 .FirstOrDefaultAsync(c => c.ClassCode == classCode);
@@ -26,7 +26,7 @@ namespace Fap.Infrastructure.Repositories
         public async Task<Class?> GetByIdWithDetailsAsync(Guid id)
         {
             return await _dbSet
-                .Include(c => c.SubjectOffering)  // ✅ CHANGED
+                .Include(c => c.SubjectOffering)
                     .ThenInclude(so => so.Subject)
                 .Include(c => c.SubjectOffering)
                     .ThenInclude(so => so.Semester)
@@ -51,7 +51,7 @@ namespace Fap.Infrastructure.Repositories
         public async Task<IEnumerable<Class>> GetAllWithDetailsAsync()
         {
             return await _dbSet
-                .Include(c => c.SubjectOffering)  // ✅ CHANGED
+                .Include(c => c.SubjectOffering)
                     .ThenInclude(so => so.Subject)
                 .Include(c => c.SubjectOffering)
                     .ThenInclude(so => so.Semester)
@@ -75,7 +75,7 @@ namespace Fap.Infrastructure.Repositories
             string? sortOrder)
         {
             var query = _dbSet
-                .Include(c => c.SubjectOffering)  // ✅ CHANGED
+                .Include(c => c.SubjectOffering)
                     .ThenInclude(so => so.Subject)
                 .Include(c => c.SubjectOffering)
                     .ThenInclude(so => so.Semester)
@@ -94,7 +94,7 @@ namespace Fap.Infrastructure.Repositories
 
             if (Guid.TryParse(subjectId, out var subjectGuid))
             {
-                query = query.Where(c => c.SubjectOffering.SubjectId == subjectGuid);  // ✅ CHANGED
+                query = query.Where(c => c.SubjectOffering.SubjectId == subjectGuid);
             }
 
             if (Guid.TryParse(teacherId, out var teacherGuid))
@@ -104,7 +104,7 @@ namespace Fap.Infrastructure.Repositories
 
             if (Guid.TryParse(semesterId, out var semesterGuid))
             {
-                query = query.Where(c => c.SubjectOffering.SemesterId == semesterGuid);  // ✅ CHANGED
+                query = query.Where(c => c.SubjectOffering.SemesterId == semesterGuid);
             }
 
             // Get total count
@@ -117,8 +117,8 @@ namespace Fap.Infrastructure.Repositories
                     ? query.OrderByDescending(c => c.ClassCode)
                     : query.OrderBy(c => c.ClassCode),
                 "subjectname" => sortOrder?.ToLower() == "desc"
-                    ? query.OrderByDescending(c => c.SubjectOffering.Subject.SubjectName)  // ✅ CHANGED
-                    : query.OrderBy(c => c.SubjectOffering.Subject.SubjectName),  // ✅ CHANGED
+                    ? query.OrderByDescending(c => c.SubjectOffering.Subject.SubjectName)
+                    : query.OrderBy(c => c.SubjectOffering.Subject.SubjectName),
                 "teachername" => sortOrder?.ToLower() == "desc"
                     ? query.OrderByDescending(c => c.Teacher.User.FullName)
                     : query.OrderBy(c => c.Teacher.User.FullName),
@@ -150,7 +150,7 @@ namespace Fap.Infrastructure.Repositories
         public async Task<bool> IsClassCodeUniqueAsync(string classCode, Guid? excludeId = null)
         {
             var query = _dbSet.Where(c => c.ClassCode == classCode);
-            
+
             if (excludeId.HasValue)
             {
                 query = query.Where(c => c.Id != excludeId.Value);
@@ -159,7 +159,7 @@ namespace Fap.Infrastructure.Repositories
             return !await query.AnyAsync();
         }
 
-        // ==================== NEW METHODS ====================
+        // Additional helpers
 
         public async Task<bool> IsStudentInClassAsync(Guid classId, Guid studentId)
         {
@@ -190,7 +190,7 @@ namespace Fap.Infrastructure.Repositories
         {
             return await _context.ClassMembers
                 .Where(cm => cm.ClassId == classId)
-     .CountAsync();
-    }
+                .CountAsync();
+        }
     }
 }

@@ -11,9 +11,8 @@ namespace Fap.Infrastructure.Repositories
 
         public async Task<List<ClassMember>> GetByClassIdAsync(Guid classId)
         {
-            // ✅ Use AsNoTracking for fresh read-only queries
             return await _context.ClassMembers
-                .AsNoTracking() // Ensures fresh data from database
+                .AsNoTracking()
                 .Include(cm => cm.Student)
                 .ThenInclude(s => s.User)
                 .Where(cm => cm.ClassId == classId)
@@ -28,7 +27,7 @@ namespace Fap.Infrastructure.Repositories
         public async Task<List<ClassMember>> GetClassMembersWithDetailsAsync(Guid classId)
         {
             return await _context.ClassMembers
-                .AsNoTracking() // Fresh data, no caching
+                .AsNoTracking()
                 .Include(cm => cm.Student)
                 .ThenInclude(s => s.User)
                 .Include(cm => cm.Class)
@@ -41,9 +40,8 @@ namespace Fap.Infrastructure.Repositories
 
         public async Task<List<ClassMember>> GetByStudentIdAsync(Guid studentId)
         {
-            // ✅ Use AsNoTracking for fresh read-only queries
             return await _context.ClassMembers
-                .AsNoTracking() // Ensures fresh data from database
+                .AsNoTracking()
                 .Include(cm => cm.Class)
                 .ThenInclude(c => c.SubjectOffering)
                 .ThenInclude(so => so.Subject)
@@ -57,7 +55,6 @@ namespace Fap.Infrastructure.Repositories
 
         public async Task<bool> IsStudentInClassAsync(Guid classId, Guid studentId)
         {
-            // ✅ AsNoTracking for check queries
             return await _context.ClassMembers
                 .AsNoTracking()
                 .AnyAsync(cm => cm.ClassId == classId && cm.StudentId == studentId);
@@ -65,7 +62,6 @@ namespace Fap.Infrastructure.Repositories
 
         public async Task<int> GetClassMemberCountAsync(Guid classId)
         {
-            // ✅ AsNoTracking for count queries
             return await _context.ClassMembers
                 .AsNoTracking()
                 .CountAsync(cm => cm.ClassId == classId);

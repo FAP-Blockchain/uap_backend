@@ -33,10 +33,10 @@ namespace Fap.Infrastructure.Repositories
         {
             return await _dbSet
                .Include(s => s.User)
-                   .Include(s => s.Enrolls)
-                            .ThenInclude(e => e.Class)
-                 .ThenInclude(c => c.SubjectOffering)  // ✅ CHANGED
-                   .ThenInclude(so => so.Subject)
+                                 .Include(s => s.Enrolls)
+                                                            .ThenInclude(e => e.Class)
+                                     .ThenInclude(c => c.SubjectOffering)
+                                         .ThenInclude(so => so.Subject)
           .Include(s => s.Enrolls)
                .ThenInclude(e => e.Class)
             .ThenInclude(c => c.SubjectOffering)
@@ -45,9 +45,9 @@ namespace Fap.Infrastructure.Repositories
              .ThenInclude(e => e.Class)
            .ThenInclude(c => c.Teacher)
           .ThenInclude(t => t.User)
-            .Include(s => s.ClassMembers)
-             .ThenInclude(cm => cm.Class)
-           .ThenInclude(c => c.SubjectOffering)  // ✅ CHANGED
+                        .Include(s => s.ClassMembers)
+                         .ThenInclude(cm => cm.Class)
+                     .ThenInclude(c => c.SubjectOffering)
              .ThenInclude(so => so.Subject)
                  .Include(s => s.ClassMembers)
            .ThenInclude(cm => cm.Class)
@@ -161,8 +161,6 @@ namespace Fap.Infrastructure.Repositories
         int pageSize,
         string? searchTerm)
     {
-        // ✅ NEW CURRICULUM-BASED LOGIC
-
         // Step 1: Get all curriculum IDs that contain this subject
         var curriculumIds = await _context.CurriculumSubjects
             .Where(cs => cs.SubjectId == subjectId)

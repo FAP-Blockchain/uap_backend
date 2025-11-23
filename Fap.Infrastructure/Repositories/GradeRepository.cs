@@ -48,7 +48,7 @@ namespace Fap.Infrastructure.Repositories
         public async Task<List<Grade>> GetGradesByClassIdAsync(Guid classId)
         {
             var classEntity = await _context.Classes
-                .Include(c => c.SubjectOffering)  // ✅ CHANGED
+                .Include(c => c.SubjectOffering)
                     .ThenInclude(so => so.Subject)
                 .FirstOrDefaultAsync(c => c.Id == classId);
 
@@ -64,7 +64,7 @@ namespace Fap.Infrastructure.Repositories
                 .Include(g => g.Student)
                     .ThenInclude(s => s.User)
                 .Include(g => g.GradeComponent)
-                .Where(g => studentIds.Contains(g.StudentId) && g.SubjectId == classEntity.SubjectOffering.SubjectId)  // ✅ CHANGED
+                .Where(g => studentIds.Contains(g.StudentId) && g.SubjectId == classEntity.SubjectOffering.SubjectId)
                 .OrderBy(g => g.Student.StudentCode)
                 .ThenBy(g => g.GradeComponent.Name)
                 .ToListAsync();
@@ -97,7 +97,6 @@ namespace Fap.Infrastructure.Repositories
                     g.GradeComponentId == gradeComponentId);
         }
 
-        // ✅ CHANGED: Get grades by semester via SubjectOffering
         public async Task<List<Grade>> GetStudentGradesBySemesterAsync(Guid studentId, Guid semesterId)
         {
             // Get all subject IDs offered in this semester

@@ -14,7 +14,7 @@ namespace Fap.Infrastructure.Repositories
         public async Task<Semester?> GetByIdWithDetailsAsync(Guid id)
         {
             return await _dbSet
-                .Include(s => s.SubjectOfferings)  // ✅ CHANGED
+                .Include(s => s.SubjectOfferings)
                     .ThenInclude(so => so.Subject)
                 .Include(s => s.SubjectOfferings)
                     .ThenInclude(so => so.Classes)
@@ -24,7 +24,7 @@ namespace Fap.Infrastructure.Repositories
         public async Task<IEnumerable<Semester>> GetAllWithDetailsAsync()
         {
             return await _dbSet
-                .Include(s => s.SubjectOfferings)  // ✅ CHANGED
+                .Include(s => s.SubjectOfferings)
                     .ThenInclude(so => so.Subject)
                 .OrderByDescending(s => s.StartDate)
                 .ToListAsync();

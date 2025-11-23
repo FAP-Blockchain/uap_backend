@@ -39,7 +39,7 @@ namespace Fap.Infrastructure.Migrations
                 name: "SubjectId",
                 table: "Slots");
 
-            // ⚠️ IMPORTANT: Rename BEFORE data migration
+            // Important: rename before data migration
             migrationBuilder.RenameColumn(
                 name: "SubjectId",
                 table: "Classes",
@@ -167,7 +167,7 @@ namespace Fap.Infrastructure.Migrations
                         onDelete: ReferentialAction.Restrict);
                 });
 
-            // ✅ DATA MIGRATION: Create SubjectOffering for each unique Subject in existing Classes
+            // Data migration: create SubjectOffering for each unique subject in existing classes
             // This ensures Classes.SubjectOfferingId will reference valid SubjectOffering records
             migrationBuilder.Sql(@"
   -- Step 1: Get or create default semester
@@ -178,8 +178,8 @@ namespace Fap.Infrastructure.Migrations
     -- SubjectOfferingId currently contains the OLD SubjectId values
          INSERT INTO SubjectOfferings (Id, SubjectId, SemesterId, MaxClasses, IsActive, CreatedAt, UpdatedAt)
   SELECT 
-        NEWID() as Id,        -- ✅ Generate NEW unique ID
-      SubjectOfferingId as SubjectId,    -- ✅ This is the actual Subject ID
+                NEWID() as Id,        -- Generate new unique ID
+            SubjectOfferingId as SubjectId,    -- Actual subject ID
          @DefaultSemesterId as SemesterId,
        10 as MaxClasses,
       1 as IsActive,
@@ -228,7 +228,7 @@ OldSubjectId uniqueidentifier,
                 columns: new[] { "SubjectId", "SemesterId" },
                 unique: true);
 
-            // ✅ NOW it's safe to add FK - SubjectOffering records exist!
+            // SubjectOffering records now exist, safe to add FK
             migrationBuilder.AddForeignKey(
                 name: "FK_Classes_SubjectOfferings_SubjectOfferingId",
                 table: "Classes",
