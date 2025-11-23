@@ -82,6 +82,11 @@ namespace Fap.Api.Interfaces
         Task UpdateRoadmapOnEnrollmentAsync(Guid studentId, Guid subjectId);
 
         /// <summary>
+        /// Update roadmap with actual semester when student enrolls in a specific class
+        /// </summary>
+        Task UpdateRoadmapWithActualSemesterAsync(Guid studentId, Guid subjectId, Guid actualSemesterId);
+
+        /// <summary>
         /// Update roadmap status when grade is finalized
         /// </summary>
         Task UpdateRoadmapOnGradeAsync(Guid studentId, Guid subjectId, decimal finalScore, string letterGrade);

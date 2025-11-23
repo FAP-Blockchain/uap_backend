@@ -326,10 +326,11 @@ namespace Fap.Api.Services
                         "Auto-created {Count} grade records (null scores) for student {StudentId} in subject {SubjectId}",
                         gradesCreated, enrollment.StudentId, subjectOffering.SubjectId);
 
-                    // ✅ Update roadmap status to InProgress
-                    await _roadmapService.UpdateRoadmapOnEnrollmentAsync(
-                      enrollment.StudentId,
-             subjectOffering.SubjectId);
+                    // ✅ Update roadmap with actual semester and set status to InProgress
+                    await _roadmapService.UpdateRoadmapWithActualSemesterAsync(
+                        enrollment.StudentId,
+                        subjectOffering.SubjectId,
+                        subjectOffering.SemesterId);
                 }
 
                 await _uow.SaveChangesAsync();

@@ -60,6 +60,11 @@ namespace Fap.Domain.Repositories
         Task UpdateRoadmapStatusAsync(Guid studentId, Guid subjectId, string status, decimal? finalScore = null, string? letterGrade = null);
 
         /// <summary>
+        /// Update roadmap status and semester when student enrolls in a class
+        /// </summary>
+        Task UpdateRoadmapOnEnrollmentAsync(Guid studentId, Guid subjectId, Guid actualSemesterId);
+
+        /// <summary>
         /// Get roadmap statistics for a student
         /// </summary>
         Task<(int Total, int Completed, int InProgress, int Planned, int Failed)> GetRoadmapStatisticsAsync(Guid studentId);

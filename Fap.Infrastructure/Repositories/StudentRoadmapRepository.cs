@@ -157,6 +157,27 @@ namespace Fap.Infrastructure.Repositories
             }
         }
 
+        public async Task UpdateRoadmapOnEnrollmentAsync(Guid studentId, Guid subjectId, Guid actualSemesterId)
+        {
+            var roadmap = await _context.StudentRoadmaps
+                .FirstOrDefaultAsync(sr => sr.StudentId == studentId && sr.SubjectId == subjectId);
+
+            if (roadmap != null)
+            {
+                // Update to actual semester and set status to InProgress
+                roadmap.SemesterId = actualSemesterId;
+                roadmap.Status = "InProgress";
+                roadmap.UpdatedAt = DateTime.UtcNow;
+
+                if (roadmap.StartedAt == null)
+                {
+                    roadmap.StartedAt = DateTime.UtcNow;
+                }
+
+                _context.StudentRoadmaps.Update(roadmap);
+            }
+        }
+
         public async Task<(int Total, int Completed, int InProgress, int Planned, int Failed)> GetRoadmapStatisticsAsync(Guid studentId)
         {
             var roadmaps = await _context.StudentRoadmaps

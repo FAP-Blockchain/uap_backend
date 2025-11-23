@@ -875,22 +875,51 @@ namespace Fap.Api.Services
         {
             try
             {
+                // This method is called from EnrollmentService with only studentId and subjectId
+                // We need to get the actual semester from the enrolled class
+                // For now, just update status - the semesterId will be updated in ApproveEnrollmentAsync
                 await _uow.StudentRoadmaps.UpdateRoadmapStatusAsync(
-           studentId,
-            subjectId,
-                "InProgress");
+                    studentId,
+                    subjectId,
+                    "InProgress");
 
                 await _uow.SaveChangesAsync();
 
                 _logger.LogInformation(
-          "Updated roadmap to InProgress for student {StudentId}, subject {SubjectId}",
-           studentId, subjectId);
+                    "Updated roadmap to InProgress for student {StudentId}, subject {SubjectId}",
+                    studentId, subjectId);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex,
-                  "Error updating roadmap on enrollment for student {StudentId}, subject {SubjectId}",
-         studentId, subjectId);
+                    "Error updating roadmap on enrollment for student {StudentId}, subject {SubjectId}",
+                    studentId, subjectId);
+            }
+        }
+
+        /// <summary>
+        /// Update roadmap with actual semester when student enrolls - called with semesterId
+        /// </summary>
+        public async Task UpdateRoadmapWithActualSemesterAsync(Guid studentId, Guid subjectId, Guid actualSemesterId)
+        {
+            try
+            {
+                await _uow.StudentRoadmaps.UpdateRoadmapOnEnrollmentAsync(
+                    studentId,
+                    subjectId,
+                    actualSemesterId);
+
+                await _uow.SaveChangesAsync();
+
+                _logger.LogInformation(
+                    "Updated roadmap for student {StudentId}, subject {SubjectId} to semester {SemesterId} with status InProgress",
+                    studentId, subjectId, actualSemesterId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Error updating roadmap semester for student {StudentId}, subject {SubjectId}",
+                    studentId, subjectId);
             }
         }
 
