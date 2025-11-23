@@ -24,32 +24,32 @@ namespace Fap.Api.Controllers
         }
 
         /// <summary>
-        /// POST /api/grades - Teacher creates a grade
+        /// POST /api/grades - Teacher creates multiple grades at once
         /// </summary>
         [HttpPost]
         [Authorize(Roles = "Teacher,Admin")]
         [ProducesResponseType(typeof(object), StatusCodes.Status201Created)]
         [ProducesResponseType(typeof(object), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(object), StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> CreateGrade([FromBody] CreateGradeRequest request)
+        public async Task<IActionResult> CreateGrades([FromBody] BulkCreateGradesRequest request)
         {
             try
             {
-                var result = await _gradeService.CreateGradeAsync(request);
+                var result = await _gradeService.CreateGradesAsync(request);
 
                 if (!result.Success)
                     return BadRequest(result);
 
                 return CreatedAtAction(
-                    nameof(GetGradeById),
-                    new { id = result.GradeId },
+                    nameof(GetAllGrades),
+                    null,
                     result
                 );
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error creating grade for student {StudentId}", request.StudentId);
-                return StatusCode(500, new { message = "An error occurred while creating grade" });
+                _logger.LogError(ex, "Error creating bulk grades");
+                return StatusCode(500, new { message = "An error occurred while creating grades" });
             }
         }
 
@@ -101,6 +101,32 @@ namespace Fap.Api.Controllers
             {
                 _logger.LogError(ex, "Error updating grade {GradeId}", id);
                 return StatusCode(500, new { message = "An error occurred while updating grade" });
+            }
+        }
+
+        /// <summary>
+        /// PUT /api/grades - Update multiple grades at once
+        /// </summary>
+        [HttpPut]
+        [Authorize(Roles = "Teacher,Admin")]
+        [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(object), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(object), StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> UpdateGrades([FromBody] BulkUpdateGradesRequest request)
+        {
+            try
+            {
+                var result = await _gradeService.UpdateGradesAsync(request);
+
+                if (!result.Success)
+                    return BadRequest(result);
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating bulk grades");
+                return StatusCode(500, new { message = "An error occurred while updating grades" });
             }
         }
 

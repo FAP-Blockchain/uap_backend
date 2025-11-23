@@ -21,12 +21,39 @@ namespace Fap.Domain.DTOs.Grade
 
     }
 
+    /// Request to create multiple grades at once
+    public class BulkCreateGradesRequest
+    {
+        [Required]
+        [MinLength(1, ErrorMessage = "At least one grade is required")]
+        public List<CreateGradeRequest> Grades { get; set; } = new();
+    }
+
     public class UpdateGradeRequest
     {
         [Required]
         [Range(0, 10, ErrorMessage = "Score must be between 0 and 10")]
         public decimal Score { get; set; }
                
+    }
+
+    /// Request item for bulk update
+    public class UpdateGradeItemRequest
+    {
+        [Required]
+        public Guid GradeId { get; set; }
+
+        [Required]
+        [Range(0, 10, ErrorMessage = "Score must be between 0 and 10")]
+        public decimal Score { get; set; }
+    }
+
+    /// Request to update multiple grades at once
+    public class BulkUpdateGradesRequest
+    {
+        [Required]
+        [MinLength(1, ErrorMessage = "At least one grade is required")]
+        public List<UpdateGradeItemRequest> Grades { get; set; } = new();
     }
 
   /// Request to get class grades
@@ -65,6 +92,19 @@ namespace Fap.Domain.DTOs.Grade
         public bool Success { get; set; }
         public string Message { get; set; }
         public Guid? GradeId { get; set; }
+        public List<string> Errors { get; set; } = new();
+    }
+
+    /// Response for bulk grade operations
+    public class BulkGradeResponse
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; }
+        public int TotalProcessed { get; set; }
+        public int SuccessCount { get; set; }
+        public int FailedCount { get; set; }
+        public List<Guid> CreatedGradeIds { get; set; } = new();
+        public List<Guid> UpdatedGradeIds { get; set; } = new();
         public List<string> Errors { get; set; } = new();
     }
 }

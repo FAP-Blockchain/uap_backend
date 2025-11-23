@@ -10,9 +10,13 @@ namespace Fap.Api.Interfaces
     {
         Task<GradeResponse> CreateGradeAsync(CreateGradeRequest request);
 
+        Task<BulkGradeResponse> CreateGradesAsync(BulkCreateGradesRequest request);
+
         Task<GradeDetailDto?> GetGradeByIdAsync(Guid id);
         
         Task<GradeResponse> UpdateGradeAsync(Guid id, UpdateGradeRequest request);
+
+        Task<BulkGradeResponse> UpdateGradesAsync(BulkUpdateGradesRequest request);
         
         Task<ClassGradeReportDto?> GetClassGradesAsync(Guid classId, GetClassGradesRequest request);
    

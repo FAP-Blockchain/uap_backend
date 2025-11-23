@@ -105,6 +105,128 @@ namespace Fap.Api.Services
             }
         }
 
+        public async Task<BulkGradeResponse> CreateGradesAsync(BulkCreateGradesRequest request)
+        {
+            var response = new BulkGradeResponse
+            {
+                TotalProcessed = request.Grades.Count
+            };
+
+            try
+            {
+                // Validate and prepare grades
+                var gradesToCreate = new List<Grade>();
+                var validationErrors = new List<string>();
+
+                // Get all student IDs, subject IDs, and component IDs for batch validation
+                var studentIds = request.Grades.Select(g => g.StudentId).Distinct().ToList();
+                var subjectIds = request.Grades.Select(g => g.SubjectId).Distinct().ToList();
+                var componentIds = request.Grades.Select(g => g.GradeComponentId).Distinct().ToList();
+
+                // Batch load entities
+                var students = await _uow.Students.GetByIdsAsync(studentIds);
+                var subjects = await _uow.Subjects.GetByIdsAsync(subjectIds);
+                var gradeComponents = await _uow.GradeComponents.GetByIdsAsync(componentIds);
+
+                // Create dictionaries for fast lookup
+                var studentDict = students.ToDictionary(s => s.Id);
+                var subjectDict = subjects.ToDictionary(s => s.Id);
+                var componentDict = gradeComponents.ToDictionary(gc => gc.Id);
+
+                for (int i = 0; i < request.Grades.Count; i++)
+                {
+                    var gradeRequest = request.Grades[i];
+                    var index = i + 1;
+
+                    // Validate student exists
+                    if (!studentDict.ContainsKey(gradeRequest.StudentId))
+                    {
+                        validationErrors.Add($"Grade {index}: Student with ID '{gradeRequest.StudentId}' not found");
+                        continue;
+                    }
+
+                    // Validate subject exists
+                    if (!subjectDict.ContainsKey(gradeRequest.SubjectId))
+                    {
+                        validationErrors.Add($"Grade {index}: Subject with ID '{gradeRequest.SubjectId}' not found");
+                        continue;
+                    }
+
+                    // Validate grade component exists
+                    if (!componentDict.ContainsKey(gradeRequest.GradeComponentId))
+                    {
+                        validationErrors.Add($"Grade {index}: Grade component with ID '{gradeRequest.GradeComponentId}' not found");
+                        continue;
+                    }
+
+                    // Check if grade already exists for this combination
+                    var existingGrade = await _uow.Grades.GetGradeByStudentSubjectComponentAsync(
+                        gradeRequest.StudentId, gradeRequest.SubjectId, gradeRequest.GradeComponentId);
+
+                    if (existingGrade != null)
+                    {
+                        validationErrors.Add($"Grade {index}: Grade already exists for student {studentDict[gradeRequest.StudentId].StudentCode}, subject {subjectDict[gradeRequest.SubjectId].SubjectCode}, component {componentDict[gradeRequest.GradeComponentId].Name}");
+                        continue;
+                    }
+
+                    // Auto-calculate letter grade
+                    var letterGrade = GradeHelper.CalculateLetterGrade(gradeRequest.Score);
+
+                    var newGrade = new Grade
+                    {
+                        Id = Guid.NewGuid(),
+                        StudentId = gradeRequest.StudentId,
+                        SubjectId = gradeRequest.SubjectId,
+                        GradeComponentId = gradeRequest.GradeComponentId,
+                        Score = gradeRequest.Score,
+                        LetterGrade = letterGrade,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+
+                    gradesToCreate.Add(newGrade);
+                    response.CreatedGradeIds.Add(newGrade.Id);
+                }
+
+                // Save all valid grades
+                if (gradesToCreate.Any())
+                {
+                    await _uow.Grades.AddRangeAsync(gradesToCreate);
+                    await _uow.SaveChangesAsync();
+
+                    response.SuccessCount = gradesToCreate.Count;
+                    _logger.LogInformation("Successfully created {Count} grades", gradesToCreate.Count);
+                }
+
+                // Set response details
+                response.FailedCount = validationErrors.Count;
+                response.Errors = validationErrors;
+                response.Success = response.SuccessCount > 0;
+                
+                if (response.Success && response.FailedCount == 0)
+                {
+                    response.Message = $"Successfully created all {response.SuccessCount} grades";
+                }
+                else if (response.Success && response.FailedCount > 0)
+                {
+                    response.Message = $"Partially successful: {response.SuccessCount} grades created, {response.FailedCount} failed";
+                }
+                else
+                {
+                    response.Message = "Failed to create any grades";
+                }
+
+                return response;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating bulk grades");
+                response.Errors.Add($"Internal error: {ex.Message}");
+                response.Message = "Bulk grade creation failed";
+                response.Success = false;
+                return response;
+            }
+        }
+
         public async Task<GradeDetailDto?> GetGradeByIdAsync(Guid id)
         {
             try
@@ -176,6 +298,94 @@ namespace Fap.Api.Services
                 _logger.LogError(ex, "Error updating grade {GradeId}", id);
                 response.Errors.Add($"Internal error: {ex.Message}");
                 response.Message = "Grade update failed";
+                return response;
+            }
+        }
+
+        public async Task<BulkGradeResponse> UpdateGradesAsync(BulkUpdateGradesRequest request)
+        {
+            var response = new BulkGradeResponse
+            {
+                TotalProcessed = request.Grades.Count
+            };
+
+            try
+            {
+                var validationErrors = new List<string>();
+                var gradesToUpdate = new List<Grade>();
+
+                // Get all grade IDs for batch loading
+                var gradeIds = request.Grades.Select(g => g.GradeId).Distinct().ToList();
+
+                // Batch load grades
+                var existingGrades = await _uow.Grades.GetByIdsAsync(gradeIds);
+                var gradeDict = existingGrades.ToDictionary(g => g.Id);
+
+                for (int i = 0; i < request.Grades.Count; i++)
+                {
+                    var gradeUpdate = request.Grades[i];
+                    var index = i + 1;
+
+                    // Validate grade exists
+                    if (!gradeDict.ContainsKey(gradeUpdate.GradeId))
+                    {
+                        validationErrors.Add($"Grade {index}: Grade with ID '{gradeUpdate.GradeId}' not found");
+                        continue;
+                    }
+
+                    var grade = gradeDict[gradeUpdate.GradeId];
+
+                    // Auto-calculate letter grade based on new score
+                    var letterGrade = GradeHelper.CalculateLetterGrade(gradeUpdate.Score);
+
+                    // Update grade properties
+                    grade.Score = gradeUpdate.Score;
+                    grade.LetterGrade = letterGrade;
+                    grade.UpdatedAt = DateTime.UtcNow;
+
+                    gradesToUpdate.Add(grade);
+                    response.UpdatedGradeIds.Add(grade.Id);
+                }
+
+                // Update all valid grades
+                if (gradesToUpdate.Any())
+                {
+                    foreach (var grade in gradesToUpdate)
+                    {
+                        _uow.Grades.Update(grade);
+                    }
+                    await _uow.SaveChangesAsync();
+
+                    response.SuccessCount = gradesToUpdate.Count;
+                    _logger.LogInformation("Successfully updated {Count} grades", gradesToUpdate.Count);
+                }
+
+                // Set response details
+                response.FailedCount = validationErrors.Count;
+                response.Errors = validationErrors;
+                response.Success = response.SuccessCount > 0;
+
+                if (response.Success && response.FailedCount == 0)
+                {
+                    response.Message = $"Successfully updated all {response.SuccessCount} grades";
+                }
+                else if (response.Success && response.FailedCount > 0)
+                {
+                    response.Message = $"Partially successful: {response.SuccessCount} grades updated, {response.FailedCount} failed";
+                }
+                else
+                {
+                    response.Message = "Failed to update any grades";
+                }
+
+                return response;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating bulk grades");
+                response.Errors.Add($"Internal error: {ex.Message}");
+                response.Message = "Bulk grade update failed";
+                response.Success = false;
                 return response;
             }
         }
@@ -329,7 +539,7 @@ _logger.LogWarning("Semester filtering for grades not yet implemented with new S
    ComponentName = g.GradeComponent.Name,
    ComponentWeight = g.GradeComponent.WeightPercent,
     Score = g.Score,
-      LetterGrade = g.LetterGrade
+      LetterGrade = g.LetterGrade ?? string.Empty
      }).ToList();
 
   // Calculate average for subject
