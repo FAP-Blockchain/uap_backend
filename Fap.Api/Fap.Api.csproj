@@ -9,6 +9,8 @@
 		<!-- Dùng gói OpenAPI tương ứng .NET 8 -->
 		<PackageReference Include="AutoMapper" Version="12.0.1" />
 		<PackageReference Include="AutoMapper.Extensions.Microsoft.DependencyInjection" Version="12.0.1" />
+		<PackageReference Include="CloudinaryDotNet" Version="1.27.8" />
+		<PackageReference Include="FirebaseStorage.net" Version="1.0.3" />
 		<PackageReference Include="MailKit" Version="4.14.1" />
 		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.20" />
 		<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.*" />
@@ -19,6 +21,7 @@
 		</PackageReference>
 		<PackageReference Include="MimeKit" Version="4.14.0" />
 		<PackageReference Include="QRCoder" Version="1.7.0" />
+		<PackageReference Include="QuestPDF" Version="2025.7.4" />
 		<!-- Swagger 6.x vẫn OK -->
 		<PackageReference Include="Swashbuckle.AspNetCore" Version="6.*" />
 		

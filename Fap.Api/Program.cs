@@ -62,6 +62,11 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 // ==================================================
+// CLOUDINARY SETTINGS
+// ==================================================
+builder.Services.Configure<CloudinarySettings>(builder.Configuration.GetSection("CloudinarySettings"));
+
+// ==================================================
 // DATABASE & REPOSITORIES
 // ==================================================
 builder.Services.AddDbContext<FapDbContext>(opt =>
@@ -122,6 +127,8 @@ builder.Services.AddScoped<ISlotService, SlotService>();
 builder.Services.AddScoped<IScheduleService, ScheduleService>();
 builder.Services.AddScoped<IStudentRoadmapService, StudentRoadmapService>();
 builder.Services.AddScoped<ICredentialService, CredentialService>(); // ✅ NEW - Credential/Certificate Service
+builder.Services.AddScoped<IPdfService, PdfService>(); // ✅ NEW - PDF Generation Service
+builder.Services.AddScoped<ICloudStorageService, CloudinaryStorageService>(); // ✅ NEW - Cloudinary Storage Service
 builder.Services.AddScoped<ISubjectOfferingService, SubjectOfferingService>(); // ✅ NEW - SubjectOffering Service
 
 // Register AutoMapper - scan all Profile classes in the assembly

@@ -1,6 +1,7 @@
 using Fap.Api.Interfaces;
 using Fap.Domain.DTOs.Credential;
 using Fap.Domain.DTOs.Common;
+using Fap.Domain.DTOs; // For ServiceResult
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -92,6 +93,23 @@ namespace Fap.Api.Controllers
                 _logger.LogError(ex, "Error getting credential {CredentialId}", id);
                 return StatusCode(500, new ProblemDetails { Status = 500, Title = "Internal Server Error" });
             }
+        }
+
+        /// <summary>
+        /// POST /api/credentials/issue - Issue new credential (Admin only)
+        /// </summary>
+        [HttpPost("issue")]
+        [Authorize(Roles = "Admin")]
+        [ProducesResponseType(typeof(CredentialDetailDto), 200)]
+        [ProducesResponseType(400)]
+        public async Task<IActionResult> IssueCredential([FromBody] IssueCredentialDto request)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            
+            var result = await _credentialService.IssueCredentialAsync(request);
+            if (!result.Success) return BadRequest(new ProblemDetails { Status = 400, Title = "Bad Request", Detail = result.Message });
+            
+            return Ok(result.Data);
         }
 
         /// <summary>

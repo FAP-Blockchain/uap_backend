@@ -2,6 +2,7 @@ using AutoMapper;
 using Fap.Api.Interfaces;
 using Fap.Domain.DTOs.Credential;
 using Fap.Domain.DTOs.Common;
+using Fap.Domain.DTOs; // For ServiceResult
 using Fap.Domain.Entities;
 using Fap.Domain.Repositories;
 using Fap.Domain.Settings;
@@ -9,7 +10,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using System.Security.Cryptography;
 using System.Text;
-using QRCoder; // ? Import QRCoder
 
 namespace Fap.Api.Services
 {
@@ -21,6 +21,8 @@ namespace Fap.Api.Services
         private readonly IConfiguration _configuration;
         private readonly FrontendSettings _frontendSettings;
         private readonly IBlockchainService _blockchainService;
+        private readonly IPdfService _pdfService;
+        private readonly ICloudStorageService _cloudStorageService;
 
         public CredentialService(
              IUnitOfWork uow,
@@ -28,7 +30,9 @@ namespace Fap.Api.Services
                     ILogger<CredentialService> logger,
           IConfiguration configuration,
           IOptions<FrontendSettings> frontendOptions,
-          IBlockchainService blockchainService)
+          IBlockchainService blockchainService,
+          IPdfService pdfService,
+          ICloudStorageService cloudStorageService)
         {
             _uow = uow;
             _mapper = mapper;
@@ -36,6 +40,128 @@ namespace Fap.Api.Services
             _configuration = configuration;
             _frontendSettings = frontendOptions.Value;
             _blockchainService = blockchainService;
+            _pdfService = pdfService;
+            _cloudStorageService = cloudStorageService;
+        }
+
+        // ==================== ADMIN ISSUE CREDENTIAL ====================
+
+        public async Task<ServiceResult<CredentialDetailDto>> IssueCredentialAsync(IssueCredentialDto request)
+        {
+            try
+            {
+                // 1. Validate Student
+                var student = await _uow.Students.GetByIdAsync(request.StudentId);
+                if (student == null) return ServiceResult<CredentialDetailDto>.Fail("Student not found");
+
+                // 2. Validate & Prepare Data based on Type
+                Credential credential = new Credential
+                {
+                    StudentId = request.StudentId,
+                    IssuedDate = DateTime.UtcNow,
+                    Status = "Issued", // Use string literal as CredentialStatus enum might not be available or is string
+                    CertificateType = request.Type,
+                    CredentialId = "", // Will be set later
+                    IPFSHash = "", // Will be set later if needed
+                    FileUrl = "", // Will be set later
+                    CertificateTemplateId = Guid.Empty // Will be set later
+                };
+
+                CertificateTemplate? template = null;
+
+                if (request.Type == "SubjectCompletion")
+                {
+                    if (!request.SubjectId.HasValue)
+                        return ServiceResult<CredentialDetailDto>.Fail("SubjectId is required for SubjectCompletion");
+
+                    // Check if already exists
+                    var existingCredentials = await _uow.Credentials.FindAsync(c => 
+                        c.StudentId == request.StudentId && 
+                        c.SubjectId == request.SubjectId && 
+                        !c.IsRevoked);
+                    
+                    if (existingCredentials.Any()) return ServiceResult<CredentialDetailDto>.Fail("Credential already exists for this subject");
+
+                    // Get Grade info
+                    var grades = await _uow.Grades.GetGradesByStudentAndSubjectAsync(request.StudentId, request.SubjectId.Value);
+                    var grade = grades.OrderByDescending(g => g.Score).FirstOrDefault(); // Get highest grade if multiple
+                    
+                    if (grade == null || grade.Score < 5.0m) // Assuming 5.0 is pass
+                        return ServiceResult<CredentialDetailDto>.Fail("Student has not passed this subject or grade not found");
+                    
+                    credential.SubjectId = request.SubjectId;
+                    credential.FinalGrade = grade.Score;
+                    credential.LetterGrade = grade.LetterGrade;
+                    credential.CompletionDate = DateTime.UtcNow; // Or get from semester end date
+                    
+                    var templates = await _uow.CertificateTemplates.FindAsync(t => t.TemplateType == "SubjectCompletion" && t.IsActive);
+                    template = templates.FirstOrDefault();
+                }
+                else if (request.Type == "RoadmapCompletion")
+                {
+                     if (!request.StudentRoadmapId.HasValue)
+                        return ServiceResult<CredentialDetailDto>.Fail("StudentRoadmapId is required for RoadmapCompletion");
+                     
+                     // Check if already exists
+                     var existingCredentials = await _uow.Credentials.FindAsync(c => 
+                        c.StudentId == request.StudentId && 
+                        c.StudentRoadmapId == request.StudentRoadmapId && 
+                        !c.IsRevoked);
+                    
+                    if (existingCredentials.Any()) return ServiceResult<CredentialDetailDto>.Fail("Credential already exists for this roadmap");
+
+                     credential.StudentRoadmapId = request.StudentRoadmapId;
+                     // Additional logic to get roadmap details/GPA if needed
+                     
+                     var templates = await _uow.CertificateTemplates.FindAsync(t => t.TemplateType == "RoadmapCompletion" && t.IsActive);
+                     template = templates.FirstOrDefault();
+                }
+
+                if (template == null)
+                    return ServiceResult<CredentialDetailDto>.Fail("Active certificate template not found");
+
+                credential.CertificateTemplateId = template.Id;
+
+                // 3. Generate Core Data (Number, Hash)
+                credential.CredentialId = await GenerateCredentialNumberAsync(request.Type);
+                credential.VerificationHash = GenerateVerificationHash(credential.CredentialId, credential.StudentId);
+
+                // 4. Save Initial Credential to get ID
+                await _uow.Credentials.AddAsync(credential);
+                await _uow.SaveChangesAsync();
+
+                // 5. Generate & Upload PDF
+                try 
+                {
+                    // Load full data for PDF generation
+                    var fullCredential = await _uow.Credentials.GetByIdAsync(credential.Id);
+                    
+                    var pdfBytes = await _pdfService.GenerateCertificatePdfAsync(fullCredential);
+                    var fileName = $"{credential.CredentialId}.pdf";
+                    
+                    var cloudUrl = await _cloudStorageService.UploadPdfAsync(pdfBytes, fileName);
+                    
+                    // Update credential with PDF URL
+                    credential.PdfUrl = cloudUrl;
+                    credential.PdfFilePath = $"cloudinary://{fileName}";
+                    credential.UpdatedAt = DateTime.UtcNow;
+                    
+                    _uow.Credentials.Update(credential);
+                    await _uow.SaveChangesAsync();
+                }
+                catch (Exception pdfEx)
+                {
+                    _logger.LogError(pdfEx, "Error generating PDF for issued credential {Id}", credential.Id);
+                    // Don't fail the whole process, but log it. Admin can regenerate PDF later.
+                }
+
+                return ServiceResult<CredentialDetailDto>.SuccessResponse(_mapper.Map<CredentialDetailDto>(credential));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error issuing credential");
+                return ServiceResult<CredentialDetailDto>.Fail("Internal server error: " + ex.Message);
+            }
         }
 
         // ==================== AUTO-REQUEST METHODS ====================
@@ -332,6 +458,30 @@ overallGPA >= 8.0m ? "Second Class Honours (Upper)" :
 
                 _logger.LogInformation("Created credential {CredentialId} for student {StudentId}",
                   credential.Id, request.StudentId);
+
+                // Generate PDF and upload to Cloud Storage in background
+                try
+                {
+                    var pdfBytes = await _pdfService.GenerateCertificatePdfAsync(credential);
+                    var fileName = $"{credential.CredentialId}.pdf";
+                    
+                    var cloudUrl = await _cloudStorageService.UploadPdfAsync(pdfBytes, fileName);
+                    
+                    // Update credential with PDF URL
+                    credential.PdfUrl = cloudUrl;
+                    credential.PdfFilePath = $"cloudinary://{fileName}";
+                    credential.UpdatedAt = DateTime.UtcNow;
+                    
+                    _uow.Credentials.Update(credential);
+                    await _uow.SaveChangesAsync();
+                    
+                    _logger.LogInformation("PDF generated and uploaded to Cloud Storage for credential {CredentialId}", credential.Id);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to generate/upload PDF for credential {CredentialId}, will retry later", credential.Id);
+                    // Don't fail the entire operation if PDF generation fails
+                }
 
                 return _mapper.Map<CredentialDetailDto>(credential);
             }
@@ -1072,13 +1222,57 @@ overallGPA >= 8.0m ? "Second Class Honours (Upper)" :
 
         // ==================== PDF & QR CODE ====================
 
-        public Task<(byte[] FileBytes, string FileName)> GenerateCredentialPdfAsync(Guid credentialId)
+        public async Task<(byte[] FileBytes, string FileName)> GenerateCredentialPdfAsync(Guid credentialId)
         {
-            // TODO: Implement PDF generation using:
-            // - DinkToPdf: dotnet add package DinkToPdf
-            // - PuppeteerSharp: dotnet add package PuppeteerSharp
-            // - QuestPDF: dotnet add package QuestPDF
-            throw new NotImplementedException("PDF generation requires installing a PDF library (DinkToPdf, PuppeteerSharp, or QuestPDF)");
+            try
+            {
+                _logger.LogInformation("Generating PDF for credential {CredentialId}", credentialId);
+
+                // Get credential with all related data
+                var credential = await _uow.Credentials.GetByIdAsync(credentialId);
+                
+                if (credential == null)
+                    throw new KeyNotFoundException($"Credential {credentialId} not found");
+
+                if (credential.IsRevoked)
+                    throw new InvalidOperationException("Cannot generate PDF for revoked credential");
+
+                // Generate PDF using PdfService
+                var pdfBytes = await _pdfService.GenerateCertificatePdfAsync(credential);
+                
+                // Generate filename
+                var fileName = $"{credential.CredentialId}.pdf";
+
+                // Upload to Cloud Storage
+                try
+                {
+                    var cloudUrl = await _cloudStorageService.UploadPdfAsync(pdfBytes, fileName);
+                    
+                    // Update credential with Cloud URL
+                    credential.PdfUrl = cloudUrl;
+                    credential.PdfFilePath = $"cloudinary://{fileName}"; // Mark as Cloudinary storage
+                    credential.UpdatedAt = DateTime.UtcNow;
+                    
+                    _uow.Credentials.Update(credential);
+                    await _uow.SaveChangesAsync();
+                    
+                    _logger.LogInformation("PDF uploaded to Cloud Storage for credential {CredentialId}, URL: {Url}", 
+                        credentialId, cloudUrl);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to upload PDF to Firebase for credential {CredentialId}, continuing with local generation", 
+                        credentialId);
+                    // Continue without Firebase upload - return bytes anyway
+                }
+
+                return (pdfBytes, fileName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating PDF for credential {CredentialId}", credentialId);
+                throw;
+            }
         }
 
         public async Task<string> GenerateQRCodeAsync(Guid credentialId, Guid? userId, int size = 300)
@@ -1105,33 +1299,25 @@ overallGPA >= 8.0m ? "Second Class Honours (Upper)" :
  }
       }
 
- // 3. Generate verification URL
-   var baseUrl = _configuration["AppSettings:BaseUrl"] ?? "https://api.example.com";
+        // 3. Generate verification URL
+        var baseUrl = _configuration["AppSettings:BaseUrl"] ?? "https://api.example.com";
         var verifyUrl = $"{baseUrl}/verify/{credential.CredentialId}";
 
-            // 4. Generate QR code
-using var qrGenerator = new QRCodeGenerator();
-                var qrCodeData = qrGenerator.CreateQrCode(verifyUrl, QRCodeGenerator.ECCLevel.Q);
-       
-    // 5. Create PNG image from QR code
-  using var qrCode = new PngByteQRCode(qrCodeData);
-      var qrCodeImage = qrCode.GetGraphic(size / 20); // Pixel per module (size/20 for good quality)
+        // 4. Generate QR code using PdfService
+        var base64QRCode = _pdfService.GenerateQRCode(verifyUrl, size / 20);
 
-        // 6. Convert to Base64
-     var base64QRCode = $"data:image/png;base64,{Convert.ToBase64String(qrCodeImage)}";
+        // 5. Save to credential if not already saved
+        if (string.IsNullOrEmpty(credential.QRCodeData))
+        {
+            credential.QRCodeData = base64QRCode;
+            credential.ShareableUrl = verifyUrl;
+            _uow.Credentials.Update(credential);
+            await _uow.SaveChangesAsync();
 
-           // 7. Save to credential if not already saved
-          if (string.IsNullOrEmpty(credential.QRCodeData))
-       {
-        credential.QRCodeData = base64QRCode;
-        credential.ShareableUrl = verifyUrl;
-           _uow.Credentials.Update(credential);
-   await _uow.SaveChangesAsync();
+            _logger.LogInformation("Saved QR code to credential {CredentialId}", credentialId);
+        }
 
-      _logger.LogInformation("Saved QR code to credential {CredentialId}", credentialId);
-    }
-
-     return base64QRCode;
+        return base64QRCode;
             }
             catch (KeyNotFoundException)
     {
@@ -1232,11 +1418,7 @@ using var qrGenerator = new QRCodeGenerator();
         /// </summary>
         private string GenerateQrCodeImage(string url, int size)
         {
-            using var qrGenerator = new QRCodeGenerator();
-            var qrCodeData = qrGenerator.CreateQrCode(url, QRCodeGenerator.ECCLevel.Q);
-            using var qrCode = new PngByteQRCode(qrCodeData);
-            var qrCodeImage = qrCode.GetGraphic(size / 20); // pixels per module
-            return $"data:image/png;base64,{Convert.ToBase64String(qrCodeImage)}";
+            return _pdfService.GenerateQRCode(url, size / 20);
         }
 
         /// <summary>

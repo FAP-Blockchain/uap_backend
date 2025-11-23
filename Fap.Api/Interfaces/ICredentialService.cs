@@ -1,5 +1,6 @@
 using Fap.Domain.DTOs.Credential;
 using Fap.Domain.DTOs.Common;
+using Fap.Domain.DTOs; // For ServiceResult
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -13,6 +14,7 @@ namespace Fap.Api.Interfaces
         Task<PagedResult<CredentialDto>> GetCredentialsAsync(GetCredentialsRequest request);
         Task<CredentialDetailDto?> GetCredentialByIdAsync(Guid id);
         Task<CredentialDetailDto> CreateCredentialAsync(CreateCredentialRequest request, Guid createdBy);
+        Task<ServiceResult<CredentialDetailDto>> IssueCredentialAsync(IssueCredentialDto request); // ✅ NEW - Admin Issue Credential
         Task<CredentialDetailDto> ReviewCredentialAsync(Guid credentialId, ReviewCredentialRequest request, Guid reviewedBy);
         Task RevokeCredentialAsync(Guid credentialId, RevokeCredentialRequest request, Guid revokedBy);
 
