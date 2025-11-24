@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 
 namespace Fap.Api.Services
 {
@@ -130,32 +131,91 @@ namespace Fap.Api.Services
                 await _uow.Credentials.AddAsync(credential);
                 await _uow.SaveChangesAsync();
 
-                // 5. Generate & Upload PDF
-                try 
+                // 5. Generate & upload PDF (cloud)
+                byte[]? pdfBytes = null;
+                string? pdfCloudUrl = null;
+
+                try
                 {
-                    // Load full data for PDF generation
                     var fullCredential = await _uow.Credentials.GetByIdAsync(credential.Id);
-                    
-                    var pdfBytes = await _pdfService.GenerateCertificatePdfAsync(fullCredential);
-                    var fileName = $"{credential.CredentialId}.pdf";
-                    
-                    var cloudUrl = await _cloudStorageService.UploadPdfAsync(pdfBytes, fileName);
-                    
-                    // Update credential with PDF URL
-                    credential.PdfUrl = cloudUrl;
-                    credential.PdfFilePath = $"cloudinary://{fileName}";
-                    credential.UpdatedAt = DateTime.UtcNow;
-                    
-                    _uow.Credentials.Update(credential);
-                    await _uow.SaveChangesAsync();
+
+                    if (fullCredential != null)
+                    {
+                        pdfBytes = await _pdfService.GenerateCertificatePdfAsync(fullCredential);
+                        var fileName = $"{credential.CredentialId}.pdf";
+
+                        pdfCloudUrl = await _cloudStorageService.UploadPdfAsync(pdfBytes, fileName);
+
+                        credential.PdfUrl = pdfCloudUrl;
+                        credential.PdfFilePath = $"cloudinary://{fileName}";
+                        credential.UpdatedAt = DateTime.UtcNow;
+
+                        _uow.Credentials.Update(credential);
+                        await _uow.SaveChangesAsync();
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Unable to load credential {CredentialId} for PDF generation", credential.Id);
+                    }
                 }
                 catch (Exception pdfEx)
                 {
                     _logger.LogError(pdfEx, "Error generating PDF for issued credential {Id}", credential.Id);
-                    // Don't fail the whole process, but log it. Admin can regenerate PDF later.
+                    // Không fail toàn bộ, admin có thể xử lý lại
                 }
 
-                return ServiceResult<CredentialDetailDto>.SuccessResponse(_mapper.Map<CredentialDetailDto>(credential));
+                // 6. Chuẩn bị metadata JSON cho on-chain
+                string ipfsCid = credential.IPFSHash ?? string.Empty;
+                string fileUrl = credential.FileUrl ?? pdfCloudUrl ?? string.Empty;
+                string verificationHash = credential.VerificationHash ?? string.Empty;
+
+                var metadata = new
+                {
+                    cid = ipfsCid,
+                    fileUrl,
+                    verificationHash
+                };
+
+                string credentialDataJson = JsonSerializer.Serialize(metadata);
+
+                // 7. Gọi smart contract CredentialManagement.issueCredential
+                try
+                {
+                    var studentUser = student.User;
+                    if (studentUser == null || string.IsNullOrWhiteSpace(studentUser.WalletAddress))
+                    {
+                        return ServiceResult<CredentialDetailDto>.Fail("Student has no blockchain wallet address configured");
+                    }
+
+                    var credentialTypeOnChain = request.Type;
+                    ulong expiresAtUnix = 0;
+
+                    var (onChainId, txHash) = await _blockchainService.IssueCredentialOnChainAsync(
+                        studentUser.WalletAddress,
+                        credentialTypeOnChain,
+                        credentialDataJson,
+                        expiresAtUnix
+                    );
+
+                    credential.BlockchainCredentialId = onChainId;
+                    credential.BlockchainTransactionHash = txHash;
+                    credential.BlockchainStoredAt = DateTime.UtcNow;
+                    credential.IsOnBlockchain = true;
+
+                    credential.IPFSHash = ipfsCid;
+                    credential.FileUrl = fileUrl;
+
+                    _uow.Credentials.Update(credential);
+                    await _uow.SaveChangesAsync();
+                }
+                catch (Exception chainEx)
+                {
+                    _logger.LogError(chainEx, "Error issuing credential on blockchain for credential {Id}", credential.Id);
+                    return ServiceResult<CredentialDetailDto>.Fail("Failed to record credential on blockchain");
+                }
+
+                var dto = _mapper.Map<CredentialDetailDto>(credential);
+                return ServiceResult<CredentialDetailDto>.SuccessResponse(dto);
             }
             catch (Exception ex)
             {
@@ -545,6 +605,21 @@ overallGPA >= 8.0m ? "Second Class Honours (Upper)" :
 
                 _uow.Credentials.Update(credential);
                 await _uow.SaveChangesAsync();
+
+                try
+                {
+                    if (credential.BlockchainCredentialId.HasValue)
+                    {
+                        await _blockchainService.RevokeCredentialOnChainAsync(
+                            credential.BlockchainCredentialId.Value
+                        );
+                    }
+                }
+                catch (Exception chainEx)
+                {
+                    _logger.LogError(chainEx, "Error revoking credential on blockchain {CredentialId}", credentialId);
+                    // Không throw lại để không chặn API
+                }
 
                 _logger.LogInformation("Revoked credential {CredentialId}", credentialId);
             }
@@ -1150,10 +1225,29 @@ overallGPA >= 8.0m ? "Second Class Honours (Upper)" :
                     };
                 }
 
+                bool? onChainValid = null;
+                try
+                {
+                    if (credential.BlockchainCredentialId.HasValue)
+                    {
+                        onChainValid = await _blockchainService.VerifyCredentialOnChainAsync(
+                            credential.BlockchainCredentialId.Value
+                        );
+                    }
+                }
+                catch (Exception chainEx)
+                {
+                    _logger.LogWarning(chainEx, "Error verifying credential on-chain for {CredentialId}", credential.Id);
+                }
+
+                var isValid = !onChainValid.HasValue || onChainValid.Value;
+
                 return new CredentialVerificationDto
                 {
-                    IsValid = true,
-                    Message = "Certificate is valid and authentic",
+                    IsValid = isValid,
+                    Message = isValid
+                        ? "Certificate is valid and authentic"
+                        : "On-chain verification failed",
                     Credential = _mapper.Map<CredentialDto>(credential),
                     VerifiedAt = DateTime.UtcNow
                 };
@@ -1480,16 +1574,16 @@ overallGPA >= 8.0m ? "Second Class Honours (Upper)" :
                     dto.VerificationStatus = "Revoked";
                     dto.VerificationMessage = $"Certificate has been revoked on {credential.RevokedAt?.ToString("yyyy-MM-dd")}";
                 }
-                else if (credential.IsOnBlockchain && !string.IsNullOrEmpty(credential.BlockchainTransactionHash))
+                else if (credential.IsOnBlockchain && credential.BlockchainCredentialId.HasValue)
                 {
-                    // Verify on blockchain
-                    var isValid = await _blockchainService.VerifyCertificateOnChainAsync(
-                        credential.BlockchainTransactionHash,
-                        credential.VerificationHash ?? "");
+                    // Verify on blockchain bằng credentialId on-chain
+                    var isValid = await _blockchainService.VerifyCredentialOnChainAsync(
+                        credential.BlockchainCredentialId.Value
+                    );
 
                     dto.VerificationStatus = isValid ? "Verified" : "Pending";
-                    dto.VerificationMessage = isValid 
-                        ? "Certificate is verified on blockchain" 
+                    dto.VerificationMessage = isValid
+                        ? "Certificate is verified on blockchain"
                         : "Certificate verification pending";
                 }
                 else

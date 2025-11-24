@@ -1,6 +1,10 @@
+using System.Numerics;
+using System.Linq;
 using Fap.Api.Interfaces;
 using Fap.Domain.Settings;
 using Microsoft.Extensions.Options;
+using Nethereum.ABI.FunctionEncoding.Attributes;
+using Nethereum.Contracts;
 using Nethereum.Hex.HexTypes;
 using Nethereum.RPC.Eth.DTOs;
 using Nethereum.Web3;
@@ -225,129 +229,148 @@ namespace Fap.Api.Services
             return code != "0x" && code != "0x0" && !string.IsNullOrEmpty(code);
         }
 
-        public async Task<bool> VerifyCertificateOnChainAsync(string transactionHash, string certificateHash)
-        {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(transactionHash))
-                    return false;
-
-                var receipt = await GetTransactionReceiptAsync(transactionHash);
-                if (receipt == null || receipt.Status?.Value != 1)
-                {
-                    _logger.LogWarning("Transaction {TxHash} not found or failed", transactionHash);
-                    return false;
-                }
-
-                // TODO: Decode logs to verify certificateHash if needed
-                // For now, just verify transaction exists and succeeded
-                _logger.LogInformation("Certificate verified on chain: {TxHash}", transactionHash);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error verifying certificate on blockchain");
-                return false;
-            }
-        }
-
         #region Credential Management Contract Methods
 
-        // Smart Contract ABI for CredentialManagement.sol
-        private const string CredentialManagementAbi = @"[
-            {
-                'inputs': [
-                    {'internalType': 'uint256', 'name': '_credentialId', 'type': 'uint256'},
-                    {'internalType': 'address', 'name': '_studentAddress', 'type': 'address'},
-                    {'internalType': 'string', 'name': '_credentialData', 'type': 'string'}
-                ],
-                'name': 'issueCredential',
-                'outputs': [],
-                'stateMutability': 'nonpayable',
-                'type': 'function'
-            },
-            {
-                'inputs': [
-                    {'internalType': 'uint256', 'name': '_credentialId', 'type': 'uint256'},
-                    {'internalType': 'string', 'name': '_reason', 'type': 'string'}
-                ],
-                'name': 'revokeCredential',
-                'outputs': [],
-                'stateMutability': 'nonpayable',
-                'type': 'function'
-            },
-            {
-                'inputs': [
-                    {'internalType': 'uint256', 'name': '_credentialId', 'type': 'uint256'}
-                ],
-                'name': 'verifyCredential',
-                'outputs': [
-                    {'internalType': 'bool', 'name': 'isValid', 'type': 'bool'},
-                    {'internalType': 'address', 'name': 'studentAddress', 'type': 'address'},
-                    {'internalType': 'string', 'name': 'credentialData', 'type': 'string'},
-                    {'internalType': 'uint8', 'name': 'status', 'type': 'uint8'}
-                ],
-                'stateMutability': 'view',
-                'type': 'function'
-            },
-            {
-                'inputs': [
-                    {'internalType': 'uint256', 'name': '_credentialId', 'type': 'uint256'}
-                ],
-                'name': 'getCredential',
-                'outputs': [
+        // Smart Contract ABI for CredentialManagement.sol (khớp với contract thực tế)
+                private const string CredentialManagementAbi = @"[
                     {
-                        'components': [
-                            {'internalType': 'uint256', 'name': 'credentialId', 'type': 'uint256'},
-                            {'internalType': 'address', 'name': 'studentAddress', 'type': 'address'},
-                            {'internalType': 'string', 'name': 'credentialData', 'type': 'string'},
-                            {'internalType': 'enum CredentialManagement.CredentialStatus', 'name': 'status', 'type': 'uint8'}
+                        'anonymous': false,
+                        'inputs': [
+                            { 'indexed': true,  'internalType': 'uint256', 'name': 'credentialId',   'type': 'uint256' },
+                            { 'indexed': true,  'internalType': 'address', 'name': 'studentAddress', 'type': 'address' },
+                            { 'indexed': true,  'internalType': 'address', 'name': 'issuedBy',       'type': 'address' },
+                            { 'indexed': false, 'internalType': 'string',  'name': 'credentialType', 'type': 'string' }
                         ],
-                        'internalType': 'struct CredentialManagement.Credential',
-                        'name': '',
-                        'type': 'tuple'
+                        'name': 'CredentialIssued',
+                        'type': 'event'
+                    },
+                    {
+                        'inputs': [
+                            { 'internalType': 'address', 'name': 'studentAddress', 'type': 'address' },
+                            { 'internalType': 'string',  'name': 'credentialType', 'type': 'string' },
+                            { 'internalType': 'string',  'name': 'credentialData', 'type': 'string' },
+                            { 'internalType': 'uint256', 'name': 'expiresAt',      'type': 'uint256' }
+                        ],
+                        'name': 'issueCredential',
+                        'outputs': [
+                            { 'internalType': 'uint256', 'name': '', 'type': 'uint256' }
+                        ],
+                        'stateMutability': 'nonpayable',
+                        'type': 'function'
+                    },
+                    {
+                        'inputs': [
+                            { 'internalType': 'uint256', 'name': 'credentialId', 'type': 'uint256' }
+                        ],
+                        'name': 'revokeCredential',
+                        'outputs': [],
+                        'stateMutability': 'nonpayable',
+                        'type': 'function'
+                    },
+                    {
+                        'inputs': [
+                            { 'internalType': 'uint256', 'name': 'credentialId', 'type': 'uint256' }
+                        ],
+                        'name': 'verifyCredential',
+                        'outputs': [
+                            { 'internalType': 'bool', 'name': '', 'type': 'bool' }
+                        ],
+                        'stateMutability': 'view',
+                        'type': 'function'
+                    },
+                    {
+                        'inputs': [
+                            { 'internalType': 'uint256', 'name': 'credentialId', 'type': 'uint256' }
+                        ],
+                        'name': 'getCredential',
+                        'outputs': [
+                            {
+                                'components': [
+                                    { 'internalType': 'uint256', 'name': 'credentialId',    'type': 'uint256' },
+                                    { 'internalType': 'address', 'name': 'studentAddress',  'type': 'address' },
+                                    { 'internalType': 'string',  'name': 'credentialType',  'type': 'string' },
+                                    { 'internalType': 'string',  'name': 'credentialData',  'type': 'string' },
+                                    { 'internalType': 'uint8',   'name': 'status',          'type': 'uint8' },
+                                    { 'internalType': 'address', 'name': 'issuedBy',        'type': 'address' },
+                                    { 'internalType': 'uint256', 'name': 'issuedAt',        'type': 'uint256' },
+                                    { 'internalType': 'uint256', 'name': 'expiresAt',       'type': 'uint256' }
+                                ],
+                                'internalType': 'struct DataTypes.Credential',
+                                'name': '',
+                                'type': 'tuple'
+                            }
+                        ],
+                        'stateMutability': 'view',
+                        'type': 'function'
+                    },
+                    {
+                        'inputs': [],
+                        'name': 'credentialCount',
+                        'outputs': [
+                            { 'internalType': 'uint256', 'name': '', 'type': 'uint256' }
+                        ],
+                        'stateMutability': 'view',
+                        'type': 'function'
                     }
-                ],
-                'stateMutability': 'view',
-                'type': 'function'
-            },
-            {
-                'inputs': [],
-                'name': 'credentialCount',
-                'outputs': [
-                    {'internalType': 'uint256', 'name': '', 'type': 'uint256'}
-                ],
-                'stateMutability': 'view',
-                'type': 'function'
-            }
-        ]";
+                ]";
 
         /// <summary>
         /// Issue credential on blockchain
         /// </summary>
         public async Task<(long BlockchainCredentialId, string TransactionHash)> IssueCredentialOnChainAsync(
-            string studentWalletAddress, 
-            string credentialData)
+            string studentWalletAddress,
+            string credentialType,
+            string credentialDataJson,
+            ulong expiresAtUnixSeconds)
         {
             try
             {
-                // Get next credential ID from blockchain
-                var credentialCount = await GetCredentialCountAsync();
-                var blockchainCredentialId = credentialCount + 1;
-
                 _logger.LogInformation(
-                    "Issuing credential on blockchain. BlockchainId: {BlockchainId}, Student: {Student}",
-                    blockchainCredentialId,
-                    studentWalletAddress);
+                    "Issuing credential on blockchain. Student: {Student}, Type: {Type}",
+                    studentWalletAddress,
+                    credentialType);
 
-                // Call issueCredential on smart contract
+                // Call issueCredential: (address studentAddress, string credentialType, string credentialData, uint256 expiresAt)
                 var txHash = await SendTransactionAsync(
                     _settings.CredentialContractAddress,
                     CredentialManagementAbi,
                     "issueCredential",
-                    blockchainCredentialId,
                     studentWalletAddress,
-                    credentialData);
+                    credentialType,
+                    credentialDataJson,
+                    (BigInteger)expiresAtUnixSeconds
+                );
+
+                // Wait for receipt to decode emitted events for deterministic credentialId retrieval
+                var receipt = await WaitForTransactionReceiptAsync(txHash, _settings.TransactionTimeout);
+                var issuedEvent = receipt
+                    .DecodeAllEvents<CredentialIssuedEventDto>()
+                    .Select(e => e.Event)
+                    .FirstOrDefault(e =>
+                        string.Equals(e.StudentAddress, studentWalletAddress, StringComparison.OrdinalIgnoreCase) &&
+                        string.Equals(e.CredentialType, credentialType, StringComparison.Ordinal));
+
+                long blockchainCredentialId;
+
+                if (issuedEvent != null)
+                {
+                    blockchainCredentialId = (long)issuedEvent.CredentialId;
+                    _logger.LogDebug(
+                        "CredentialIssued event decoded. CredentialId: {CredentialId}, Student: {Student}, IssuedBy: {Issuer}",
+                        blockchainCredentialId,
+                        issuedEvent.StudentAddress,
+                        issuedEvent.IssuedBy);
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "CredentialIssued event not found, falling back to credentialCount. Student: {Student}, Type: {Type}",
+                        studentWalletAddress,
+                        credentialType);
+
+                    var credentialCount = await GetCredentialCountAsync();
+                    blockchainCredentialId = credentialCount;
+                }
 
                 _logger.LogInformation(
                     "Credential issued successfully. TxHash: {TxHash}, BlockchainId: {BlockchainId}",
@@ -366,21 +389,20 @@ namespace Fap.Api.Services
         /// <summary>
         /// Revoke credential on blockchain
         /// </summary>
-        public async Task<string> RevokeCredentialOnChainAsync(long blockchainCredentialId, string reason)
+        public async Task<string> RevokeCredentialOnChainAsync(long blockchainCredentialId)
         {
             try
             {
                 _logger.LogInformation(
-                    "Revoking credential on blockchain. BlockchainId: {BlockchainId}, Reason: {Reason}",
-                    blockchainCredentialId,
-                    reason);
+                    "Revoking credential on blockchain. BlockchainId: {BlockchainId}",
+                    blockchainCredentialId);
 
                 var txHash = await SendTransactionAsync(
                     _settings.CredentialContractAddress,
                     CredentialManagementAbi,
                     "revokeCredential",
-                    blockchainCredentialId,
-                    reason);
+                    (BigInteger)blockchainCredentialId
+                );
 
                 _logger.LogInformation(
                     "Credential revoked successfully. TxHash: {TxHash}, BlockchainId: {BlockchainId}",
@@ -397,9 +419,9 @@ namespace Fap.Api.Services
         }
 
         /// <summary>
-        /// Verify credential on blockchain
+        /// Verify credential on blockchain (status/expiry only)
         /// </summary>
-        public async Task<CredentialVerificationResult> VerifyCredentialOnChainAsync(long blockchainCredentialId)
+        public async Task<bool> VerifyCredentialOnChainAsync(long blockchainCredentialId)
         {
             try
             {
@@ -407,19 +429,19 @@ namespace Fap.Api.Services
                     "Verifying credential on blockchain. BlockchainId: {BlockchainId}",
                     blockchainCredentialId);
 
-                var contract = _web3.Eth.GetContract(CredentialManagementAbi, _settings.CredentialContractAddress);
-                var verifyFunction = contract.GetFunction("verifyCredential");
-
-                // Call verifyCredential - returns (bool isValid, address studentAddress, string credentialData, uint8 status)
-                var result = await verifyFunction.CallDeserializingToObjectAsync<CredentialVerificationResult>(blockchainCredentialId);
+                var isValid = await CallFunctionAsync<bool>(
+                    _settings.CredentialContractAddress,
+                    CredentialManagementAbi,
+                    "verifyCredential",
+                    (BigInteger)blockchainCredentialId
+                );
 
                 _logger.LogInformation(
-                    "Credential verification completed. BlockchainId: {BlockchainId}, IsValid: {IsValid}, Status: {Status}",
+                    "Credential verification completed. BlockchainId: {BlockchainId}, IsValid: {IsValid}",
                     blockchainCredentialId,
-                    result.IsValid,
-                    result.Status);
+                    isValid);
 
-                return result;
+                return isValid;
             }
             catch (Exception ex)
             {
@@ -431,14 +453,16 @@ namespace Fap.Api.Services
         /// <summary>
         /// Get credential from blockchain
         /// </summary>
-        public async Task<CredentialOnChain> GetCredentialFromChainAsync(long blockchainCredentialId)
+        public async Task<BlockchainCredentialOnChain> GetCredentialFromChainAsync(long blockchainCredentialId)
         {
             try
             {
                 var contract = _web3.Eth.GetContract(CredentialManagementAbi, _settings.CredentialContractAddress);
                 var getFunction = contract.GetFunction("getCredential");
 
-                var result = await getFunction.CallDeserializingToObjectAsync<CredentialOnChain>(blockchainCredentialId);
+                var result = await getFunction.CallDeserializingToObjectAsync<BlockchainCredentialOnChain>(
+                    (BigInteger)blockchainCredentialId
+                );
 
                 _logger.LogInformation(
                     "Retrieved credential from blockchain. BlockchainId: {BlockchainId}, Status: {Status}",
@@ -461,7 +485,7 @@ namespace Fap.Api.Services
         {
             try
             {
-                var count = await CallFunctionAsync<System.Numerics.BigInteger>(
+                var count = await CallFunctionAsync<BigInteger>(
                     _settings.CredentialContractAddress,
                     CredentialManagementAbi,
                     "credentialCount");
@@ -476,25 +500,20 @@ namespace Fap.Api.Services
         }
 
         #endregion
-
-        #region DTOs for Blockchain Credential Operations
-
-        public class CredentialVerificationResult
+        [Event("CredentialIssued")]
+        private class CredentialIssuedEventDto : IEventDTO
         {
-            public bool IsValid { get; set; }
-            public string StudentAddress { get; set; } = string.Empty;
-            public string CredentialData { get; set; } = string.Empty;
-            public int Status { get; set; } // 0 = Active, 1 = Revoked
-        }
+            [Parameter("uint256", "credentialId", 1, true)]
+            public BigInteger CredentialId { get; set; }
 
-        public class CredentialOnChain
-        {
-            public System.Numerics.BigInteger CredentialId { get; set; }
+            [Parameter("address", "studentAddress", 2, true)]
             public string StudentAddress { get; set; } = string.Empty;
-            public string CredentialData { get; set; } = string.Empty;
-            public int Status { get; set; } // 0 = Active, 1 = Revoked
-        }
 
-        #endregion
+            [Parameter("address", "issuedBy", 3, true)]
+            public string IssuedBy { get; set; } = string.Empty;
+
+            [Parameter("string", "credentialType", 4, false)]
+            public string CredentialType { get; set; } = string.Empty;
+        }
     }
 }

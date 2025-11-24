@@ -96,7 +96,8 @@ namespace Fap.Api.Controllers
         }
 
         /// <summary>
-        /// POST /api/credentials/issue - Issue new credential (Admin only)
+        /// POST /api/credentials/issue - Issue new credential with blockchain registration (Admin only)
+        /// ✅ RECOMMENDED: Issues credential, generates PDF, stores metadata, and registers on blockchain
         /// </summary>
         [HttpPost("issue")]
         [Authorize(Roles = "Admin")]
@@ -113,7 +114,9 @@ namespace Fap.Api.Controllers
         }
 
         /// <summary>
-        /// POST /api/credentials - Create new credential (Admin only)
+        /// POST /api/credentials - Create credential draft without blockchain (Admin only)
+        /// ⚠️ LEGACY: Creates credential record in database only, without blockchain registration.
+        /// Use POST /api/credentials/issue for production credentials.
         /// </summary>
         [HttpPost]
         [Authorize(Roles = "Admin")]
