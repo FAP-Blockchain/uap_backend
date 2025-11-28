@@ -207,7 +207,7 @@ namespace Fap.Api.Services
 
         public async Task<ClassAttendanceReportDto> GetClassAttendanceReportAsync(Guid classId)
         {
-            var classEntity = await _unitOfWork.Classes.GetByIdAsync(classId);
+            var classEntity = await _unitOfWork.Classes.GetByIdWithDetailsAsync(classId);
             if (classEntity == null)
             {
                 throw new InvalidOperationException($"Class with ID {classId} not found");

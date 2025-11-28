@@ -49,7 +49,8 @@ namespace Fap.Api.Services
                     Specialization = t.Specialization,
                     PhoneNumber = t.User?.PhoneNumber,  // ? CHANGED: Now from User.PhoneNumber
                     IsActive = t.User?.IsActive ?? false,
-                    TotalClasses = t.Classes?.Count ?? 0
+                    TotalClasses = t.Classes?.Count ?? 0,
+                    ProfileImageUrl = t.User?.ProfileImageUrl
                 }).ToList();
 
                 return new PagedResult<TeacherDto>(
@@ -81,7 +82,8 @@ namespace Fap.Api.Services
                 Specialization = t.Specialization,
                 PhoneNumber = t.User?.PhoneNumber,  // ? CHANGED: Now from User.PhoneNumber
                 IsActive = t.User?.IsActive ?? false,
-                TotalClasses = t.Classes?.Count ?? 0
+                TotalClasses = t.Classes?.Count ?? 0,
+                ProfileImageUrl = t.User?.ProfileImageUrl
             }).ToList();
         }
 
@@ -105,6 +107,7 @@ namespace Fap.Api.Services
                     PhoneNumber = teacher.User?.PhoneNumber,  // ? CHANGED: Now from User.PhoneNumber
                     IsActive = teacher.User?.IsActive ?? false,
                     CreatedAt = teacher.User?.CreatedAt ?? DateTime.MinValue,
+                    ProfileImageUrl = teacher.User?.ProfileImageUrl,
                     
                     // Classes
                     Classes = teacher.Classes?.Select(c => new TeachingClassInfo

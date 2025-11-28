@@ -14,6 +14,7 @@ namespace Fap.Domain.DTOs.Teacher
         public string? PhoneNumber { get; set; }  // ? Now from User.PhoneNumber
         public bool IsActive { get; set; }
         public int TotalClasses { get; set; }
+        public string? ProfileImageUrl { get; set; }
     }
 
     public class TeacherDetailDto
@@ -27,13 +28,14 @@ namespace Fap.Domain.DTOs.Teacher
         public string? PhoneNumber { get; set; }  // ? Now from User.PhoneNumber
         public bool IsActive { get; set; }
         public DateTime CreatedAt { get; set; }
+        public string? ProfileImageUrl { get; set; }
         
         // Classes (L?p ?ang d?y)
         public List<TeachingClassInfo> Classes { get; set; } = new();
         
         // Statistics
         public int TotalClasses { get; set; }
-        public int TotalStudents { get; set; } // T?ng s? SV trong t?t c? các l?p
+        public int TotalStudents { get; set; } // T?ng s? SV trong t?t c? cï¿½c l?p
     }
 
     public class TeachingClassInfo
@@ -44,7 +46,7 @@ namespace Fap.Domain.DTOs.Teacher
         public string SubjectCode { get; set; }
         public int Credits { get; set; }
         public string SemesterName { get; set; }
-        public int TotalStudents { get; set; } // S? SV trong l?p này
+        public int TotalStudents { get; set; } // S? SV trong l?p nï¿½y
         public int TotalSlots { get; set; }     // S? bu?i h?c
     }
 }
