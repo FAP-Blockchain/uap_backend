@@ -1,10 +1,13 @@
-using System.Numerics;
 using System.Linq;
+using System.Numerics;
+using System.Text;
 using Fap.Api.Interfaces;
+using Fap.Domain.Enums;
 using Fap.Domain.Settings;
 using Microsoft.Extensions.Options;
 using Nethereum.ABI.FunctionEncoding.Attributes;
 using Nethereum.Contracts;
+using Nethereum.Hex.HexConvertors.Extensions;
 using Nethereum.Hex.HexTypes;
 using Nethereum.RPC.Eth.DTOs;
 using Nethereum.Web3;
@@ -238,8 +241,8 @@ namespace Fap.Api.Services
                         'inputs': [
                             { 'indexed': true,  'internalType': 'uint256', 'name': 'credentialId',   'type': 'uint256' },
                             { 'indexed': true,  'internalType': 'address', 'name': 'studentAddress', 'type': 'address' },
-                            { 'indexed': true,  'internalType': 'address', 'name': 'issuedBy',       'type': 'address' },
-                            { 'indexed': false, 'internalType': 'string',  'name': 'credentialType', 'type': 'string' }
+                            { 'indexed': false, 'internalType': 'string',  'name': 'credentialType', 'type': 'string' },
+                            { 'indexed': true,  'internalType': 'address', 'name': 'issuedBy',       'type': 'address' }
                         ],
                         'name': 'CredentialIssued',
                         'type': 'event'
@@ -453,29 +456,214 @@ namespace Fap.Api.Services
         /// <summary>
         /// Get credential from blockchain
         /// </summary>
-        public async Task<BlockchainCredentialOnChain> GetCredentialFromChainAsync(long blockchainCredentialId)
+        public async Task<CredentialOnChainStructDto> GetCredentialFromChainAsync(long blockchainCredentialId)
         {
             try
             {
+                _logger.LogInformation(
+                    "GetCredentialFromChainAsync START. BlockchainId: {BlockchainId}, DTO: {DtoType}",
+                    blockchainCredentialId,
+                    typeof(CredentialOnChainStructDto).AssemblyQualifiedName);
+
                 var contract = _web3.Eth.GetContract(CredentialManagementAbi, _settings.CredentialContractAddress);
                 var getFunction = contract.GetFunction("getCredential");
+                var callInput = getFunction.CreateCallInput((BigInteger)blockchainCredentialId);
+                var raw = await _web3.Eth.Transactions.Call.SendRequestAsync(callInput);
+                _logger.LogInformation("Raw getCredential output for {BlockchainId}: {Raw}", blockchainCredentialId, raw);
 
-                var result = await getFunction.CallDeserializingToObjectAsync<BlockchainCredentialOnChain>(
-                    (BigInteger)blockchainCredentialId
-                );
+                var result = DecodeCredentialOutput(raw);
 
                 _logger.LogInformation(
-                    "Retrieved credential from blockchain. BlockchainId: {BlockchainId}, Status: {Status}",
+                    "GetCredentialFromChainAsync DONE. BlockchainId: {BlockchainId}, CredentialId: {CredentialId}, StatusRaw: {StatusRaw}, StatusEnum: {StatusEnum}",
                     blockchainCredentialId,
-                    result.Status);
+                    result.CredentialId,
+                    result.Status,
+                    result.StatusEnum);
 
+                return result;
+            }
+            catch (OverflowException overflowEx)
+            {
+                _logger.LogError(
+                    overflowEx,
+                    "Overflow while decoding credential {BlockchainId} from chain. DTO: {DtoType}",
+                    blockchainCredentialId,
+                    typeof(CredentialOnChainStructDto).AssemblyQualifiedName);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Failed to get credential from blockchain. BlockchainId: {BlockchainId}, DTO: {DtoType}",
+                    blockchainCredentialId,
+                    typeof(CredentialOnChainStructDto).AssemblyQualifiedName);
+                throw;
+            }
+        }
+
+        public async Task<string> DebugGetCredentialRawAsync(long blockchainCredentialId)
+        {
+            var contract = _web3.Eth.GetContract(CredentialManagementAbi, _settings.CredentialContractAddress);
+            var function = contract.GetFunction("getCredential");
+            var callInput = function.CreateCallInput((BigInteger)blockchainCredentialId);
+            var raw = await _web3.Eth.Transactions.Call.SendRequestAsync(callInput);
+            _logger.LogInformation("Debug raw getCredential for {BlockchainId}: {Raw}", blockchainCredentialId, raw);
+            return raw;
+        }
+
+        public async Task<object> DebugDecodeCredentialAsync(long blockchainCredentialId)
+        {
+            var raw = await DebugGetCredentialRawAsync(blockchainCredentialId);
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                return new { message = "Empty response", raw };
+            }
+
+            try
+            {
+                var decodedDto = DecodeCredentialOutput(raw);
+                var statusLabel = decodedDto.StatusEnum.ToString();
+
+                var result = new
+                {
+                    raw,
+                    decoded = new
+                    {
+                        credentialId = decodedDto.CredentialId.ToString(),
+                        studentAddress = decodedDto.StudentAddress,
+                        credentialType = decodedDto.CredentialType,
+                        credentialData = decodedDto.CredentialData,
+                        status = decodedDto.Status,
+                        statusName = statusLabel,
+                        statusText = statusLabel,
+                        issuedBy = decodedDto.IssuedBy,
+                        issuedAt = decodedDto.IssuedAt.ToString(),
+                        expiresAt = decodedDto.ExpiresAt.ToString()
+                    }
+                };
+
+                _logger.LogInformation("Debug decoded credential for {BlockchainId}: {@Decoded}", blockchainCredentialId, result);
                 return result;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to get credential from blockchain. BlockchainId: {BlockchainId}", blockchainCredentialId);
-                throw;
+                _logger.LogError(ex, "Failed to decode credential {BlockchainId}. Raw: {Raw}", blockchainCredentialId, raw);
+                return new { message = "Failed to decode output", raw, error = ex.Message };
             }
+        }
+
+        private CredentialOnChainStructDto DecodeCredentialOutput(string raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw) || raw.Equals("0x", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException("Empty output received while decoding credential");
+            }
+
+            var bytes = raw.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
+                ? raw.Substring(2).HexToByteArray()
+                : raw.HexToByteArray();
+
+            const int wordSize = 32;
+
+            static BigInteger ReadUInt256(byte[] source, int byteOffset)
+            {
+                if (byteOffset < 0 || byteOffset + wordSize > source.Length)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(byteOffset), "Offset exceeds source length");
+                }
+
+                var buffer = new byte[wordSize + 1];
+                Array.Copy(source, byteOffset, buffer, 1, wordSize);
+                Array.Reverse(buffer);
+                return new BigInteger(buffer);
+            }
+
+            static string ReadAddress(byte[] source, int byteOffset)
+            {
+                if (byteOffset < 0 || byteOffset + wordSize > source.Length)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(byteOffset), "Offset exceeds source length");
+                }
+
+                var slice = new byte[wordSize];
+                Array.Copy(source, byteOffset, slice, 0, wordSize);
+                var addressBytes = slice.Skip(wordSize - 20).ToArray();
+                return "0x" + BitConverter.ToString(addressBytes).Replace("-", string.Empty).ToLowerInvariant();
+            }
+
+            static int ToSafeInt32(BigInteger value, string fieldName, int max)
+            {
+                if (value < 0 || value > max)
+                {
+                    throw new InvalidOperationException($"Offset for {fieldName} out of range: {value}");
+                }
+
+                return (int)value;
+            }
+
+            static string ReadString(byte[] source, int absoluteOffset)
+            {
+                var lengthValue = ReadUInt256(source, absoluteOffset);
+                var length = ToSafeInt32(lengthValue, "string length", source.Length - absoluteOffset - wordSize);
+                var dataOffset = absoluteOffset + wordSize;
+
+                if (dataOffset < 0 || dataOffset + length > source.Length)
+                {
+                    throw new InvalidOperationException("String data exceeds available payload");
+                }
+
+                return Encoding.UTF8.GetString(source, dataOffset, length);
+            }
+
+            var tupleOffsetValue = ReadUInt256(bytes, 0);
+            var tupleOffset = ToSafeInt32(tupleOffsetValue, "tuple offset", bytes.Length - wordSize);
+
+            BigInteger ReadTupleUInt256(int wordIndex) => ReadUInt256(bytes, tupleOffset + wordIndex * wordSize);
+            string ReadTupleAddress(int wordIndex) => ReadAddress(bytes, tupleOffset + wordIndex * wordSize);
+
+            var credentialIdValue = ReadTupleUInt256(0);
+            var studentAddressValue = ReadTupleAddress(1);
+            var credentialTypeRelativeOffset = ReadTupleUInt256(2);
+            var credentialDataRelativeOffset = ReadTupleUInt256(3);
+            var statusValueRaw = ReadTupleUInt256(4);
+            var issuedByValue = ReadTupleAddress(5);
+            var issuedAtValue = ReadTupleUInt256(6);
+            var expiresAtValue = ReadTupleUInt256(7);
+
+            var credentialTypeOffset = tupleOffset + ToSafeInt32(credentialTypeRelativeOffset, nameof(credentialTypeRelativeOffset), bytes.Length - tupleOffset);
+            var credentialDataOffset = tupleOffset + ToSafeInt32(credentialDataRelativeOffset, nameof(credentialDataRelativeOffset), bytes.Length - tupleOffset);
+
+            var credentialTypeValue = ReadString(bytes, credentialTypeOffset);
+            var credentialDataValue = ReadString(bytes, credentialDataOffset);
+
+            var statusValue = (byte)statusValueRaw;
+            var statusEnum = MapStatus(statusValue);
+
+            return new CredentialOnChainStructDto
+            {
+                CredentialId = credentialIdValue,
+                StudentAddress = studentAddressValue,
+                CredentialType = credentialTypeValue,
+                CredentialData = credentialDataValue,
+                Status = statusValue,
+                StatusEnum = statusEnum,
+                IssuedBy = issuedByValue,
+                IssuedAt = issuedAtValue,
+                ExpiresAt = expiresAtValue
+            };
+        }
+
+        private static BlockchainCredentialStatus MapStatus(byte statusValue)
+        {
+            return statusValue switch
+            {
+                (byte)BlockchainCredentialStatus.Pending => BlockchainCredentialStatus.Pending,
+                (byte)BlockchainCredentialStatus.Active => BlockchainCredentialStatus.Active,
+                (byte)BlockchainCredentialStatus.Revoked => BlockchainCredentialStatus.Revoked,
+                (byte)BlockchainCredentialStatus.Expired => BlockchainCredentialStatus.Expired,
+                _ => throw new InvalidOperationException($"Unsupported credential status value '{statusValue}' returned from contract")
+            };
         }
 
         /// <summary>
@@ -500,6 +688,41 @@ namespace Fap.Api.Services
         }
 
         #endregion
+
+        /// <summary>
+        /// DTO for getCredential return struct
+        /// Must match DataTypes.Credential tuple in the smart contract.
+        /// </summary>
+        [FunctionOutput]
+        public class CredentialOnChainStructDto : IFunctionOutputDTO
+        {
+            [Parameter("uint256", "credentialId", 1)]
+            public BigInteger CredentialId { get; set; }
+
+            [Parameter("address", "studentAddress", 2)]
+            public string StudentAddress { get; set; } = string.Empty;
+
+            [Parameter("string", "credentialType", 3)]
+            public string CredentialType { get; set; } = string.Empty;
+
+            [Parameter("string", "credentialData", 4)]
+            public string CredentialData { get; set; } = string.Empty;
+
+            [Parameter("uint8", "status", 5)]
+            public byte Status { get; set; }
+
+            public BlockchainCredentialStatus StatusEnum { get; set; }
+
+            [Parameter("address", "issuedBy", 6)]
+            public string IssuedBy { get; set; } = string.Empty;
+
+            [Parameter("uint256", "issuedAt", 7)]
+            public BigInteger IssuedAt { get; set; }
+
+            [Parameter("uint256", "expiresAt", 8)]
+            public BigInteger ExpiresAt { get; set; }
+        }
+
         [Event("CredentialIssued")]
         private class CredentialIssuedEventDto : IEventDTO
         {
@@ -509,11 +732,11 @@ namespace Fap.Api.Services
             [Parameter("address", "studentAddress", 2, true)]
             public string StudentAddress { get; set; } = string.Empty;
 
-            [Parameter("address", "issuedBy", 3, true)]
-            public string IssuedBy { get; set; } = string.Empty;
-
-            [Parameter("string", "credentialType", 4, false)]
+            [Parameter("string", "credentialType", 3, false)]
             public string CredentialType { get; set; } = string.Empty;
+
+            [Parameter("address", "issuedBy", 4, true)]
+            public string IssuedBy { get; set; } = string.Empty;
         }
     }
 }

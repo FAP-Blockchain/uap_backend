@@ -60,7 +60,17 @@ namespace Fap.Api.Interfaces
         /// <summary>
         /// Get credential data from chain
         /// </summary>
-        Task<BlockchainCredentialOnChain> GetCredentialFromChainAsync(long blockchainCredentialId);
+        Task<Services.BlockchainService.CredentialOnChainStructDto> GetCredentialFromChainAsync(long blockchainCredentialId);
+
+        /// <summary>
+        /// Debug helper to fetch raw ABI output for getCredential
+        /// </summary>
+        Task<string> DebugGetCredentialRawAsync(long blockchainCredentialId);
+
+        /// <summary>
+        /// Debug helper to decode credential output field-by-field without DTO mapping
+        /// </summary>
+        Task<object> DebugDecodeCredentialAsync(long blockchainCredentialId);
 
         /// <summary>
         /// Get total credential count from contract
@@ -68,18 +78,5 @@ namespace Fap.Api.Interfaces
         Task<long> GetCredentialCountAsync();
     }
 
-    /// <summary>
-    /// DTO for credential data retrieved from CredentialManagement contract
-    /// </summary>
-    public class BlockchainCredentialOnChain
-    {
-        public System.Numerics.BigInteger CredentialId { get; set; }
-        public string StudentAddress { get; set; } = string.Empty;
-        public string CredentialType { get; set; } = string.Empty;
-        public string CredentialData { get; set; } = string.Empty;
-        public int Status { get; set; } // 0 = ACTIVE, 1 = REVOKED
-        public string IssuedBy { get; set; } = string.Empty;
-        public System.Numerics.BigInteger IssuedAt { get; set; }
-        public System.Numerics.BigInteger ExpiresAt { get; set; }
-    }
+    // DTO type is declared in BlockchainService to carry Nethereum attributes.
 }
