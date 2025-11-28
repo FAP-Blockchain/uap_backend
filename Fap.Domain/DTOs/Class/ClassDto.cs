@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Fap.Domain.DTOs.Slot;
 
 namespace Fap.Domain.DTOs.Class
 {
@@ -68,6 +69,7 @@ namespace Fap.Domain.DTOs.Class
         // Collections
         public List<ClassStudentInfo> Students { get; set; } = new();
         public List<SlotSummaryDto> Slots { get; set; } = new();
+        public List<SlotDto> SlotDetails { get; set; } = new();
     }
 
     public class ClassStudentInfo
