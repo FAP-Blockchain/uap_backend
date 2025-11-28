@@ -1,7 +1,6 @@
 using AutoMapper;
 using Fap.Domain.DTOs.Class;
 using Fap.Domain.DTOs.Subject;
-using Fap.Domain.DTOs.Slot;
 using Fap.Domain.Entities;
 
 namespace Fap.Api.Mappings
@@ -120,8 +119,7 @@ namespace Fap.Api.Mappings
 
                 // Collections
                 .ForMember(dest => dest.Students, opt => opt.MapFrom(src => src.Members))
-                .ForMember(dest => dest.Slots, opt => opt.MapFrom(src => src.Slots))
-                .ForMember(dest => dest.SlotDetails, opt => opt.MapFrom(src => src.Slots));
+                .ForMember(dest => dest.Slots, opt => opt.MapFrom(src => src.Slots));
 
             // ======================================================================
             // CLASS SUMMARY MAPPINGS
