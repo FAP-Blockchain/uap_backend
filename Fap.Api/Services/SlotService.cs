@@ -135,6 +135,12 @@ namespace Fap.Api.Services
             var slot = await _unitOfWork.Slots.GetByIdWithDetailsAsync(id);
             if (slot == null) return null;
 
+            // Validation: Cannot update a slot that has already taken place
+            if (slot.Date < DateTime.UtcNow.Date)
+            {
+                throw new InvalidOperationException("Cannot update a slot that has already taken place.");
+            }
+
             // Check if slot has attendance - if yes, only allow status and notes update
             if (slot.Attendances?.Any() == true)
             {
@@ -199,6 +205,12 @@ namespace Fap.Api.Services
         {
             var slot = await _unitOfWork.Slots.GetByIdWithDetailsAsync(id);
             if (slot == null) return false;
+
+            // Validation: Cannot delete a past slot
+            if (slot.Date < DateTime.UtcNow.Date)
+            {
+                throw new InvalidOperationException("Cannot delete a past slot.");
+            }
 
             // Cannot delete slot with attendance records
             if (slot.Attendances?.Any() == true)
