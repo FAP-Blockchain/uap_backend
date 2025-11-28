@@ -1,3 +1,4 @@
+using Fap.Api.DTOs.Student;
 using Fap.Api.Interfaces;
 using Fap.Domain.DTOs.Enrollment;
 using Fap.Domain.DTOs.Grade;
@@ -150,10 +151,11 @@ namespace Fap.Api.Controllers
         [HttpPost("me/profile-picture")]
         [Authorize(Roles = "Student")]
         [RequestSizeLimit(MaxProfileImageSizeBytes)]
-        public async Task<IActionResult> UploadProfilePicture([FromForm] IFormFile? file)
+        public async Task<IActionResult> UploadProfilePicture([FromForm] StudentProfileImageUploadRequest request)
         {
             try
             {
+                var file = request.File;
                 if (file == null || file.Length == 0)
                 {
                     return BadRequest(new { message = "Image file is required" });
