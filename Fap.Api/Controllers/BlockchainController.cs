@@ -1,4 +1,5 @@
 using Fap.Api.Interfaces;
+using Fap.Domain.Enums;
 using Fap.Domain.Settings;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -115,41 +116,117 @@ namespace Fap.Api.Controllers
         }
 
         /// <summary>
-        /// Get credential from blockchain using on-chain credential ID
+        /// Get credential from blockchain using on-chain credential ID (BlockchainCredentialId)
         /// </summary>
-        [HttpGet("credentials/on-chain/{credentialId:long}")]
+        [HttpGet("credentials/on-chain/{blockchainCredentialId:long}")]
         [AllowAnonymous]
-        public async Task<IActionResult> GetOnChainCredential(long credentialId)
+        public async Task<IActionResult> GetOnChainCredential(long blockchainCredentialId)
         {
             try
             {
-                _logger.LogInformation("?? Getting on-chain credential: {CredentialId}", credentialId);
-                var data = await _blockchain.GetCredentialFromChainAsync(credentialId);
+            _logger.LogInformation("?? Getting on-chain credential: {BlockchainCredentialId}", blockchainCredentialId);
+            var data = await _blockchain.GetCredentialFromChainAsync(blockchainCredentialId);
+
+                var statusEnum = data.StatusEnum;
+                var statusText = statusEnum switch
+                {
+                    BlockchainCredentialStatus.Pending => "Pending",
+                    BlockchainCredentialStatus.Active => "Issued",
+                    BlockchainCredentialStatus.Revoked => "Revoked",
+                    BlockchainCredentialStatus.Expired => "Expired",
+                    _ => "Unknown"
+                };
 
                 return Ok(new
                 {
                     success = true,
                     data = new
                     {
-                        credentialId = (long)data.CredentialId,
+                        credentialId = data.CredentialId.ToString(),
                         studentAddress = data.StudentAddress,
                         credentialType = data.CredentialType,
                         credentialData = data.CredentialData,
-                        status = data.Status,
+                        status = (byte)statusEnum,
+                        statusName = statusText,
+                        statusText,
                         issuedBy = data.IssuedBy,
-                        issuedAt = (long)data.IssuedAt,
-                        expiresAt = (long)data.ExpiresAt
+                        issuedAt = data.IssuedAt.ToString(),
+                        expiresAt = data.ExpiresAt.ToString()
                     },
                     timestamp = DateTime.UtcNow
                 });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "? Failed to get on-chain credential {CredentialId}", credentialId);
+                _logger.LogError(ex, "? Failed to get on-chain credential {BlockchainCredentialId}", blockchainCredentialId);
                 return NotFound(new
                 {
                     success = false,
                     message = "On-chain credential not found",
+                    error = ex.Message,
+                    timestamp = DateTime.UtcNow
+                });
+            }
+        }
+
+        /// <summary>
+        /// Debug endpoint to inspect raw getCredential output
+        /// </summary>
+        [HttpGet("credentials/on-chain/{blockchainCredentialId:long}/raw")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetOnChainCredentialRaw(long blockchainCredentialId)
+        {
+            var raw = await _blockchain.DebugGetCredentialRawAsync(blockchainCredentialId);
+            return Ok(new
+            {
+                success = true,
+                blockchainCredentialId,
+                raw,
+                timestamp = DateTime.UtcNow
+            });
+        }
+
+        /// <summary>
+        /// Debug endpoint to decode tuple manually for troubleshooting DTO mapping
+        /// </summary>
+        [HttpGet("credentials/on-chain/{blockchainCredentialId:long}/debug-decode")]
+        [AllowAnonymous]
+        public async Task<IActionResult> DebugDecodeOnChainCredential(long blockchainCredentialId)
+        {
+            var decoded = await _blockchain.DebugDecodeCredentialAsync(blockchainCredentialId);
+            return Ok(new
+            {
+                success = true,
+                blockchainCredentialId,
+                decoded,
+                timestamp = DateTime.UtcNow
+            });
+        }
+
+        /// <summary>
+        /// Get total number of credentials stored on-chain
+        /// </summary>
+        [HttpGet("credentials/count")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetOnChainCredentialCount()
+        {
+            try
+            {
+                var count = await _blockchain.GetCredentialCountAsync();
+                return Ok(new
+                {
+                    success = true,
+                    count,
+                    timestamp = DateTime.UtcNow
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get credential count from blockchain");
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "Failed to get credential count",
                     error = ex.Message,
                     timestamp = DateTime.UtcNow
                 });

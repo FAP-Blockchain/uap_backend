@@ -24,6 +24,7 @@ namespace Fap.Api.Services
         private readonly IBlockchainService _blockchainService;
         private readonly IPdfService _pdfService;
         private readonly ICloudStorageService _cloudStorageService;
+        private readonly IIpfsService _ipfsService;
 
         public CredentialService(
              IUnitOfWork uow,
@@ -33,7 +34,8 @@ namespace Fap.Api.Services
           IOptions<FrontendSettings> frontendOptions,
           IBlockchainService blockchainService,
           IPdfService pdfService,
-          ICloudStorageService cloudStorageService)
+                    ICloudStorageService cloudStorageService,
+                    IIpfsService ipfsService)
         {
             _uow = uow;
             _mapper = mapper;
@@ -43,6 +45,7 @@ namespace Fap.Api.Services
             _blockchainService = blockchainService;
             _pdfService = pdfService;
             _cloudStorageService = cloudStorageService;
+                        _ipfsService = ipfsService;
         }
 
         // ==================== ADMIN ISSUE CREDENTIAL ====================
@@ -131,9 +134,10 @@ namespace Fap.Api.Services
                 await _uow.Credentials.AddAsync(credential);
                 await _uow.SaveChangesAsync();
 
-                // 5. Generate & upload PDF (cloud)
+                // 5. Generate & upload PDF (cloud + IPFS)
                 byte[]? pdfBytes = null;
                 string? pdfCloudUrl = null;
+                string? ipfsCid = null;
 
                 try
                 {
@@ -150,6 +154,25 @@ namespace Fap.Api.Services
                         credential.PdfFilePath = $"cloudinary://{fileName}";
                         credential.UpdatedAt = DateTime.UtcNow;
 
+                        // Also upload to IPFS via Pinata (best-effort)
+                        try
+                        {
+                            ipfsCid = await _ipfsService.UploadBytesAsync(pdfBytes, fileName);
+                            var ipfsUrl = _ipfsService.GetFileUrl(ipfsCid);
+
+                            credential.IPFSHash = ipfsCid;
+                            credential.FileUrl = ipfsUrl;
+
+                            _logger.LogInformation("Uploaded credential PDF to IPFS. CredentialId={CredentialId}, CID={Cid}, Url={Url}",
+                                credential.Id, ipfsCid, ipfsUrl);
+                        }
+                        catch (Exception ipfsEx)
+                        {
+                            _logger.LogError(ipfsEx,
+                                "Failed to upload credential PDF to IPFS. CredentialId={CredentialId}",
+                                credential.Id);
+                        }
+
                         _uow.Credentials.Update(credential);
                         await _uow.SaveChangesAsync();
                     }
@@ -165,13 +188,13 @@ namespace Fap.Api.Services
                 }
 
                 // 6. Chuẩn bị metadata JSON cho on-chain
-                string ipfsCid = credential.IPFSHash ?? string.Empty;
+                string ipfsCidForMetadata = credential.IPFSHash ?? ipfsCid ?? string.Empty;
                 string fileUrl = credential.FileUrl ?? pdfCloudUrl ?? string.Empty;
                 string verificationHash = credential.VerificationHash ?? string.Empty;
 
                 var metadata = new
                 {
-                    cid = ipfsCid,
+                    cid = ipfsCidForMetadata,
                     fileUrl,
                     verificationHash
                 };
@@ -201,9 +224,6 @@ namespace Fap.Api.Services
                     credential.BlockchainTransactionHash = txHash;
                     credential.BlockchainStoredAt = DateTime.UtcNow;
                     credential.IsOnBlockchain = true;
-
-                    credential.IPFSHash = ipfsCid;
-                    credential.FileUrl = fileUrl;
 
                     _uow.Credentials.Update(credential);
                     await _uow.SaveChangesAsync();
@@ -826,7 +846,9 @@ overallGPA >= 8.0m ? "Second Class Honours (Upper)" :
                 _logger.LogInformation("Student {StudentId} requested certificate: {Type}",
             student.Id, request.CertificateType);
 
-                return _mapper.Map<CredentialRequestDto>(credentialRequest);
+                // Reload entity with navigation properties for proper DTO mapping
+                var savedRequest = await _uow.CredentialRequests.GetByIdAsync(credentialRequest.Id);
+                return _mapper.Map<CredentialRequestDto>(savedRequest);
             }
             catch (Exception ex)
             {
@@ -879,14 +901,14 @@ overallGPA >= 8.0m ? "Second Class Honours (Upper)" :
 
                 if (request.Action.Equals("Approve", StringComparison.OrdinalIgnoreCase))
                 {
-                    // Get default template if not specified
+                    // Determine template (kept for future use if IssueCredentialAsync supports templates)
                     var templateId = request.TemplateId;
                     if (!templateId.HasValue)
                     {
                         var templates = await _uow.CertificateTemplates.FindAsync(t =>
-                     t.TemplateType == credentialRequest.CertificateType &&
-                    t.IsDefault &&
-                       t.IsActive);
+                            t.TemplateType == credentialRequest.CertificateType &&
+                            t.IsDefault &&
+                            t.IsActive);
 
                         var defaultTemplate = templates.FirstOrDefault();
                         if (defaultTemplate == null)
@@ -895,38 +917,39 @@ overallGPA >= 8.0m ? "Second Class Honours (Upper)" :
                         templateId = defaultTemplate.Id;
                     }
 
-                    // Create credential
-                    var createRequest = new CreateCredentialRequest
+                    // Use blockchain-enabled issuing flow
+                    var issueDto = new IssueCredentialDto
                     {
                         StudentId = credentialRequest.StudentId,
-                        TemplateId = templateId.Value,
-                        CertificateType = credentialRequest.CertificateType,
+                        Type = credentialRequest.CertificateType,
                         SubjectId = credentialRequest.SubjectId,
-                        SemesterId = credentialRequest.SemesterId,
-                        RoadmapId = credentialRequest.StudentRoadmapId,
-                        CompletionDate = credentialRequest.CompletionDate,
-                        FinalGrade = credentialRequest.FinalGrade,
-                        LetterGrade = credentialRequest.LetterGrade,
-                        Classification = credentialRequest.Classification
+                        StudentRoadmapId = credentialRequest.StudentRoadmapId
                     };
 
-                    var credential = await CreateCredentialAsync(createRequest, processedBy);
+                    var issueResult = await IssueCredentialAsync(issueDto);
+
+                    if (!issueResult.Success || issueResult.Data == null)
+                        throw new InvalidOperationException(issueResult.Message ?? "Failed to issue credential");
+
+                    var credentialDto = issueResult.Data;
 
                     // Update request
                     credentialRequest.Status = "Approved";
                     credentialRequest.ProcessedBy = processedBy;
                     credentialRequest.ProcessedAt = DateTime.UtcNow;
                     credentialRequest.AdminNotes = request.AdminNotes;
-                    credentialRequest.CredentialId = credential.Id;
+                    credentialRequest.CredentialId = credentialDto.Id;
                     credentialRequest.UpdatedAt = DateTime.UtcNow;
 
                     _uow.CredentialRequests.Update(credentialRequest);
                     await _uow.SaveChangesAsync();
 
-                    _logger.LogInformation("Approved credential request {RequestId}, created credential {CredentialId}",
-                 requestId, credential.Id);
+                    _logger.LogInformation(
+                        "Approved credential request {RequestId}, issued credential {CredentialId}",
+                        requestId,
+                        credentialDto.Id);
 
-                    return credential;
+                    return credentialDto;
                 }
                 else if (request.Action.Equals("Reject", StringComparison.OrdinalIgnoreCase))
                 {
