@@ -234,6 +234,18 @@ namespace Fap.Api.Services
                     return ServiceResult<CredentialDetailDto>.Fail("Failed to record credential on blockchain");
                 }
 
+                // 8. Đảm bảo có ShareableUrl + QRCode ngay sau khi issue
+                try
+                {
+                    await EnsureShareArtifactsAsync(credential);
+                }
+                catch (Exception shareEx)
+                {
+                    _logger.LogError(shareEx,
+                        "Failed to generate share artifacts (URL/QR) for credential {Id}",
+                        credential.Id);
+                }
+
                 var dto = _mapper.Map<CredentialDetailDto>(credential);
                 return ServiceResult<CredentialDetailDto>.SuccessResponse(dto);
             }
@@ -479,7 +491,7 @@ overallGPA >= 8.0m ? "Second Class Honours (Upper)" :
                 
                 // Generate shareable URL
                 var frontendBaseUrl = _frontendSettings.BaseUrl;
-                var shareableUrl = $"{frontendBaseUrl}/certificates/verify/{credentialNumber}";
+                var shareableUrl = $"{frontendBaseUrl}/public-portal/certificates/verify/{credentialNumber}";
 
                 var credential = new Credential
                 {
@@ -1528,8 +1540,30 @@ overallGPA >= 8.0m ? "Second Class Honours (Upper)" :
         {
             var baseUrl = _frontendSettings.BaseUrl.TrimEnd('/');
             var verifyPath = _frontendSettings.VerifyPath.Trim('/');
-            var identifier = credential.CredentialId; // Dùng CredentialId (readable) thay vì GUID
-            return $"{baseUrl}/{verifyPath}/{identifier}";
+
+            var credentialNumber = credential.CredentialId; // Mã chứng chỉ dạng SUB-YYYY-XXXXXX
+            var verificationHash = credential.VerificationHash ?? string.Empty;
+
+            // URL dạng:
+            // {BaseUrl}/{VerifyPath}/{credentialNumber}?credentialNumber=...&verificationHash=...
+            var url = $"{baseUrl}/{verifyPath}/{Uri.EscapeDataString(credentialNumber)}";
+
+            var queryParts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(credentialNumber))
+            {
+                queryParts.Add($"credentialNumber={Uri.EscapeDataString(credentialNumber)}");
+            }
+            if (!string.IsNullOrWhiteSpace(verificationHash))
+            {
+                queryParts.Add($"verificationHash={Uri.EscapeDataString(verificationHash)}");
+            }
+
+            if (queryParts.Count > 0)
+            {
+                url += "?" + string.Join("&", queryParts);
+            }
+
+            return url;
         }
 
         /// <summary>
@@ -1626,6 +1660,36 @@ overallGPA >= 8.0m ? "Second Class Honours (Upper)" :
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting public certificate {CredentialId}", credentialId);
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Lấy thông tin chứng chỉ công khai theo CredentialId (SUB-YYYY-XXXXXX)
+        /// Dùng cho endpoint /api/credentials/public/{credentialNumber}
+        /// </summary>
+        public async Task<CertificatePublicDto?> GetPublicCertificateByNumberAsync(string credentialNumber)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(credentialNumber))
+                {
+                    return null;
+                }
+
+                var credential = (await _uow.Credentials.FindAsync(c => c.CredentialId == credentialNumber))
+                    .FirstOrDefault();
+
+                if (credential == null)
+                {
+                    return null;
+                }
+
+                return await GetPublicCertificateAsync(credential.Id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting public certificate by number {CredentialNumber}", credentialNumber);
                 return null;
             }
         }

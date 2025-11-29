@@ -266,18 +266,19 @@ namespace Fap.Api.Controllers
         }
 
         /// <summary>
-        /// GET /api/credentials/public/{id} - Public certificate view (No authentication required)
+        /// GET /api/credentials/public/{credentialNumber} - Public certificate view (No authentication required)
         /// Endpoint này dành cho người xem chứng chỉ qua QR Code hoặc link chia sẻ
+        /// Sử dụng CredentialId dạng SUB-2025-000001 thay vì GUID nội bộ.
         /// </summary>
-        [HttpGet("public/{id:guid}")]
+        [HttpGet("public/{credentialNumber}")]
         [AllowAnonymous]
         [ProducesResponseType(typeof(CertificatePublicDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<CertificatePublicDto>> GetPublicCertificate(Guid id)
+        public async Task<ActionResult<CertificatePublicDto>> GetPublicCertificate(string credentialNumber)
         {
             try
             {
-                var certificate = await _credentialService.GetPublicCertificateAsync(id);
+                var certificate = await _credentialService.GetPublicCertificateByNumberAsync(credentialNumber);
                 
                 if (certificate == null)
                 {
@@ -293,7 +294,7 @@ namespace Fap.Api.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting public certificate {CredentialId}", id);
+                _logger.LogError(ex, "Error getting public certificate {CredentialNumber}", credentialNumber);
                 return StatusCode(500, new ProblemDetails 
                 { 
                     Status = 500, 

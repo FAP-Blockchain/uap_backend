@@ -30,6 +30,11 @@ namespace Fap.Api.Interfaces
         /// Lấy thông tin chứng chỉ công khai (dành cho người xem qua QR/Link)
         /// </summary>
         Task<CertificatePublicDto?> GetPublicCertificateAsync(Guid credentialId);
+
+        /// <summary>
+        /// Lấy thông tin chứng chỉ công khai theo CredentialId (SUB-YYYY-XXXXXX)
+        /// </summary>
+        Task<CertificatePublicDto?> GetPublicCertificateByNumberAsync(string credentialNumber);
         
         /// <summary>
         /// Lấy danh sách chứng chỉ của sinh viên để chia sẻ (kèm QR + URL)
@@ -55,7 +60,6 @@ namespace Fap.Api.Interfaces
 
         Task<CredentialRequestDto?> AutoRequestSubjectCompletionCredentialAsync(Guid studentId, Guid subjectId);
         // REMOVED: Semester Completion - No longer supported
-        // Task<CredentialRequestDto?> AutoRequestSemesterCompletionCredentialAsync(Guid studentId, Guid semesterId);
         Task<CredentialRequestDto?> AutoRequestRoadmapCompletionCredentialAsync(Guid studentId, Guid roadmapId);
 
         // ==================== TEMPLATES ====================
