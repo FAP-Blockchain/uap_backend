@@ -140,6 +140,7 @@ namespace Fap.Domain.DTOs.Credential
         // Sharing Info
         public string PublicUrl { get; set; } = string.Empty;
         public string QrCodeData { get; set; } = string.Empty;
+        public string FileUrl { get; set; } = string.Empty;
         
         // Verification Status
         public string VerificationStatus { get; set; } = "Unknown"; // "Verified", "Revoked", "Pending"

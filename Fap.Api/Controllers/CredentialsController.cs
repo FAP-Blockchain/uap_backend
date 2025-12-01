@@ -215,7 +215,11 @@ namespace Fap.Api.Controllers
         {
             try
             {
-                Guid? userId = User.Identity?.IsAuthenticated == true ? GetCurrentUserId() : null;
+                Guid? userId = null;
+                if (User.Identity?.IsAuthenticated == true && !User.IsInRole("Admin"))
+                {
+                    userId = GetCurrentUserId();
+                }
 
                 var qrCodeData = await _credentialService.GenerateQRCodeAsync(id, userId, size);
 
