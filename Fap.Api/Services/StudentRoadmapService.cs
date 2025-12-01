@@ -434,6 +434,396 @@ namespace Fap.Api.Services
             }
         }
 
+        public async Task<CurriculumRoadmapSummaryDto?> GetCurriculumRoadmapSummaryAsync(Guid studentId)
+        {
+            try
+            {
+                var state = await BuildCurriculumRoadmapStateAsync(studentId);
+                if (state == null)
+                {
+                    return null;
+                }
+
+                var summary = new CurriculumRoadmapSummaryDto
+                {
+                    StudentId = state.Student.Id,
+                    StudentCode = state.Student.StudentCode,
+                    StudentName = state.Student.StudentName,
+                    CurriculumId = state.Student.CurriculumId,
+                    CurriculumCode = state.Student.CurriculumCode,
+                    CurriculumName = state.Student.CurriculumName,
+                    CurrentGPA = state.CurrentGpa,
+                    TotalSubjects = state.Subjects.Count,
+                    CompletedSubjects = state.Subjects.Count(s => s.Subject.Status == "Completed"),
+                    FailedSubjects = state.Subjects.Count(s => s.Subject.Status == "Failed"),
+                    InProgressSubjects = state.Subjects.Count(s => s.Subject.Status == "InProgress"),
+                    OpenSubjects = state.Subjects.Count(s => s.Subject.Status == "Open"),
+                    LockedSubjects = state.Subjects.Count(s => s.Subject.Status == "Locked"),
+                    SemesterSummaries = state.Subjects
+                        .GroupBy(s => s.SemesterNumber)
+                        .OrderBy(g => g.Key)
+                        .Select(g => new CurriculumSemesterSummaryDto
+                        {
+                            SemesterNumber = g.Key,
+                            SemesterName = $"Semester {g.Key}",
+                            SubjectCount = g.Count(),
+                            CompletedSubjects = g.Count(x => x.Subject.Status == "Completed"),
+                            InProgressSubjects = g.Count(x => x.Subject.Status == "InProgress"),
+                            PlannedSubjects = g.Count(x => x.Subject.Status == "Open"),
+                            FailedSubjects = g.Count(x => x.Subject.Status == "Failed"),
+                            LockedSubjects = g.Count(x => x.Subject.Status == "Locked")
+                        })
+                        .ToList()
+                };
+
+                return summary;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error building curriculum roadmap summary for student {StudentId}", studentId);
+                throw;
+            }
+        }
+
+        public async Task<CurriculumSemesterDto?> GetCurriculumRoadmapSemesterAsync(Guid studentId, int semesterNumber)
+        {
+            try
+            {
+                if (semesterNumber <= 0)
+                {
+                    return null;
+                }
+
+                var state = await BuildCurriculumRoadmapStateAsync(studentId);
+                if (state == null)
+                {
+                    return null;
+                }
+
+                var subjects = state.Subjects
+                    .Where(s => s.SemesterNumber == semesterNumber)
+                    .OrderBy(s => s.Subject.SubjectCode)
+                    .Select(s => s.Subject)
+                    .ToList();
+
+                if (!subjects.Any())
+                {
+                    return null;
+                }
+
+                return new CurriculumSemesterDto
+                {
+                    SemesterNumber = semesterNumber,
+                    SemesterName = $"Semester {semesterNumber}",
+                    Subjects = subjects
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error building curriculum roadmap semester {SemesterNumber} for student {StudentId}", semesterNumber, studentId);
+                throw;
+            }
+        }
+
+        private async Task<CurriculumRoadmapComputation?> BuildCurriculumRoadmapStateAsync(Guid studentId)
+        {
+            var studentRaw = await _uow.Students.GetQueryable()
+                .AsNoTracking()
+                .Where(s => s.Id == studentId)
+                .Select(s => new
+                {
+                    s.Id,
+                    s.StudentCode,
+                    FullName = s.User.FullName,
+                    s.CurriculumId,
+                    CurriculumCode = s.Curriculum != null ? s.Curriculum.Code : null,
+                    CurriculumName = s.Curriculum != null ? s.Curriculum.Name : null,
+                    s.GPA
+                })
+                .FirstOrDefaultAsync();
+
+            if (studentRaw == null)
+            {
+                return null;
+            }
+
+            if (!studentRaw.CurriculumId.HasValue)
+            {
+                _logger.LogWarning("Student {StudentId} is missing curriculum assignment", studentId);
+                return null;
+            }
+
+            var studentSnapshot = new StudentRoadmapStudentSnapshot(
+                studentRaw.Id,
+                studentRaw.StudentCode,
+                studentRaw.FullName ?? string.Empty,
+                studentRaw.CurriculumId.Value,
+                studentRaw.CurriculumCode ?? string.Empty,
+                studentRaw.CurriculumName ?? string.Empty,
+                studentRaw.GPA);
+
+            var curriculumSubjects = await _uow.CurriculumSubjects.GetQueryable()
+                .AsNoTracking()
+                .Where(cs => cs.CurriculumId == studentSnapshot.CurriculumId)
+                .Select(cs => new CurriculumSubjectDefinition
+                {
+                    SubjectId = cs.SubjectId,
+                    SemesterNumber = cs.SemesterNumber,
+                    SubjectCode = cs.Subject.SubjectCode,
+                    SubjectName = cs.Subject.SubjectName,
+                    Credits = cs.Subject.Credits,
+                    PrerequisiteSubjectId = cs.PrerequisiteSubjectId,
+                    PrerequisiteSubjectCode = cs.PrerequisiteSubject != null ? cs.PrerequisiteSubject.SubjectCode : null
+                })
+                .OrderBy(cs => cs.SemesterNumber)
+                .ThenBy(cs => cs.SubjectCode)
+                .ToListAsync();
+
+            if (!curriculumSubjects.Any())
+            {
+                _logger.LogWarning("Curriculum {CurriculumId} has no subjects configured", studentSnapshot.CurriculumId);
+                return null;
+            }
+
+            var gradeRows = await _uow.Grades.GetQueryable()
+                .AsNoTracking()
+                .Where(g => g.StudentId == studentId && g.Score.HasValue)
+                .GroupBy(g => g.SubjectId)
+                .Select(g => new GradeAggregateRow
+                {
+                    SubjectId = g.Key,
+                    WeightedScore = g.Sum(x => (x.Score ?? 0m) * x.GradeComponent.WeightPercent),
+                    TotalWeight = g.Sum(x => x.GradeComponent.WeightPercent),
+                    LatestLetterGrade = g.Where(x => x.LetterGrade != null)
+                        .OrderByDescending(x => x.UpdatedAt)
+                        .Select(x => x.LetterGrade)
+                        .FirstOrDefault()
+                })
+                .ToListAsync();
+
+            var gradeDict = gradeRows.ToDictionary(
+                x => x.SubjectId,
+                x => new GradeAggregateInfo(
+                    x.TotalWeight > 0 ? Math.Round(x.WeightedScore / x.TotalWeight, 2) : (decimal?)null,
+                    x.TotalWeight,
+                    x.LatestLetterGrade));
+
+            var attendanceRows = await _uow.Attendances.GetQueryable()
+                .AsNoTracking()
+                .Where(a => a.StudentId == studentId)
+                .GroupBy(a => a.SubjectId)
+                .Select(g => new AttendanceAggregateRow
+                {
+                    SubjectId = g.Key,
+                    TotalSessions = g.Count(),
+                    PresentSessions = g.Count(a => a.IsPresent || a.IsExcused)
+                })
+                .ToListAsync();
+
+            var attendanceDict = attendanceRows.ToDictionary(
+                x => x.SubjectId,
+                x => CreateAttendanceAggregate(x.PresentSessions, x.TotalSessions));
+
+            var enrollmentRows = await _uow.Enrolls.GetQueryable()
+                .AsNoTracking()
+                .Where(e => e.StudentId == studentId && e.IsApproved)
+                .Select(e => new EnrollmentAggregateRow
+                {
+                    SubjectId = e.Class.SubjectOffering.SubjectId,
+                    ClassId = e.ClassId,
+                    ClassCode = e.Class.ClassCode,
+                    SemesterId = e.Class.SubjectOffering.SemesterId,
+                    SemesterName = e.Class.SubjectOffering.Semester.Name,
+                    SemesterStartDate = e.Class.SubjectOffering.Semester.StartDate,
+                    SemesterEndDate = e.Class.SubjectOffering.Semester.EndDate,
+                    RegisteredAt = e.RegisteredAt
+                })
+                .ToListAsync();
+
+            var enrollmentDict = enrollmentRows
+                .GroupBy(x => x.SubjectId)
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.RegisteredAt).First());
+
+            var completedSubjectIds = gradeDict
+                .Where(kvp => kvp.Value.TotalWeight >= 100 && kvp.Value.FinalScore.HasValue && kvp.Value.FinalScore.Value >= 5m)
+                .Select(kvp => kvp.Key)
+                .ToHashSet();
+
+            var failedSubjectIds = gradeDict
+                .Where(kvp => kvp.Value.TotalWeight >= 100 && kvp.Value.FinalScore.HasValue && kvp.Value.FinalScore.Value < 5m)
+                .Select(kvp => kvp.Key)
+                .ToHashSet();
+
+            var now = DateTime.UtcNow;
+            var planItems = new List<CurriculumSubjectPlanItem>();
+
+            foreach (var definition in curriculumSubjects)
+            {
+                gradeDict.TryGetValue(definition.SubjectId, out var gradeInfo);
+                attendanceDict.TryGetValue(definition.SubjectId, out var attendanceInfo);
+                enrollmentDict.TryGetValue(definition.SubjectId, out var enrollmentInfo);
+
+                var prerequisitesMet = definition.PrerequisiteSubjectId == null ||
+                    completedSubjectIds.Contains(definition.PrerequisiteSubjectId.Value);
+
+                var attendanceRequirementMet = attendanceInfo?.RequirementMet ?? false;
+                var status = DetermineSubjectStatus(
+                    definition.SubjectId,
+                    completedSubjectIds,
+                    failedSubjectIds,
+                    IsCurrentEnrollment(enrollmentInfo, now),
+                    enrollmentInfo != null,
+                    prerequisitesMet,
+                    attendanceRequirementMet,
+                    gradeInfo?.FinalScore,
+                    gradeInfo?.TotalWeight ?? 0);
+
+                var statusDto = new CurriculumSubjectStatusDto
+                {
+                    SubjectId = definition.SubjectId,
+                    SubjectCode = definition.SubjectCode,
+                    SubjectName = definition.SubjectName,
+                    Credits = definition.Credits,
+                    Status = status,
+                    FinalScore = gradeInfo?.FinalScore,
+                    CurrentClassId = enrollmentInfo?.ClassId,
+                    CurrentClassCode = enrollmentInfo?.ClassCode,
+                    CurrentSemesterId = enrollmentInfo?.SemesterId,
+                    CurrentSemesterName = enrollmentInfo?.SemesterName,
+                    PrerequisiteSubjectCode = definition.PrerequisiteSubjectCode,
+                    PrerequisitesMet = prerequisitesMet,
+                    AttendancePercentage = attendanceInfo?.Percentage,
+                    AttendanceRequirementMet = attendanceRequirementMet,
+                    Notes = status switch
+                    {
+                        "Locked" when !string.IsNullOrEmpty(definition.PrerequisiteSubjectCode) =>
+                            $"Requires {definition.PrerequisiteSubjectCode}",
+                        "Failed" => "Needs retake",
+                        _ => null
+                    }
+                };
+
+                planItems.Add(new CurriculumSubjectPlanItem
+                {
+                    SemesterNumber = definition.SemesterNumber,
+                    Credits = definition.Credits,
+                    Subject = statusDto
+                });
+            }
+
+            var calculatedGpa = CalculateGpaFromSubjects(planItems);
+            var gpa = calculatedGpa ?? (studentSnapshot.Gpa > 0 ? studentSnapshot.Gpa : (decimal?)null);
+
+            return new CurriculumRoadmapComputation
+            {
+                Student = studentSnapshot,
+                Subjects = planItems,
+                CurrentGpa = gpa
+            };
+        }
+
+        private static AttendanceAggregateInfo CreateAttendanceAggregate(int presentSessions, int totalSessions)
+        {
+            if (totalSessions == 0)
+            {
+                return new AttendanceAggregateInfo(null, false, false);
+            }
+
+            var percentage = Math.Round((decimal)presentSessions / totalSessions * 100m, 2);
+            return new AttendanceAggregateInfo(percentage, percentage >= 80m, true);
+        }
+
+        private static decimal? CalculateGpaFromSubjects(IEnumerable<CurriculumSubjectPlanItem> items)
+        {
+            decimal totalGradePoints = 0m;
+            int totalCredits = 0;
+
+            foreach (var item in items)
+            {
+                if (!item.Subject.FinalScore.HasValue || item.Credits <= 0)
+                {
+                    continue;
+                }
+
+                var letterGrade = GradeHelper.CalculateLetterGrade(item.Subject.FinalScore.Value);
+                var gradePoint = GradeHelper.GetGradePoint(letterGrade);
+
+                totalGradePoints += gradePoint * item.Credits;
+                totalCredits += item.Credits;
+            }
+
+            if (totalCredits == 0)
+            {
+                return null;
+            }
+
+            return Math.Round(totalGradePoints / totalCredits, 2);
+        }
+
+        private static bool IsCurrentEnrollment(EnrollmentAggregateRow? enrollment, DateTime now)
+        {
+            if (enrollment == null)
+            {
+                return false;
+            }
+
+            if (!enrollment.SemesterStartDate.HasValue || !enrollment.SemesterEndDate.HasValue)
+            {
+                return true;
+            }
+
+            if (now >= enrollment.SemesterStartDate.Value && now <= enrollment.SemesterEndDate.Value)
+            {
+                return true;
+            }
+
+            if (now < enrollment.SemesterStartDate.Value)
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private static string DetermineSubjectStatus(
+            Guid subjectId,
+            HashSet<Guid> completedSubjectIds,
+            HashSet<Guid> failedSubjectIds,
+            bool isCurrentEnrollment,
+            bool hasApprovedEnrollment,
+            bool prerequisitesMet,
+            bool attendanceRequirementMet,
+            decimal? finalScore,
+            int totalWeight)
+        {
+            if (completedSubjectIds.Contains(subjectId))
+            {
+                return attendanceRequirementMet ? "Completed" : "InProgress";
+            }
+
+            if (failedSubjectIds.Contains(subjectId))
+            {
+                return "Failed";
+            }
+
+            if (isCurrentEnrollment || hasApprovedEnrollment)
+            {
+                return "InProgress";
+            }
+
+            if (!prerequisitesMet)
+            {
+                return "Locked";
+            }
+
+            if (finalScore.HasValue && totalWeight > 0)
+            {
+                return "InProgress";
+            }
+
+            return "Open";
+        }
+
         public async Task<SubjectEligibilityResultDto> CheckCurriculumSubjectEligibilityAsync(Guid studentId, Guid subjectId)
         {
             try
@@ -1094,6 +1484,71 @@ namespace Fap.Api.Services
                     _ => null
                 }
             };
+        }
+
+        private sealed record StudentRoadmapStudentSnapshot(
+            Guid Id,
+            string StudentCode,
+            string StudentName,
+            int CurriculumId,
+            string CurriculumCode,
+            string CurriculumName,
+            decimal Gpa);
+
+        private sealed class CurriculumSubjectDefinition
+        {
+            public Guid SubjectId { get; set; }
+            public int SemesterNumber { get; set; }
+            public string SubjectCode { get; set; } = string.Empty;
+            public string SubjectName { get; set; } = string.Empty;
+            public int Credits { get; set; }
+            public Guid? PrerequisiteSubjectId { get; set; }
+            public string? PrerequisiteSubjectCode { get; set; }
+        }
+
+        private sealed record GradeAggregateRow
+        {
+            public Guid SubjectId { get; init; }
+            public decimal WeightedScore { get; init; }
+            public int TotalWeight { get; init; }
+            public string? LatestLetterGrade { get; init; }
+        }
+
+        private sealed record GradeAggregateInfo(decimal? FinalScore, int TotalWeight, string? LetterGrade);
+
+        private sealed record AttendanceAggregateRow
+        {
+            public Guid SubjectId { get; init; }
+            public int TotalSessions { get; init; }
+            public int PresentSessions { get; init; }
+        }
+
+        private sealed record AttendanceAggregateInfo(decimal? Percentage, bool RequirementMet, bool HasRecords);
+
+        private sealed record EnrollmentAggregateRow
+        {
+            public Guid SubjectId { get; init; }
+            public Guid ClassId { get; init; }
+            public string ClassCode { get; init; } = string.Empty;
+            public Guid? SemesterId { get; init; }
+            public string? SemesterName { get; init; }
+            public DateTime? SemesterStartDate { get; init; }
+            public DateTime? SemesterEndDate { get; init; }
+            public DateTime RegisteredAt { get; init; }
+        }
+
+        private sealed class CurriculumSubjectPlanItem
+        {
+            public int SemesterNumber { get; init; }
+            public int Credits { get; init; }
+            public CurriculumSubjectStatusDto Subject { get; init; } = null!;
+        }
+
+        private sealed class CurriculumRoadmapComputation
+        {
+            public StudentRoadmapStudentSnapshot Student { get; init; } = null!;
+            public List<CurriculumSubjectPlanItem> Subjects { get; init; } = new();
+            public decimal? CurrentGpa { get; init; }
         }
     }
 }

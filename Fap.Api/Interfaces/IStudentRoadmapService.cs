@@ -37,6 +37,16 @@ namespace Fap.Api.Interfaces
         /// </summary>
         Task<CurriculumRoadmapDto?> GetCurriculumRoadmapAsync(Guid studentId);
 
+    /// <summary>
+    /// Optimized roadmap summary without heavy navigation loading
+    /// </summary>
+    Task<CurriculumRoadmapSummaryDto?> GetCurriculumRoadmapSummaryAsync(Guid studentId);
+
+    /// <summary>
+    /// Lazy-load a single semester worth of roadmap items
+    /// </summary>
+    Task<CurriculumSemesterDto?> GetCurriculumRoadmapSemesterAsync(Guid studentId, int semesterNumber);
+
         /// <summary>
         /// Check if a student is eligible to enroll in a curriculum subject.
         /// </summary>

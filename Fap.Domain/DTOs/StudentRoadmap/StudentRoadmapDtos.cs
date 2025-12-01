@@ -228,6 +228,40 @@ namespace Fap.Domain.DTOs.StudentRoadmap
         public List<CurriculumSemesterDto> Semesters { get; set; } = new();
     }
 
+    /// <summary>
+    /// Lightweight summary response for the V2 roadmap API.
+    /// </summary>
+    public class CurriculumRoadmapSummaryDto
+    {
+        public Guid StudentId { get; set; }
+        public string StudentCode { get; set; } = string.Empty;
+        public string StudentName { get; set; } = string.Empty;
+        public int CurriculumId { get; set; }
+        public string CurriculumCode { get; set; } = string.Empty;
+        public string CurriculumName { get; set; } = string.Empty;
+        public decimal? CurrentGPA { get; set; }
+        public int TotalSubjects { get; set; }
+        public int CompletedSubjects { get; set; }
+        public int FailedSubjects { get; set; }
+        public int InProgressSubjects { get; set; }
+        public int OpenSubjects { get; set; }
+        public int LockedSubjects { get; set; }
+        public List<CurriculumSemesterSummaryDto> SemesterSummaries { get; set; } = new();
+        public DateTime GeneratedAt { get; set; } = DateTime.UtcNow;
+    }
+
+    public class CurriculumSemesterSummaryDto
+    {
+        public int SemesterNumber { get; set; }
+        public string SemesterName { get; set; } = string.Empty;
+        public int SubjectCount { get; set; }
+        public int CompletedSubjects { get; set; }
+        public int InProgressSubjects { get; set; }
+        public int PlannedSubjects { get; set; }
+        public int FailedSubjects { get; set; }
+        public int LockedSubjects { get; set; }
+    }
+
     public class CurriculumSemesterDto
     {
         public int SemesterNumber { get; set; }

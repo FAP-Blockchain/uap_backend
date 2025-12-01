@@ -68,6 +68,53 @@ namespace Fap.Api.Controllers
             }
         }
 
+        [HttpGet("api/students/me/curriculum-roadmap/summary")]
+        public async Task<IActionResult> GetMyCurriculumRoadmapSummary()
+        {
+            try
+            {
+                var studentId = GetStudentIdFromToken();
+                if (studentId == Guid.Empty)
+                    return BadRequest(new { message = "Student ID not found in token" });
+
+                var summary = await _roadmapService.GetCurriculumRoadmapSummaryAsync(studentId);
+                if (summary == null)
+                    return NotFound(new { message = "Curriculum roadmap not available" });
+
+                return Ok(summary);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting curriculum roadmap summary");
+                return StatusCode(500, new { message = "An error occurred while retrieving curriculum roadmap summary" });
+            }
+        }
+
+        [HttpGet("api/students/me/curriculum-roadmap/semesters")]
+        public async Task<IActionResult> GetMyCurriculumRoadmapSemester([FromQuery] int semesterNumber)
+        {
+            try
+            {
+                if (semesterNumber <= 0)
+                    return BadRequest(new { message = "Semester number must be greater than zero" });
+
+                var studentId = GetStudentIdFromToken();
+                if (studentId == Guid.Empty)
+                    return BadRequest(new { message = "Student ID not found in token" });
+
+                var semester = await _roadmapService.GetCurriculumRoadmapSemesterAsync(studentId, semesterNumber);
+                if (semester == null)
+                    return NotFound(new { message = "No roadmap data for the requested semester" });
+
+                return Ok(semester);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting curriculum roadmap semester detail");
+                return StatusCode(500, new { message = "An error occurred while retrieving curriculum roadmap semester detail" });
+            }
+        }
+
         [HttpGet("api/students/me/graduation-status")]
         public async Task<IActionResult> GetMyGraduationStatus()
         {
