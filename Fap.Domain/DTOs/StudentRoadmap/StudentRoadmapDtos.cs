@@ -231,6 +231,7 @@ namespace Fap.Domain.DTOs.StudentRoadmap
     public class CurriculumSemesterDto
     {
         public int SemesterNumber { get; set; }
+        public string SemesterName { get; set; } = string.Empty;
         public List<CurriculumSubjectStatusDto> Subjects { get; set; } = new();
     }
 

@@ -363,37 +363,67 @@ namespace Fap.Api.Services
                     return result;
                 }
 
-                var semesterMap = new Dictionary<int, CurriculumSemesterDto>();
+                var allSemesters = await _uow.Semesters.GetQueryable()
+                    .OrderBy(s => s.StartDate)
+                    .ToListAsync();
 
-                foreach (var curriculumSubject in snapshot.CurriculumSubjects)
-                {
-                    if (!snapshot.Subjects.TryGetValue(curriculumSubject.SubjectId, out var progress))
+                var semesterLookup = allSemesters.ToDictionary(s => s.Id, s => s);
+                var finalSemesters = new List<CurriculumSemesterDto>();
+
+                var subjectsWithActualSemester = snapshot.Subjects.Values
+                    .Where(s => s.CurrentSemesterId.HasValue)
+                    .GroupBy(s => s.CurrentSemesterId!.Value)
+                    .Select(g =>
                     {
-                        continue;
-                    }
-
-                    if (!semesterMap.TryGetValue(curriculumSubject.SemesterNumber, out var semesterDto))
-                    {
-                        semesterDto = new CurriculumSemesterDto
-                        {
-                            SemesterNumber = curriculumSubject.SemesterNumber
-                        };
-                        semesterMap.Add(curriculumSubject.SemesterNumber, semesterDto);
-                    }
-
-                    semesterDto.Subjects.Add(MapToSubjectStatus(progress));
-                }
-
-                result.Semesters = semesterMap.Values
-                    .OrderBy(s => s.SemesterNumber)
-                    .Select(s =>
-                    {
-                        s.Subjects = s.Subjects
+                        semesterLookup.TryGetValue(g.Key, out var semesterInfo);
+                        var subjects = g.Select(MapToSubjectStatus)
                             .OrderBy(sub => sub.SubjectCode)
                             .ToList();
-                        return s;
+
+                        return new
+                        {
+                            SemesterId = g.Key,
+                            SemesterName = semesterInfo?.Name ?? "Custom Semester",
+                            StartDate = semesterInfo?.StartDate ?? DateTime.MaxValue,
+                            Subjects = subjects
+                        };
                     })
+                    .OrderBy(g => g.StartDate)
+                    .ThenBy(g => g.SemesterName)
                     .ToList();
+
+                var sequenceNumber = 1;
+
+                foreach (var group in subjectsWithActualSemester)
+                {
+                    finalSemesters.Add(new CurriculumSemesterDto
+                    {
+                        SemesterNumber = sequenceNumber++,
+                        SemesterName = group.SemesterName,
+                        Subjects = group.Subjects
+                    });
+                }
+
+                var plannedSubjectGroups = snapshot.Subjects.Values
+                    .Where(s => !s.CurrentSemesterId.HasValue)
+                    .GroupBy(s => s.CurriculumSubject.SemesterNumber)
+                    .OrderBy(g => g.Key);
+
+                foreach (var group in plannedSubjectGroups)
+                {
+                    var subjects = group.Select(MapToSubjectStatus)
+                        .OrderBy(sub => sub.SubjectCode)
+                        .ToList();
+
+                    finalSemesters.Add(new CurriculumSemesterDto
+                    {
+                        SemesterNumber = sequenceNumber++,
+                        SemesterName = $"Planned Term {group.Key}",
+                        Subjects = subjects
+                    });
+                }
+
+                result.Semesters = finalSemesters;
 
                 return result;
             }
