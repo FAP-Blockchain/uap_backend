@@ -19,7 +19,9 @@ namespace Fap.Api.Mappings
                 .ForMember(dest => dest.SemesterName,
                     opt => opt.MapFrom(src => src.Semester.Name))
                 .ForMember(dest => dest.SemesterCode,
-                    opt => opt.MapFrom(src => src.Semester.Name));
+                    opt => opt.MapFrom(src => src.Semester.Name))
+                .ForMember(dest => dest.CanRetake,
+                    opt => opt.MapFrom(src => src.Status == "Failed"));
 
             CreateMap<StudentRoadmap, StudentRoadmapDetailDto>()
                 .ForMember(dest => dest.StudentCode,
@@ -43,7 +45,9 @@ namespace Fap.Api.Mappings
                 .ForMember(dest => dest.SemesterStartDate,
                     opt => opt.MapFrom(src => src.Semester.StartDate))
                 .ForMember(dest => dest.SemesterEndDate,
-                    opt => opt.MapFrom(src => src.Semester.EndDate));
+                    opt => opt.MapFrom(src => src.Semester.EndDate))
+                .ForMember(dest => dest.CanRetake,
+                    opt => opt.MapFrom(src => src.Status == "Failed"));
 
             // Request -> Entity
             CreateMap<CreateStudentRoadmapRequest, StudentRoadmap>()

@@ -71,40 +71,34 @@ namespace Fap.Api.Services
                 var semesterId = subjectOffering.SemesterId;
                 var subjectId = subject.Id;
 
-                // 4. Check if student is already a member of the class (ClassMembers table)
                 var isAlreadyMember = await _uow.ClassMembers.IsStudentInClassAsync(
-              request.ClassId,
-                 request.StudentId);
-
+                    request.ClassId,
+                    request.StudentId);
+                var hasPendingRequest = await _uow.Enrolls.IsStudentEnrolledInClassAsync(
+                    request.StudentId,
+                    request.ClassId);
+                var isEnrolledInSubject = await _uow.Enrolls.IsStudentEnrolledInSubjectAsync(
+                    request.StudentId,
+                    subjectId,
+                    semesterId);
                 if (isAlreadyMember)
                 {
                     response.Errors.Add("Student is already a member of this class");
                     response.Message = "Enrollment creation failed - Student already enrolled";
                     _logger.LogWarning(
-                          "Enrollment attempt rejected: Student {StudentId} is already a member of class {ClassId}",
-                     request.StudentId, request.ClassId);
+                        "Enrollment attempt rejected: Student {StudentId} is already a member of class {ClassId}",
+                        request.StudentId, request.ClassId);
                     return response;
                 }
 
-                // 5. Check if student has pending enrollment request
-                var isAlreadyEnrolled = await _uow.Enrolls.IsStudentEnrolledInClassAsync(
-                      request.StudentId,
-                  request.ClassId);
-
-                if (isAlreadyEnrolled)
+                if (hasPendingRequest)
                 {
                     response.Errors.Add("Student already has a pending enrollment request for this class");
                     response.Message = "Enrollment creation failed";
                     return response;
                 }
 
-                // 6. Ensure student is not already enrolled in another class for this subject this semester
-                var alreadyInSubjectThisSemester = await _uow.Enrolls.IsStudentEnrolledInSubjectAsync(
-                    request.StudentId,
-                    subjectId,
-                    semesterId);
-
-                if (alreadyInSubjectThisSemester)
+                if (isEnrolledInSubject)
                 {
                     response.Errors.Add($"Student already enrolled in another class for '{subject.SubjectCode}' this semester");
                     response.Message = "Enrollment creation failed";
@@ -112,21 +106,22 @@ namespace Fap.Api.Services
                 }
 
                 // 7. Curriculum-based eligibility (subject in curriculum, prerequisites, completion)
-                var prerequisiteValidation = await ValidateCurriculumEligibilityAsync(request.StudentId, subjectId, subject.SubjectCode);
+                var prerequisiteValidation = await ValidateCurriculumEligibilityAsync(
+                    request.StudentId,
+                    subjectId,
+                    subject.SubjectCode);
+                var roadmapEntry = await _uow.StudentRoadmaps.GetByStudentAndSubjectAsync(
+                    request.StudentId,
+                    subjectId);
                 if (!prerequisiteValidation.IsValid)
                 {
                     response.Errors.AddRange(prerequisiteValidation.Errors);
                     response.Message = "Enrollment creation failed - Prerequisites not met";
                     _logger.LogWarning(
-                         "Enrollment rejected: Curriculum eligibility failed for student {StudentId}, subject {SubjectCode}",
-                               request.StudentId, subject.SubjectCode);
+                        "Enrollment rejected: Curriculum eligibility failed for student {StudentId}, subject {SubjectCode}",
+                        request.StudentId, subject.SubjectCode);
                     return response;
                 }
-
-                // Fetch roadmap entry for optional sequence warning
-                var roadmapEntry = await _uow.StudentRoadmaps.GetByStudentAndSubjectAsync(
-                    request.StudentId,
-                    subjectId);
 
                 // 8. Check sequence order (warning only, not blocking)
                 if (roadmapEntry != null)

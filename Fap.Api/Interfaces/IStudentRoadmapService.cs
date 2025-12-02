@@ -27,6 +27,11 @@ namespace Fap.Api.Interfaces
         /// </summary>
         Task<List<RecommendedSubjectDto>> GetRecommendedSubjectsAsync(Guid studentId);
 
+    /// <summary>
+    /// Get recommended retake options for failed subjects
+    /// </summary>
+    Task<List<RecommendedSubjectDto>> GetRetakeOptionsAsync(Guid studentId);
+
         /// <summary>
         /// Get paginated roadmap with filters
         /// </summary>
@@ -83,6 +88,11 @@ namespace Fap.Api.Interfaces
         /// Bulk create roadmap for a student from template
         /// </summary>
         Task<StudentRoadmapResponse> CreateRoadmapFromTemplateAsync(Guid studentId, List<CreateStudentRoadmapRequest> roadmapItems);
+
+    /// <summary>
+    /// Plan a retake for a failed roadmap entry
+    /// </summary>
+    Task<StudentRoadmapResponse> PlanRetakeAsync(Guid studentId, Guid roadmapId, PlanRetakeRequest request);
 
         // ==================== AUTOMATION ====================
 

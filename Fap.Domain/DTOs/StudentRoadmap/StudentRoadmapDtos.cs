@@ -22,6 +22,7 @@ namespace Fap.Domain.DTOs.StudentRoadmap
         public DateTime? StartedAt { get; set; }
         public DateTime? CompletedAt { get; set; }
         public string? Notes { get; set; }
+        public bool CanRetake { get; set; }
     }
 
     /// <summary>
@@ -61,6 +62,7 @@ namespace Fap.Domain.DTOs.StudentRoadmap
         public string? Notes { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
+        public bool CanRetake { get; set; }
     }
 
     /// <summary>
@@ -147,6 +149,18 @@ namespace Fap.Domain.DTOs.StudentRoadmap
     }
 
     /// <summary>
+    /// Request to plan a retake for a failed roadmap entry
+    /// </summary>
+    public class PlanRetakeRequest
+    {
+        [Required]
+        public Guid SemesterId { get; set; }
+
+        [MaxLength(500)]
+        public string? Notes { get; set; }
+    }
+
+    /// <summary>
     /// Request to get student roadmap with filters
     /// </summary>
     public class GetStudentRoadmapRequest
@@ -185,11 +199,11 @@ namespace Fap.Domain.DTOs.StudentRoadmap
         public string RecommendationReason { get; set; } // "Next in roadmap", "Prerequisites completed", etc.
         public List<string> Prerequisites { get; set; } = new();
         public bool AllPrerequisitesMet { get; set; }
-        
-    // Class availability info
-    public bool HasAvailableClasses { get; set; }
+        public bool HasAvailableClasses { get; set; }
         public int AvailableClassCount { get; set; }
         public List<AvailableClassInfoDto> AvailableClasses { get; set; } = new();
+        public bool IsRetake { get; set; }
+        public string? RetakeReason { get; set; }
     }
 
     /// <summary>
