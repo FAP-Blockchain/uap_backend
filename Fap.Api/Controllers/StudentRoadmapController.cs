@@ -191,6 +191,25 @@ namespace Fap.Api.Controllers
             }
         }
 
+        [HttpGet("api/students/me/roadmap/retake-options")]
+        public async Task<IActionResult> GetMyRetakeOptions()
+        {
+            try
+            {
+                var studentId = GetStudentIdFromToken();
+                if (studentId == Guid.Empty)
+                    return BadRequest(new { message = "Student ID not found in token" });
+
+                var retakes = await _roadmapService.GetRetakeOptionsAsync(studentId);
+                return Ok(retakes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting retake options");
+                return StatusCode(500, new { message = "An error occurred while retrieving retake options" });
+            }
+        }
+
         [HttpGet("api/students/me/roadmap/paged")]
         public async Task<IActionResult> GetMyPagedRoadmap([FromQuery] GetStudentRoadmapRequest request)
         {
@@ -207,6 +226,33 @@ namespace Fap.Api.Controllers
             {
                 _logger.LogError(ex, "Error getting paged roadmap");
                 return StatusCode(500, new { message = "An error occurred while retrieving roadmap" });
+            }
+        }
+
+        [HttpPost("api/students/me/roadmap/{roadmapId:guid}/retake-plan")]
+        public async Task<IActionResult> PlanMyRetake(Guid roadmapId, [FromBody] PlanRetakeRequest request)
+        {
+            if (request == null || request.SemesterId == Guid.Empty)
+            {
+                return BadRequest(new { message = "SemesterId is required" });
+            }
+
+            try
+            {
+                var studentId = GetStudentIdFromToken();
+                if (studentId == Guid.Empty)
+                    return BadRequest(new { message = "Student ID not found in token" });
+
+                var result = await _roadmapService.PlanRetakeAsync(studentId, roadmapId, request);
+                if (!result.Success)
+                    return BadRequest(result);
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error planning retake");
+                return StatusCode(500, new { message = "An error occurred while planning retake" });
             }
         }
 
@@ -351,6 +397,31 @@ namespace Fap.Api.Controllers
             {
                 _logger.LogError(ex, "Error bulk creating roadmap");
                 return StatusCode(500, new { message = "An error occurred while creating roadmap" });
+            }
+        }
+
+        [HttpPost("api/students/{studentId}/roadmap/{roadmapId}/retake-plan")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> PlanRetakeForStudent(Guid studentId, Guid roadmapId, [FromBody] PlanRetakeRequest request)
+        {
+            if (request == null || request.SemesterId == Guid.Empty)
+            {
+                return BadRequest(new { message = "SemesterId is required" });
+            }
+
+            try
+            {
+                var result = await _roadmapService.PlanRetakeAsync(studentId, roadmapId, request);
+
+                if (!result.Success)
+                    return BadRequest(result);
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error planning retake for student {StudentId}", studentId);
+                return StatusCode(500, new { message = "An error occurred while planning retake" });
             }
         }
 

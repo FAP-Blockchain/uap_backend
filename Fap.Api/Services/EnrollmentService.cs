@@ -71,20 +71,17 @@ namespace Fap.Api.Services
                 var semesterId = subjectOffering.SemesterId;
                 var subjectId = subject.Id;
 
-                var membershipCheckTask = _uow.ClassMembers.IsStudentInClassAsync(
+                var isAlreadyMember = await _uow.ClassMembers.IsStudentInClassAsync(
                     request.ClassId,
                     request.StudentId);
-                var pendingRequestTask = _uow.Enrolls.IsStudentEnrolledInClassAsync(
+                var hasPendingRequest = await _uow.Enrolls.IsStudentEnrolledInClassAsync(
                     request.StudentId,
                     request.ClassId);
-                var subjectEnrollmentTask = _uow.Enrolls.IsStudentEnrolledInSubjectAsync(
+                var isEnrolledInSubject = await _uow.Enrolls.IsStudentEnrolledInSubjectAsync(
                     request.StudentId,
                     subjectId,
                     semesterId);
-
-                await Task.WhenAll(membershipCheckTask, pendingRequestTask, subjectEnrollmentTask);
-
-                if (membershipCheckTask.Result)
+                if (isAlreadyMember)
                 {
                     response.Errors.Add("Student is already a member of this class");
                     response.Message = "Enrollment creation failed - Student already enrolled";
@@ -94,14 +91,14 @@ namespace Fap.Api.Services
                     return response;
                 }
 
-                if (pendingRequestTask.Result)
+                if (hasPendingRequest)
                 {
                     response.Errors.Add("Student already has a pending enrollment request for this class");
                     response.Message = "Enrollment creation failed";
                     return response;
                 }
 
-                if (subjectEnrollmentTask.Result)
+                if (isEnrolledInSubject)
                 {
                     response.Errors.Add($"Student already enrolled in another class for '{subject.SubjectCode}' this semester");
                     response.Message = "Enrollment creation failed";
@@ -109,14 +106,13 @@ namespace Fap.Api.Services
                 }
 
                 // 7. Curriculum-based eligibility (subject in curriculum, prerequisites, completion)
-                var prerequisiteValidationTask = ValidateCurriculumEligibilityAsync(request.StudentId, subjectId, subject.SubjectCode);
-                var roadmapEntryTask = _uow.StudentRoadmaps.GetByStudentAndSubjectAsync(
+                var prerequisiteValidation = await ValidateCurriculumEligibilityAsync(
+                    request.StudentId,
+                    subjectId,
+                    subject.SubjectCode);
+                var roadmapEntry = await _uow.StudentRoadmaps.GetByStudentAndSubjectAsync(
                     request.StudentId,
                     subjectId);
-
-                await Task.WhenAll(prerequisiteValidationTask, roadmapEntryTask);
-
-                var prerequisiteValidation = prerequisiteValidationTask.Result;
                 if (!prerequisiteValidation.IsValid)
                 {
                     response.Errors.AddRange(prerequisiteValidation.Errors);
@@ -126,8 +122,6 @@ namespace Fap.Api.Services
                         request.StudentId, subject.SubjectCode);
                     return response;
                 }
-
-                var roadmapEntry = roadmapEntryTask.Result;
 
                 // 8. Check sequence order (warning only, not blocking)
                 if (roadmapEntry != null)

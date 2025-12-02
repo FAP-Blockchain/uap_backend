@@ -145,17 +145,19 @@ namespace Fap.Api.Services
                     .Where(s => s.StartDate <= now && s.EndDate >= now)
                     .FirstOrDefaultAsync();
 
-                var openSubjects = snapshot.Subjects.Values
-                    .Where(s => s.Status == "Open")
-                    .OrderBy(s => s.CurriculumSubject.SemesterNumber)
+                var candidateSubjects = snapshot.Subjects.Values
+                    .Where(s => s.Status == "Open" || s.Status == "Failed")
+                    .OrderBy(s => s.Status == "Failed" ? 0 : 1)
+                    .ThenBy(s => s.CurriculumSubject.SemesterNumber)
                     .ThenBy(s => s.CurriculumSubject.Subject.SubjectCode)
-                    .Take(10)
+                    .Take(12)
                     .ToList();
 
-                foreach (var subjectProgress in openSubjects)
+                foreach (var subjectProgress in candidateSubjects)
                 {
                     roadmapLookup.TryGetValue(subjectProgress.SubjectId, out var roadmap);
                     var subject = subjectProgress.CurriculumSubject.Subject;
+                    var isRetake = subjectProgress.Status == "Failed" || (roadmap?.Status == "Failed");
 
                     // Preferred semester for class search: roadmap semester -> current semester -> null (all)
                     Guid? preferredSemesterId = roadmap?.SemesterId ?? currentSemester?.Id;
@@ -203,6 +205,11 @@ namespace Fap.Api.Services
                     }).ToList();
 
                     var reasonSegments = new List<string>();
+                    if (isRetake)
+                    {
+                        reasonSegments.Add("Previously failed - schedule a retake");
+                    }
+
                     if (roadmap != null)
                     {
                         reasonSegments.Add("Listed in roadmap");
@@ -235,7 +242,13 @@ namespace Fap.Api.Services
                         AllPrerequisitesMet = subjectProgress.PrerequisitesMet,
                         HasAvailableClasses = availableClassDtos.Any(c => !c.IsFull),
                         AvailableClassCount = availableClassDtos.Count(c => !c.IsFull),
-                        AvailableClasses = availableClassDtos
+                        AvailableClasses = availableClassDtos,
+                        IsRetake = isRetake,
+                        RetakeReason = isRetake
+                            ? (subjectProgress.FinalScore.HasValue
+                                ? $"Last score {subjectProgress.FinalScore.Value:0.##}. Minimum 5.0 required"
+                                : "Roadmap status marked as failed")
+                            : null
                     };
 
                     recommendations.Add(recommendation);
@@ -248,6 +261,15 @@ namespace Fap.Api.Services
                 _logger.LogError(ex, "Error getting recommended subjects for student {StudentId}", studentId);
                 throw;
             }
+        }
+
+        public async Task<List<RecommendedSubjectDto>> GetRetakeOptionsAsync(Guid studentId)
+        {
+            var recommended = await GetRecommendedSubjectsAsync(studentId);
+            return recommended
+                .Where(r => r.IsRetake)
+                .OrderBy(r => r.SequenceOrder)
+                .ToList();
         }
 
         private static List<string> BuildPrerequisiteList(Subject subject, SubjectProgressInfo progress)
@@ -1270,6 +1292,84 @@ namespace Fap.Api.Services
                 _logger.LogError(ex, "Error bulk creating roadmap for student {StudentId}", studentId);
                 response.Errors.Add($"Internal error: {ex.Message}");
                 response.Message = "Bulk roadmap creation failed";
+                return response;
+            }
+        }
+
+        public async Task<StudentRoadmapResponse> PlanRetakeAsync(Guid studentId, Guid roadmapId, PlanRetakeRequest request)
+        {
+            var response = new StudentRoadmapResponse { RoadmapId = roadmapId };
+
+            try
+            {
+                if (request == null)
+                {
+                    response.Errors.Add("Request payload is required");
+                    response.Message = "Retake planning failed";
+                    return response;
+                }
+
+                var roadmap = await _uow.StudentRoadmaps.GetByIdAsync(roadmapId);
+                if (roadmap == null || roadmap.StudentId != studentId)
+                {
+                    response.Errors.Add("Roadmap entry not found for this student");
+                    response.Message = "Retake planning failed";
+                    return response;
+                }
+
+                if (!string.Equals(roadmap.Status, "Failed", StringComparison.OrdinalIgnoreCase))
+                {
+                    response.Errors.Add("Only failed subjects can be scheduled for retake");
+                    response.Message = "Retake planning failed";
+                    return response;
+                }
+
+                var semester = await _uow.Semesters.GetByIdAsync(request.SemesterId);
+                if (semester == null)
+                {
+                    response.Errors.Add("Target semester not found");
+                    response.Message = "Retake planning failed";
+                    return response;
+                }
+
+                if (semester.EndDate < DateTime.UtcNow)
+                {
+                    response.Errors.Add("Cannot plan retake for a semester that has already ended");
+                    response.Message = "Retake planning failed";
+                    return response;
+                }
+
+                roadmap.SemesterId = semester.Id;
+                roadmap.Status = "Planned";
+                roadmap.StartedAt = null;
+                roadmap.CompletedAt = null;
+                roadmap.UpdatedAt = DateTime.UtcNow;
+
+                if (!string.IsNullOrWhiteSpace(request.Notes))
+                {
+                    var prefix = string.IsNullOrWhiteSpace(roadmap.Notes) ? string.Empty : roadmap.Notes + Environment.NewLine;
+                    roadmap.Notes = prefix + "[Retake] " + request.Notes.Trim();
+                }
+
+                _uow.StudentRoadmaps.Update(roadmap);
+                await _uow.SaveChangesAsync();
+
+                response.Success = true;
+                response.Message = $"Retake scheduled for {semester.Name}";
+
+                _logger.LogInformation(
+                    "Student {StudentId} planned a retake for roadmap {RoadmapId} in semester {SemesterId}",
+                    studentId,
+                    roadmapId,
+                    semester.Id);
+
+                return response;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error planning retake for roadmap {RoadmapId}", roadmapId);
+                response.Errors.Add($"Internal error: {ex.Message}");
+                response.Message = "Retake planning failed";
                 return response;
             }
         }
