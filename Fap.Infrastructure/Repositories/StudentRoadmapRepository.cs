@@ -14,6 +14,7 @@ namespace Fap.Infrastructure.Repositories
         public async Task<List<StudentRoadmap>> GetStudentRoadmapAsync(Guid studentId)
         {
             return await _context.StudentRoadmaps
+                .AsNoTracking()
                 .Include(sr => sr.Subject)
                 .Include(sr => sr.Semester)
                 .Where(sr => sr.StudentId == studentId)
