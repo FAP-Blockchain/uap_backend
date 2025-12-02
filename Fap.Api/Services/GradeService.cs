@@ -514,12 +514,19 @@ namespace Fap.Api.Services
         {
             try
             {
-                var student = await _uow.Students.GetByIdWithDetailsAsync(studentId);
-                if (student == null)
-                    return null;
+                // Optimized: Removed heavy student details loading
+                // var student = await _uow.Students.GetByIdWithDetailsAsync(studentId);
 
-                // Get student's grades
-                var grades = await _uow.Grades.GetGradesByStudentIdAsync(studentId);
+                List<Grade> grades;
+
+                if (request.SubjectId.HasValue)
+                {
+                    grades = await _uow.Grades.GetGradesByStudentAndSubjectAsync(studentId, request.SubjectId.Value);
+                }
+                else
+                {
+                    grades = await _uow.Grades.GetGradesByStudentIdAsync(studentId);
+                }
 
                 // TODO: subject no longer has SemesterId - need to filter through Class/Enrollment
                 if (request.SemesterId.HasValue)
@@ -527,11 +534,6 @@ namespace Fap.Api.Services
                     // Need to implement filtering through: Grade -> Student -> Enrollment -> Class -> SubjectOffering -> Semester
                     _logger.LogWarning("Semester filtering for grades not yet implemented with new Subject model");
                     // grades = grades.Where(g => g.Subject.SemesterId == request.SemesterId.Value).ToList();
-                }
-
-                if (request.SubjectId.HasValue)
-                {
-                    grades = grades.Where(g => g.SubjectId == request.SubjectId.Value).ToList();
                 }
 
                 var subjectGrades = grades
@@ -585,18 +587,18 @@ namespace Fap.Api.Services
                     })
                     .ToList();
 
-  // Sort subjects
+                // Sort subjects
                 subjectGrades = request.SortOrder?.ToLower() == "desc"
                     ? subjectGrades.OrderByDescending(s => s.SubjectCode).ToList()
                     : subjectGrades.OrderBy(s => s.SubjectCode).ToList();
 
                 return new StudentGradeTranscriptDto
                 {
-                    StudentId = student.Id,
-                    StudentCode = student.StudentCode,
-                    StudentName = student.User.FullName,
-                    Email = student.User.Email,
-                    CurrentGPA = student.GPA,
+                    StudentId = studentId,
+                    StudentCode = string.Empty, // Removed redundant info
+                    StudentName = string.Empty, // Removed redundant info
+                    Email = string.Empty,       // Removed redundant info
+                    CurrentGPA = 0,             // Removed redundant info
                     Subjects = subjectGrades
                 };
             }

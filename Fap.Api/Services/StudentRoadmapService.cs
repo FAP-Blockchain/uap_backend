@@ -939,76 +939,68 @@ namespace Fap.Api.Services
             }
         }
 
-        public async Task<GraduationEligibilityDto> EvaluateGraduationEligibilityAsync(Guid studentId, bool persistIfEligible = false)
+        public async Task<GraduationEligibilityDto> EvaluateGraduationEligibilityAsync(
+            Guid studentId,
+            bool persistIfEligible = false)
         {
-            try
+            var state = await BuildCurriculumRoadmapStateAsync(studentId);
+            if (state == null)
             {
-                var student = await _uow.Students.GetWithCurriculumAsync(studentId);
-                if (student == null)
+                return new GraduationEligibilityDto
                 {
-                    return new GraduationEligibilityDto
-                    {
-                        StudentId = studentId,
-                        IsEligible = false,
-                        Message = "Student not found"
-                    };
-                }
-
-                var result = new GraduationEligibilityDto
-                {
-                    StudentId = student.Id,
-                    StudentCode = student.StudentCode,
-                    StudentName = student.User?.FullName ?? string.Empty,
-                    GraduationDate = student.GraduationDate
+                    StudentId = studentId,
+                    IsEligible = false,
+                    Message = "Curriculum data not found."
                 };
-
-                if (student.Curriculum == null || student.CurriculumId == null)
-                {
-                    result.IsEligible = false;
-                    result.Message = "Student does not have an assigned curriculum";
-                    return result;
-                }
-
-                var snapshot = CurriculumProgressHelper.BuildSnapshot(student);
-
-                result.TotalSubjects = snapshot.TotalSubjects;
-                result.CompletedSubjects = snapshot.CompletedSubjects;
-                result.FailedSubjects = snapshot.FailedSubjects;
-                result.InProgressSubjects = snapshot.InProgressSubjects;
-                result.OpenSubjects = snapshot.OpenSubjects;
-                result.LockedSubjects = snapshot.LockedSubjects;
-                result.RequiredCredits = snapshot.RequiredCredits;
-                result.CompletedCredits = snapshot.CompletedCredits;
-
-                var outstandingSubjects = snapshot.Subjects.Values
-                    .Where(sp => sp.Status != "Completed")
-                    .OrderBy(sp => sp.CurriculumSubject.SemesterNumber)
-                    .ThenBy(sp => sp.CurriculumSubject.Subject.SubjectCode)
-                    .Select(MapToSubjectStatus)
-                    .ToList();
-
-                result.OutstandingSubjects = outstandingSubjects;
-                result.IsEligible = !outstandingSubjects.Any();
-                result.Message = result.IsEligible
-                    ? "All curriculum subjects completed"
-                    : "Outstanding subjects remain";
-
-                if (result.IsEligible && persistIfEligible && !student.IsGraduated)
-                {
-                    student.IsGraduated = true;
-                    student.GraduationDate = DateTime.UtcNow;
-                    _uow.Students.Update(student);
-                    await _uow.SaveChangesAsync();
-                    result.GraduationDate = student.GraduationDate;
-                }
-
-                return result;
             }
-            catch (Exception ex)
+
+            // Basic counts
+            var subjects = state.Subjects;
+            var completed = subjects.Where(s => s.Subject.Status == "Completed").ToList();
+
+            var result = new GraduationEligibilityDto
             {
-                _logger.LogError(ex, "Error evaluating graduation eligibility for student {StudentId}", studentId);
-                throw;
+                StudentId = studentId,
+                StudentName = state.Student.StudentName,
+                StudentCode = state.Student.StudentCode,
+                CurriculumName = state.Student.CurriculumName,
+
+                TotalSubjects = subjects.Count,
+                CompletedSubjects = completed.Count,
+                InProgressSubjects = subjects.Count(s => s.Subject.Status == "InProgress"),
+                OpenSubjects = subjects.Count(s => s.Subject.Status == "Open"),
+                LockedSubjects = subjects.Count(s => s.Subject.Status == "Locked"),
+
+                RequiredCredits = subjects.Sum(s => s.Credits),
+                CompletedCredits = completed.Sum(s => s.Credits),
+
+                OutstandingSubjects = subjects
+                    .Where(s => s.Subject.Status != "Completed")
+                    .OrderBy(s => s.SemesterNumber)
+                    .ThenBy(s => s.Subject.SubjectCode)
+                    .Select(s => s.Subject)
+                    .ToList()
+            };
+
+            result.IsEligible = result.OutstandingSubjects.Count == 0;
+            result.Message = result.IsEligible
+                ? "All curriculum subjects completed."
+                : "Outstanding subjects remain.";
+
+            // Only load tracked student when you actually need to update DB
+            if (persistIfEligible && result.IsEligible)
+            {
+                var tracked = await _uow.Students.GetByIdAsync(studentId);
+                if (tracked != null)
+                {
+                    tracked.IsGraduated = true;
+                    tracked.GraduationDate = DateTime.UtcNow;
+
+                    await _uow.SaveChangesAsync();
+                }
             }
+
+            return result;
         }
 
         // ==================== ADMIN APIs ====================

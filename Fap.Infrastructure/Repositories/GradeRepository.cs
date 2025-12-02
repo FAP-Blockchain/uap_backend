@@ -39,6 +39,7 @@ namespace Fap.Infrastructure.Repositories
         public async Task<List<Grade>> GetGradesByStudentAndSubjectAsync(Guid studentId, Guid subjectId)
         {
             return await _dbSet
+                .Include(g => g.Subject)
                 .Include(g => g.GradeComponent)
                 .Where(g => g.StudentId == studentId && g.SubjectId == subjectId)
                 .OrderBy(g => g.GradeComponent.Name)

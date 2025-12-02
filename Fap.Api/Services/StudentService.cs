@@ -160,7 +160,7 @@ namespace Fap.Api.Services
         }
 
         /// <summary>
-        /// Get current logged-in student's profile with full details
+        /// Get current logged-in student's profile with basic details (no enrollments/classes)
         /// </summary>
         public async Task<StudentDetailDto?> GetCurrentStudentProfileAsync(Guid userId)
         {
@@ -173,8 +173,36 @@ namespace Fap.Api.Services
                     return null;
                 }
 
-                // Reuse GetByIdWithDetailsAsync to get full profile
-                return await GetStudentByIdAsync(student.Id);
+                return new StudentDetailDto
+                {
+                    Id = student.Id,
+                    StudentCode = student.StudentCode,
+                    FullName = student.User?.FullName ?? "N/A",
+                    Email = student.User?.Email ?? "N/A",
+                    EnrollmentDate = student.EnrollmentDate,
+                    GPA = student.GPA,
+                    IsGraduated = student.IsGraduated,
+                    GraduationDate = student.GraduationDate,
+                    IsActive = student.User?.IsActive ?? false,
+                    CreatedAt = student.User?.CreatedAt ?? DateTime.MinValue,
+
+                    // Contact & blockchain info
+                    PhoneNumber = student.User?.PhoneNumber,
+                    WalletAddress = student.User?.WalletAddress,
+                    ProfileImageUrl = student.User?.ProfileImageUrl,
+
+                    // Empty lists for heavy relations
+                    Enrollments = new List<EnrollmentInfo>(),
+                    CurrentClasses = new List<ClassInfo>(),
+
+                    // Statistics (basic only)
+                    TotalEnrollments = 0,
+                    ApprovedEnrollments = 0,
+                    PendingEnrollments = 0,
+                    TotalClasses = 0,
+                    TotalGrades = 0,
+                    TotalAttendances = 0
+                };
             }
             catch (Exception ex)
             {

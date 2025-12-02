@@ -313,6 +313,7 @@ namespace Fap.Domain.DTOs.StudentRoadmap
         public Guid StudentId { get; set; }
         public string StudentCode { get; set; } = string.Empty;
         public string StudentName { get; set; } = string.Empty;
+        public string CurriculumName { get; set; } = string.Empty;
         public bool IsEligible { get; set; }
         public int TotalSubjects { get; set; }
         public int CompletedSubjects { get; set; }
