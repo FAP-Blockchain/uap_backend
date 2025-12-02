@@ -833,33 +833,16 @@ namespace Fap.Api.Services
                     SubjectId = subjectId
                 };
 
-                var student = await _uow.Students.GetWithCurriculumAsync(studentId);
-                if (student == null)
+                var state = await BuildCurriculumRoadmapStateAsync(studentId);
+                if (state == null)
                 {
-                    result.IsEligible = false;
-                    result.Reasons.Add("Student not found");
-                    result.BlockingReason = result.Reasons.First();
-                    return result;
-                }
+                    var subjectEntity = await _uow.Subjects.GetByIdAsync(subjectId);
+                    if (subjectEntity != null)
+                    {
+                        result.SubjectCode = subjectEntity.SubjectCode ?? string.Empty;
+                        result.SubjectName = subjectEntity.SubjectName ?? string.Empty;
+                    }
 
-                Subject? subjectEntity = null;
-
-                if (student.Curriculum?.CurriculumSubjects != null)
-                {
-                    subjectEntity = student.Curriculum.CurriculumSubjects
-                        .FirstOrDefault(cs => cs.SubjectId == subjectId)?.Subject;
-                }
-
-                subjectEntity ??= await _uow.Subjects.GetByIdAsync(subjectId);
-
-                if (subjectEntity != null)
-                {
-                    result.SubjectCode = subjectEntity.SubjectCode ?? string.Empty;
-                    result.SubjectName = subjectEntity.SubjectName ?? string.Empty;
-                }
-
-                if (student.Curriculum == null || student.CurriculumId == null)
-                {
                     var (legacyEligible, legacyReasons) = await CheckLegacyEligibilityAsync(studentId, subjectEntity);
                     result.HasCurriculumData = false;
                     result.SubjectInCurriculum = false;
@@ -869,54 +852,61 @@ namespace Fap.Api.Services
                     {
                         result.BlockingReason = string.Join("; ", legacyReasons);
                     }
+
                     return result;
                 }
 
-                var snapshot = CurriculumProgressHelper.BuildSnapshot(student);
                 result.HasCurriculumData = true;
 
-                if (!snapshot.Subjects.TryGetValue(subjectId, out var progress) || progress == null)
+                var planItem = state.Subjects
+                    .FirstOrDefault(s => s.Subject.SubjectId == subjectId);
+
+                if (planItem == null)
                 {
+                    var subjectEntity = await _uow.Subjects.GetByIdAsync(subjectId);
                     result.SubjectInCurriculum = false;
                     result.IsEligible = false;
+                    result.SubjectCode = subjectEntity?.SubjectCode ?? string.Empty;
+                    result.SubjectName = subjectEntity?.SubjectName ?? string.Empty;
                     result.Reasons.Add("Subject is not part of the student's curriculum");
                     result.BlockingReason = result.Reasons.First();
                     return result;
                 }
 
+                var subjectStatus = planItem.Subject;
                 result.SubjectInCurriculum = true;
-                result.CurrentStatus = progress.Status;
-                result.PrerequisitesMet = progress.PrerequisitesMet;
-                result.SubjectCode = progress.CurriculumSubject.Subject.SubjectCode ?? string.Empty;
-                result.SubjectName = progress.CurriculumSubject.Subject.SubjectName ?? string.Empty;
+                result.SubjectCode = subjectStatus.SubjectCode;
+                result.SubjectName = subjectStatus.SubjectName;
+                result.CurrentStatus = subjectStatus.Status;
+                result.PrerequisitesMet = subjectStatus.PrerequisitesMet;
 
                 var reasons = new List<string>();
 
-                if (!progress.PrerequisitesMet)
+                if (!subjectStatus.PrerequisitesMet)
                 {
-                    reasons.Add(!string.IsNullOrEmpty(progress.PrerequisiteSubjectCode)
-                        ? $"Missing prerequisite subject {progress.PrerequisiteSubjectCode}"
+                    reasons.Add(!string.IsNullOrEmpty(subjectStatus.PrerequisiteSubjectCode)
+                        ? $"Missing prerequisite subject {subjectStatus.PrerequisiteSubjectCode}"
                         : "Missing prerequisite requirements");
                 }
 
-                if (progress.Status == "Completed")
+                if (subjectStatus.Status == "Completed")
                 {
                     reasons.Add("Subject already completed");
                 }
 
-                if (progress.Status == "InProgress")
+                if (subjectStatus.Status == "InProgress")
                 {
                     reasons.Add("Subject is currently in progress");
                 }
 
-                if (progress.Status == "Locked" && !reasons.Any())
+                if (subjectStatus.Status == "Locked" && !reasons.Any())
                 {
                     reasons.Add("Subject is locked due to unmet prerequisites");
                 }
 
                 var isEligible = !reasons.Any();
 
-                if (progress.Status == "Failed" && progress.PrerequisitesMet)
+                if (subjectStatus.Status == "Failed" && subjectStatus.PrerequisitesMet)
                 {
                     isEligible = true;
                     reasons.Clear();
