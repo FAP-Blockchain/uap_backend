@@ -15,11 +15,13 @@ namespace Fap.Api.Services
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
+        private readonly IValidationService _validationService;
 
-        public AttendanceService(IUnitOfWork unitOfWork, IMapper mapper)
+        public AttendanceService(IUnitOfWork unitOfWork, IMapper mapper, IValidationService validationService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
+            _validationService = validationService;
         }
 
         #region Basic CRUD
@@ -77,6 +79,8 @@ namespace Fap.Api.Services
 
             if (slot.Status != "Scheduled" && slot.Status != "Completed")
                 throw new InvalidOperationException($"Cannot take attendance for a slot with status: {slot.Status}");
+
+            EnsureAttendanceDateCompliance(slot.Date);
 
             var attendances = new List<Attendance>();
 
@@ -322,6 +326,23 @@ namespace Fap.Api.Services
                 .ToList();
 
             return _mapper.Map<IEnumerable<AttendanceDto>>(pagedResults);
+        }
+
+        private void EnsureAttendanceDateCompliance(DateTime slotDate)
+        {
+            if (!_validationService.IsAttendanceDateValidationEnabled)
+            {
+                return;
+            }
+
+            var today = DateTime.UtcNow.Date;
+            var targetDate = slotDate.Date;
+
+            if (today != targetDate)
+            {
+                throw new InvalidOperationException(
+                    $"Attendance can only be taken on {targetDate:yyyy-MM-dd}. Current date: {today:yyyy-MM-dd}. Toggle validation via /api/validation/attendance_date.");
+            }
         }
 
         #endregion
