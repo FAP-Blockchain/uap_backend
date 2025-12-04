@@ -1,5 +1,9 @@
-﻿using AutoMapper;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using AutoMapper;
 using Fap.Api.Interfaces;
+using Fap.Domain.DTOs.Specialization;
 using Fap.Domain.DTOs.Subject;
 using Fap.Domain.Entities;
 using Fap.Domain.Repositories;
@@ -69,7 +73,8 @@ namespace Fap.Api.Services
                     Category = s.Category,
                     Department = s.Department,
                     Prerequisites = s.Prerequisites,
-                    TotalOfferings = s.Offerings.Count
+                    TotalOfferings = s.Offerings.Count,
+                    Specializations = MapSpecializations(s)
                 })
                 .ToList();
 
@@ -111,7 +116,8 @@ namespace Fap.Api.Services
                 }).ToList(),
                 TotalOfferings = subject.Offerings.Count,
                 TotalClasses = subject.Offerings.Sum(o => o.Classes?.Count ?? 0),
-                TotalStudentsEnrolled = subject.Offerings.Sum(o => o.Classes?.Sum(c => c.Members?.Count ?? 0) ?? 0)
+                TotalStudentsEnrolled = subject.Offerings.Sum(o => o.Classes?.Sum(c => c.Members?.Count ?? 0) ?? 0),
+                Specializations = MapSpecializations(subject)
             };
         }
 
@@ -119,6 +125,13 @@ namespace Fap.Api.Services
         {
             try
             {
+                var specializationIds = NormalizeIds(request.SpecializationIds);
+                var (isValid, validationMessage) = await ValidateSpecializationIdsAsync(specializationIds);
+                if (!isValid)
+                {
+                    return (false, validationMessage ?? "Invalid specializations", null);
+                }
+
                 // Check if subject code already exists
                 var existingSubject = await _uow.Subjects.GetBySubjectCodeAsync(request.SubjectCode);
                 if (existingSubject != null)
@@ -140,6 +153,9 @@ namespace Fap.Api.Services
                 };
 
                 await _uow.Subjects.AddAsync(subject);
+                await _uow.SaveChangesAsync();
+
+                await AssignSubjectSpecializationsAsync(subject.Id, specializationIds);
                 await _uow.SaveChangesAsync();
 
                 var activeSemesters = await _uow.Semesters.FindAsync(s => s.IsActive && !s.IsClosed);
@@ -182,6 +198,13 @@ namespace Fap.Api.Services
         {
             try
             {
+                var specializationIds = NormalizeIds(request.SpecializationIds);
+                var (isValid, validationMessage) = await ValidateSpecializationIdsAsync(specializationIds);
+                if (!isValid)
+                {
+                    return (false, validationMessage ?? "Invalid specializations");
+                }
+
                 var subject = await _uow.Subjects.GetByIdAsync(id);
                 if (subject == null)
                 {
@@ -207,6 +230,7 @@ namespace Fap.Api.Services
                 subject.Prerequisites = request.Prerequisites;
 
                 _uow.Subjects.Update(subject);
+                await AssignSubjectSpecializationsAsync(subject.Id, specializationIds);
                 await _uow.SaveChangesAsync();
 
                 _logger.LogInformation($"Subject updated: {subject.SubjectCode}");
@@ -251,6 +275,50 @@ namespace Fap.Api.Services
                 _logger.LogError($"Error deleting subject: {ex.Message}");
                 return (false, "An error occurred while deleting the subject");
             }
+        }
+
+        private async Task AssignSubjectSpecializationsAsync(Guid subjectId, List<Guid> specializationIds)
+        {
+            await _uow.Subjects.SetSpecializationsAsync(subjectId, specializationIds ?? new List<Guid>());
+        }
+
+        private async Task<(bool Success, string? Message)> ValidateSpecializationIdsAsync(List<Guid> specializationIds)
+        {
+            if (!specializationIds.Any())
+            {
+                return (true, null);
+            }
+
+            var existing = await _uow.Specializations.GetByIdsAsync(specializationIds);
+            if (existing.Count() != specializationIds.Count)
+            {
+                return (false, "One or more specialization IDs are invalid");
+            }
+
+            return (true, null);
+        }
+
+        private static List<Guid> NormalizeIds(IEnumerable<Guid> specializationIds)
+        {
+            return specializationIds?
+                .Where(id => id != Guid.Empty)
+                .Distinct()
+                .ToList() ?? new List<Guid>();
+        }
+
+        private static List<SpecializationDto> MapSpecializations(Subject subject)
+        {
+            return subject.SubjectSpecializations?
+                .Select(ss => new SpecializationDto
+                {
+                    Id = ss.SpecializationId,
+                    Code = ss.Specialization?.Code ?? string.Empty,
+                    Name = ss.Specialization?.Name ?? string.Empty,
+                    Description = ss.Specialization?.Description,
+                    IsActive = ss.Specialization?.IsActive ?? true
+                })
+                .OrderBy(s => s.Name)
+                .ToList() ?? new List<SpecializationDto>();
         }
     }
 }

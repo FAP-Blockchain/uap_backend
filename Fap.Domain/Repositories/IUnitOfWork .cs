@@ -27,6 +27,7 @@ namespace Fap.Domain.Repositories
         IStudentRoadmapRepository StudentRoadmaps { get; }
         ICurriculumRepository Curriculums { get; }
         ICurriculumSubjectRepository CurriculumSubjects { get; }
+        ISpecializationRepository Specializations { get; }
         
     // Credential repositories
         ICredentialRepository Credentials { get; }

@@ -21,9 +21,10 @@ namespace Fap.Domain.Entities
         public DateTime HireDate { get; set; } // Ngày bắt đầu làm việc
 
         [MaxLength(200)]
-        public string? Specialization { get; set; } // Chuyên môn
+        public string? Specialization { get; set; } // Legacy single specialization reference
 
         public User User { get; set; }  // Quan hệ với User
         public virtual ICollection<Class> Classes { get; set; }
+        public virtual ICollection<TeacherSpecialization> TeacherSpecializations { get; set; } = new List<TeacherSpecialization>();
     }
 }

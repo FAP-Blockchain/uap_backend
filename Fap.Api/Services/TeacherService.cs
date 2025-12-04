@@ -1,6 +1,7 @@
 using AutoMapper;
 using Fap.Api.Interfaces;
 using Fap.Domain.DTOs.Common;
+using Fap.Domain.DTOs.Specialization;
 using Fap.Domain.DTOs.Teacher;
 using Fap.Domain.Repositories;
 using Microsoft.Extensions.Logging;
@@ -33,7 +34,8 @@ namespace Fap.Api.Services
                     request.Page,
                     request.PageSize,
                     request.SearchTerm,
-                    request.Specialization,
+                    request.SpecializationKeyword,
+                    request.SpecializationId,
                     request.IsActive,
                     request.SortBy,
                     request.SortOrder
@@ -47,10 +49,11 @@ namespace Fap.Api.Services
                     Email = t.User?.Email ?? "N/A",
                     HireDate = t.HireDate,
                     Specialization = t.Specialization,
-                        PhoneNumber = t.User?.PhoneNumber,
+                    PhoneNumber = t.User?.PhoneNumber,
                     IsActive = t.User?.IsActive ?? false,
                     TotalClasses = t.Classes?.Count ?? 0,
-                    ProfileImageUrl = t.User?.ProfileImageUrl
+                    ProfileImageUrl = t.User?.ProfileImageUrl,
+                    Specializations = MapSpecializations(t)
                 }).ToList();
 
                 return new PagedResult<TeacherDto>(
@@ -83,7 +86,8 @@ namespace Fap.Api.Services
                 PhoneNumber = t.User?.PhoneNumber,
                 IsActive = t.User?.IsActive ?? false,
                 TotalClasses = t.Classes?.Count ?? 0,
-                ProfileImageUrl = t.User?.ProfileImageUrl
+                ProfileImageUrl = t.User?.ProfileImageUrl,
+                Specializations = MapSpecializations(t)
             }).ToList();
         }
 
@@ -124,7 +128,8 @@ namespace Fap.Api.Services
         
                     // Statistics
                     TotalClasses = teacher.Classes?.Count ?? 0,
-                    TotalStudents = teacher.Classes?.Sum(c => c.Members?.Count ?? 0) ?? 0
+                    TotalStudents = teacher.Classes?.Sum(c => c.Members?.Count ?? 0) ?? 0,
+                    Specializations = MapSpecializations(teacher)
                 };
             }
             catch (Exception ex)
@@ -143,6 +148,21 @@ namespace Fap.Api.Services
             }
 
             return await GetTeacherByIdAsync(teacher.Id);
+        }
+
+        private static List<SpecializationDto> MapSpecializations(Domain.Entities.Teacher teacher)
+        {
+            return teacher.TeacherSpecializations?
+                       .Select(ts => new SpecializationDto
+                       {
+                           Id = ts.SpecializationId,
+                           Code = ts.Specialization?.Code ?? string.Empty,
+                           Name = ts.Specialization?.Name ?? string.Empty,
+                           Description = ts.Specialization?.Description,
+                           IsActive = ts.Specialization?.IsActive ?? true
+                       })
+                       .OrderBy(s => s.Name)
+                       .ToList() ?? new List<SpecializationDto>();
         }
     }
 }

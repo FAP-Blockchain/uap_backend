@@ -1,4 +1,8 @@
-﻿namespace Fap.Domain.DTOs.Subject
+﻿using System;
+using System.Collections.Generic;
+using Fap.Domain.DTOs.Specialization;
+
+namespace Fap.Domain.DTOs.Subject
 {
     /// <summary>
     /// Basic subject DTO - Master data (no semester)
@@ -16,6 +20,7 @@
 
     // Total offerings across semesters
     public int TotalOfferings { get; set; }
+        public List<SpecializationDto> Specializations { get; set; } = new();
     }
 
     /// <summary>
@@ -39,6 +44,7 @@
         public int TotalOfferings { get; set; }
         public int TotalClasses { get; set; }
         public int TotalStudentsEnrolled { get; set; }
+        public List<SpecializationDto> Specializations { get; set; } = new();
     }
 
     /// <summary>

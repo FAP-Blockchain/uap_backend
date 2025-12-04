@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using Fap.Domain.Entities;
 
 namespace Fap.Domain.Repositories
@@ -12,10 +14,13 @@ namespace Fap.Domain.Repositories
             int page,
             int pageSize,
             string? searchTerm,
-            string? specialization,
+            string? specializationKeyword,
+            Guid? specializationId,
             bool? isActive,
             string? sortBy,
             string? sortOrder
         );
+        Task<List<Guid>> GetSpecializationIdsAsync(Guid teacherId);
+        Task SetSpecializationsAsync(Guid teacherId, IEnumerable<Guid> specializationIds);
     }
 }

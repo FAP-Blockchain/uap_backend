@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Fap.Domain.DTOs.Specialization;
 
 namespace Fap.Domain.DTOs.Teacher
 {
@@ -15,6 +16,7 @@ namespace Fap.Domain.DTOs.Teacher
         public bool IsActive { get; set; }
         public int TotalClasses { get; set; }
         public string? ProfileImageUrl { get; set; }
+        public List<SpecializationDto> Specializations { get; set; } = new();
     }
 
     public class TeacherDetailDto
@@ -36,6 +38,7 @@ namespace Fap.Domain.DTOs.Teacher
         // Statistics
         public int TotalClasses { get; set; }
         public int TotalStudents { get; set; } // T?ng s? SV trong t?t c? c�c l?p
+        public List<SpecializationDto> Specializations { get; set; } = new();
     }
 
     public class TeachingClassInfo

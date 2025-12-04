@@ -34,6 +34,9 @@ namespace Fap.Infrastructure.Repositories
             return await _dbSet
                 .Include(t => t.User)
                 .Include(t => t.Classes)
+                .Include(t => t.TeacherSpecializations)
+                    .ThenInclude(ts => ts.Specialization)
+                .Include(t => t.Classes)
                     .ThenInclude(c => c.SubjectOffering)
                         .ThenInclude(so => so.Subject)
                 .Include(t => t.Classes)
@@ -51,6 +54,8 @@ namespace Fap.Infrastructure.Repositories
             return await _dbSet
                 .Include(t => t.User)
                 .Include(t => t.Classes)
+                .Include(t => t.TeacherSpecializations)
+                    .ThenInclude(ts => ts.Specialization)
                 .OrderBy(t => t.TeacherCode)
                 .ToListAsync();
         }
@@ -59,7 +64,8 @@ namespace Fap.Infrastructure.Repositories
             int page,
             int pageSize,
             string? searchTerm,
-            string? specialization,
+            string? specializationKeyword,
+            Guid? specializationId,
             bool? isActive,
             string? sortBy,
             string? sortOrder)
@@ -67,6 +73,8 @@ namespace Fap.Infrastructure.Repositories
             var query = _dbSet
                 .Include(t => t.User)
                 .Include(t => t.Classes)
+                .Include(t => t.TeacherSpecializations)
+                    .ThenInclude(ts => ts.Specialization)
                 .AsQueryable();
 
             // 1. Apply filters
@@ -77,13 +85,21 @@ namespace Fap.Infrastructure.Repositories
                     (t.User != null && t.User.FullName.Contains(searchTerm)) ||
                     (t.User != null && t.User.Email.Contains(searchTerm)) ||
                     (t.Specialization != null && t.Specialization.Contains(searchTerm)) ||
+                    t.TeacherSpecializations.Any(ts => ts.Specialization.Name.Contains(searchTerm) || ts.Specialization.Code.Contains(searchTerm)) ||
                     (t.User != null && t.User.PhoneNumber != null && t.User.PhoneNumber.Contains(searchTerm))
                 );
             }
 
-            if (!string.IsNullOrWhiteSpace(specialization))
+            if (!string.IsNullOrWhiteSpace(specializationKeyword))
             {
-                query = query.Where(t => t.Specialization != null && t.Specialization.Contains(specialization));
+                query = query.Where(t =>
+                    (t.Specialization != null && t.Specialization.Contains(specializationKeyword)) ||
+                    t.TeacherSpecializations.Any(ts => ts.Specialization.Name.Contains(specializationKeyword) || ts.Specialization.Code.Contains(specializationKeyword)));
+            }
+
+            if (specializationId.HasValue)
+            {
+                query = query.Where(t => t.TeacherSpecializations.Any(ts => ts.SpecializationId == specializationId.Value));
             }
 
             if (isActive.HasValue)
@@ -122,6 +138,37 @@ namespace Fap.Infrastructure.Repositories
                 .ToListAsync();
 
             return (teachers, totalCount);
+        }
+
+        public async Task<List<Guid>> GetSpecializationIdsAsync(Guid teacherId)
+        {
+            return await _context.TeacherSpecializations
+                .Where(ts => ts.TeacherId == teacherId)
+                .Select(ts => ts.SpecializationId)
+                .ToListAsync();
+        }
+
+        public async Task SetSpecializationsAsync(Guid teacherId, IEnumerable<Guid> specializationIds)
+        {
+            var existing = await _context.TeacherSpecializations
+                .Where(ts => ts.TeacherId == teacherId)
+                .ToListAsync();
+
+            _context.TeacherSpecializations.RemoveRange(existing);
+
+            var distinctIds = specializationIds.Distinct().ToList();
+            if (distinctIds.Any())
+            {
+                var newAssignments = distinctIds.Select(id => new TeacherSpecialization
+                {
+                    TeacherId = teacherId,
+                    SpecializationId = id,
+                    IsPrimary = false,
+                    AssignedAt = DateTime.UtcNow
+                });
+
+                await _context.TeacherSpecializations.AddRangeAsync(newAssignments);
+            }
         }
     }
 }

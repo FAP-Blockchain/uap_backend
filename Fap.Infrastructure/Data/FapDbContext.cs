@@ -36,6 +36,9 @@ namespace Fap.Infrastructure.Data
         public DbSet<Wallet> Wallets { get; set; }  // ✅ NEW - Blockchain Wallets
         public DbSet<Curriculum> Curriculums { get; set; }
         public DbSet<CurriculumSubject> CurriculumSubjects { get; set; }
+    public DbSet<Specialization> Specializations { get; set; }
+    public DbSet<TeacherSpecialization> TeacherSpecializations { get; set; }
+    public DbSet<SubjectSpecialization> SubjectSpecializations { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -76,6 +79,36 @@ namespace Fap.Infrastructure.Data
                 .HasOne(t => t.User)
                 .WithOne(u => u.Teacher)
                 .HasForeignKey<Teacher>(t => t.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<TeacherSpecialization>()
+                .HasKey(ts => new { ts.TeacherId, ts.SpecializationId });
+
+            modelBuilder.Entity<TeacherSpecialization>()
+                .HasOne(ts => ts.Teacher)
+                .WithMany(t => t.TeacherSpecializations)
+                .HasForeignKey(ts => ts.TeacherId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<TeacherSpecialization>()
+                .HasOne(ts => ts.Specialization)
+                .WithMany(s => s.TeacherSpecializations)
+                .HasForeignKey(ts => ts.SpecializationId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<SubjectSpecialization>()
+                .HasKey(ss => new { ss.SubjectId, ss.SpecializationId });
+
+            modelBuilder.Entity<SubjectSpecialization>()
+                .HasOne(ss => ss.Subject)
+                .WithMany(s => s.SubjectSpecializations)
+                .HasForeignKey(ss => ss.SubjectId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<SubjectSpecialization>()
+                .HasOne(ss => ss.Specialization)
+                .WithMany(s => s.SubjectSpecializations)
+                .HasForeignKey(ss => ss.SpecializationId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             // Role <-> Permission

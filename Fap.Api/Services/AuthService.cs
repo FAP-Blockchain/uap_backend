@@ -1,4 +1,10 @@
-﻿using AutoMapper;
+﻿using System;
+using System.Collections.Generic;
+using System.IdentityModel.Tokens.Jwt;
+using System.Linq;
+using System.Security.Claims;
+using System.Text;
+using AutoMapper;
 using Fap.Api.Interfaces;
 using Fap.Domain.DTOs.Auth;
 using Fap.Domain.Entities;
@@ -7,9 +13,6 @@ using Fap.Domain.Settings;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
 
 namespace Fap.Api.Services
 {
@@ -140,6 +143,8 @@ namespace Fap.Api.Services
 
             try
             {
+                var teacherSpecializationIds = new List<Guid>();
+
                 var existingUser = await _uow.Users.GetByEmailAsync(request.Email);
                 if (existingUser != null)
                 {
@@ -201,6 +206,15 @@ namespace Fap.Api.Services
                         response.Message = "Registration failed";
                         return response;
                     }
+
+                    teacherSpecializationIds = NormalizeSpecializationIds(request.SpecializationIds);
+                    var (specValid, specMessage) = await ValidateSpecializationIdsAsync(teacherSpecializationIds);
+                    if (!specValid)
+                    {
+                        response.Errors.Add(specMessage ?? "Invalid specializations");
+                        response.Message = "Registration failed";
+                        return response;
+                    }
                 }
 
                 var walletResult = await _walletService.GetOrCreateWalletAsync(
@@ -251,6 +265,7 @@ namespace Fap.Api.Services
                     teacher.Id = Guid.NewGuid();
                     teacher.UserId = user.Id;
                     await _uow.Teachers.AddAsync(teacher);
+                    await _uow.Teachers.SetSpecializationsAsync(teacher.Id, teacherSpecializationIds);
                 }
 
                 await _uow.SaveChangesAsync();
@@ -394,6 +409,30 @@ namespace Fap.Api.Services
                 response.Message = "Change password failed";
                 return response;
             }
+        }
+
+        private static List<Guid> NormalizeSpecializationIds(IEnumerable<Guid>? specializationIds)
+        {
+            return specializationIds?
+                .Where(id => id != Guid.Empty)
+                .Distinct()
+                .ToList() ?? new List<Guid>();
+        }
+
+        private async Task<(bool Success, string? Message)> ValidateSpecializationIdsAsync(List<Guid> specializationIds)
+        {
+            if (!specializationIds.Any())
+            {
+                return (true, null);
+            }
+
+            var existing = await _uow.Specializations.GetByIdsAsync(specializationIds);
+            if (existing.Count() != specializationIds.Count)
+            {
+                return (false, "One or more specialization IDs are invalid");
+            }
+
+            return (true, null);
         }
 
         // ========== Private Helpers ==========

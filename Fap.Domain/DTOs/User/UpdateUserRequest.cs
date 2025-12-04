@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
 namespace Fap.Domain.DTOs.User
@@ -22,8 +24,10 @@ namespace Fap.Domain.DTOs.User
         [MaxLength(30)]
         public string? TeacherCode { get; set; }
         public DateTime? HireDate { get; set; }
-        [MaxLength(200)]
-        public string? Specialization { get; set; }
+    [MaxLength(200)]
+    public string? Specialization { get; set; }
+
+    public List<Guid> SpecializationIds { get; set; } = new();
         [MaxLength(20)]
         [Phone(ErrorMessage = "Invalid phone number")]
         public string? PhoneNumber { get; set; }

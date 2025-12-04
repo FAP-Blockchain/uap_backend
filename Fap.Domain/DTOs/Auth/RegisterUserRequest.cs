@@ -1,4 +1,6 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 
 namespace Fap.Domain.DTOs.Auth
 {
@@ -36,7 +38,9 @@ namespace Fap.Domain.DTOs.Auth
         public DateTime? HireDate { get; set; }
 
     [MaxLength(200)]
-    public string? Specialization { get; set; }  // Nullable
+    public string? Specialization { get; set; }  // Nullable legacy support
+
+    public List<Guid> SpecializationIds { get; set; } = new();
 
     [MaxLength(20)]
     [Phone(ErrorMessage = "Invalid phone number")]

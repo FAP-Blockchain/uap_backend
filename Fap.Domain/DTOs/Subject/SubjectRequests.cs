@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
 namespace Fap.Domain.DTOs.Subject
@@ -37,6 +39,8 @@ namespace Fap.Domain.DTOs.Subject
         [MaxLength(500)]
   public string? Prerequisites { get; set; }
 
+        public List<Guid> SpecializationIds { get; set; } = new();
+
         // ? REMOVED: SemesterId no longer needed
         // Subject is master data, independent of semesters
     // SubjectOfferings are auto-created when creating Semester
@@ -66,5 +70,6 @@ namespace Fap.Domain.DTOs.Subject
 
         [MaxLength(500)]
         public string? Prerequisites { get; set; }
+        public List<Guid> SpecializationIds { get; set; } = new();
     }
 }

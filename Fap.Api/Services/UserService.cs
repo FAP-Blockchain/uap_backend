@@ -1,4 +1,7 @@
-﻿using AutoMapper;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using AutoMapper;
 using Fap.Api.Interfaces;
 using Fap.Domain.DTOs.Common;
 using Fap.Domain.DTOs.User;
@@ -178,6 +181,27 @@ namespace Fap.Api.Services
                     if (!string.IsNullOrWhiteSpace(request.PhoneNumber))
                     {
                         user.PhoneNumber = request.PhoneNumber;
+                    }
+
+                    if (request.SpecializationIds != null)
+                    {
+                        var specializationIds = request.SpecializationIds
+                            .Where(id => id != Guid.Empty)
+                            .Distinct()
+                            .ToList();
+
+                        if (specializationIds.Any())
+                        {
+                            var specializations = await _uow.Specializations.GetByIdsAsync(specializationIds);
+                            if (specializations.Count() != specializationIds.Count)
+                            {
+                                response.Errors.Add("One or more specialization IDs are invalid");
+                                response.Message = "Update failed";
+                                return response;
+                            }
+                        }
+
+                        await _uow.Teachers.SetSpecializationsAsync(user.Teacher.Id, specializationIds);
                     }
                 }
 

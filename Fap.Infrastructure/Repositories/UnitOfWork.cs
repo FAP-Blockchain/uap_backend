@@ -33,6 +33,7 @@ namespace Fap.Infrastructure.Repositories
         public ICredentialRequestRepository CredentialRequests { get; }
         public ICertificateTemplateRepository CertificateTemplates { get; }
         public ISubjectCriteriaRepository SubjectCriteria { get; }
+    public ISpecializationRepository Specializations { get; }
         
         public UnitOfWork(FapDbContext context)
         {
@@ -63,6 +64,7 @@ namespace Fap.Infrastructure.Repositories
             CredentialRequests = new CredentialRequestRepository(context);
             CertificateTemplates = new CertificateTemplateRepository(context);
             SubjectCriteria = new SubjectCriteriaRepository(context);
+            Specializations = new SpecializationRepository(context);
         }
 
         public async Task<int> SaveChangesAsync()

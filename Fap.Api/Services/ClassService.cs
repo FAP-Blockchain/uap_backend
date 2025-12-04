@@ -1,11 +1,13 @@
-﻿using AutoMapper;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using AutoMapper;
 using Fap.Api.Interfaces;
 using Fap.Domain.DTOs.Class;
 using Fap.Domain.DTOs.Common;
 using Fap.Domain.DTOs.Slot;
 using Fap.Domain.Entities;
 using Fap.Domain.Repositories;
-using System.Linq;
 
 namespace Fap.Api.Services
 {
@@ -118,7 +120,14 @@ namespace Fap.Api.Services
                     return response;
                 }
 
-                // 4. Create new class with SubjectOfferingId
+                // 4. Validate specialization match between teacher and subject requirement
+                if (!await ValidateTeacherSpecializationAsync(subjectOffering.SubjectId, teacher.Id, response.Errors))
+                {
+                    response.Message = "Class creation failed";
+                    return response;
+                }
+
+                // 5. Create new class with SubjectOfferingId
                 var newClass = new Domain.Entities.Class
                 {
                     Id = Guid.NewGuid(),
@@ -231,7 +240,14 @@ namespace Fap.Api.Services
                     return response;
                 }
 
-                // 5. Update class with SubjectOfferingId
+                // 5. Validate specialization alignment
+                if (!await ValidateTeacherSpecializationAsync(subjectOffering.SubjectId, teacher.Id, response.Errors))
+                {
+                    response.Message = "Class update failed";
+                    return response;
+                }
+
+                // 6. Update class with SubjectOfferingId
                 existingClass.ClassCode = request.ClassCode;
                 existingClass.SubjectOfferingId = request.SubjectOfferingId;
                 existingClass.TeacherUserId = request.TeacherId;
@@ -600,6 +616,30 @@ namespace Fap.Api.Services
                 response.Message = "Removal failed";
                 return response;
             }
+        }
+
+        private async Task<bool> ValidateTeacherSpecializationAsync(Guid subjectId, Guid teacherId, List<string> errors)
+        {
+            var requiredSpecializations = await _uow.Subjects.GetSpecializationIdsAsync(subjectId);
+            if (requiredSpecializations == null || !requiredSpecializations.Any())
+            {
+                return true;
+            }
+
+            var teacherSpecializations = await _uow.Teachers.GetSpecializationIdsAsync(teacherId);
+            if (teacherSpecializations == null)
+            {
+                teacherSpecializations = new List<Guid>();
+            }
+
+            var matches = teacherSpecializations.Intersect(requiredSpecializations).Any();
+            if (!matches)
+            {
+                errors.Add("Selected teacher does not meet the specialization requirements for this subject.");
+                return false;
+            }
+
+            return true;
         }
     }
 }
