@@ -20,6 +20,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Controllers and Swagger
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddMemoryCache();
 
 // Swagger configuration with JWT support
 builder.Services.AddSwaggerGen(c =>
@@ -94,6 +95,7 @@ builder.Services.Configure<BlockchainSettings>(builder.Configuration.GetSection(
 builder.Services.Configure<DatabaseSettings>(builder.Configuration.GetSection("DatabaseSettings"));
 builder.Services.Configure<FrontendSettings>(builder.Configuration.GetSection("FrontendSettings"));
 builder.Services.Configure<IpfsSettings>(builder.Configuration.GetSection("IpfsSettings"));
+builder.Services.Configure<ValidationSettings>(builder.Configuration.GetSection("ValidationSettings"));
 
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
@@ -122,6 +124,7 @@ builder.Services.AddScoped<ICredentialService, CredentialService>();
 builder.Services.AddScoped<IPdfService, PdfService>();
 builder.Services.AddScoped<ICloudStorageService, CloudinaryStorageService>();
 builder.Services.AddScoped<ISubjectOfferingService, SubjectOfferingService>();
+builder.Services.AddSingleton<IValidationService, ValidationService>();
 
 // AutoMapper profiles
 builder.Services.AddAutoMapper(cfg => { }, typeof(Program).Assembly);

@@ -36,6 +36,8 @@ namespace Fap.Api.Services
                 throw new InvalidOperationException($"Cannot take attendance for a slot with status: {slot.Status}");
             }
 
+            EnsureAttendanceDateCompliance(slot.Date);
+
             // Get class with members
             var classEntity = await _unitOfWork.Classes.GetByIdWithDetailsAsync(slot.ClassId);
             if (classEntity == null)
