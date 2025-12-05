@@ -1,7 +1,11 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using AutoMapper;
 using Fap.Domain.DTOs.Auth;
+using Fap.Domain.DTOs.Specialization;
 using Fap.Domain.DTOs.User;
 using Fap.Domain.Entities;
-using AutoMapper;
 
 namespace Fap.Api.Mappings
 {
@@ -97,6 +101,7 @@ namespace Fap.Api.Mappings
                 // Student/Teacher Info
                 .ForMember(dest => dest.StudentCode, opt => opt.MapFrom(src => src.Student != null ? src.Student.StudentCode : null))
                 .ForMember(dest => dest.TeacherCode, opt => opt.MapFrom(src => src.Teacher != null ? src.Teacher.TeacherCode : null))
+                .ForMember(dest => dest.SpecializationIds, opt => opt.MapFrom(src => src.Teacher != null ? src.Teacher.TeacherSpecializations.Select(ts => ts.SpecializationId) : new List<Guid>()))
                 .ForMember(dest => dest.Specializations, opt => opt.MapFrom(src => src.Teacher != null ? src.Teacher.TeacherSpecializations.Select(ts => ts.Specialization) : new List<Specialization>()))
                 
                 // Blockchain info

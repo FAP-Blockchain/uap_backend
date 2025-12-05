@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+
 namespace Fap.Domain.DTOs.User
 {
     public class UserResponse
@@ -19,7 +22,8 @@ namespace Fap.Domain.DTOs.User
         // Optional: Student/Teacher info
         public string? StudentCode { get; set; }
         public string? TeacherCode { get; set; }
-        public List<Fap.Domain.DTOs.Specialization.SpecializationDto> Specializations { get; set; } = new();
+    public List<Guid> SpecializationIds { get; set; } = new();
+    public List<Fap.Domain.DTOs.Specialization.SpecializationDto> Specializations { get; set; } = new();
         
         // ======================================================================
         // BLOCKCHAIN INTEGRATION
