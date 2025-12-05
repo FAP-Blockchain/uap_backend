@@ -3,6 +3,7 @@ using Fap.Api.Interfaces;
 using Fap.Domain.DTOs.Common;
 using Fap.Domain.DTOs.Student;
 using Fap.Domain.Repositories;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
@@ -162,7 +163,7 @@ namespace Fap.Api.Services
         /// <summary>
         /// Get current logged-in student's profile with basic details (no enrollments/classes)
         /// </summary>
-        public async Task<StudentDetailDto?> GetCurrentStudentProfileAsync(Guid userId)
+    public async Task<StudentSelfProfileDto?> GetCurrentStudentProfileAsync(Guid userId)
         {
             try
             {
@@ -173,7 +174,11 @@ namespace Fap.Api.Services
                     return null;
                 }
 
-                return new StudentDetailDto
+                var totalClasses = await _uow.ClassMembers.GetQueryable()
+                    .AsNoTracking()
+                    .CountAsync(cm => cm.StudentId == student.Id);
+
+                var profile = new StudentSelfProfileDto
                 {
                     Id = student.Id,
                     StudentCode = student.StudentCode,
@@ -182,27 +187,14 @@ namespace Fap.Api.Services
                     EnrollmentDate = student.EnrollmentDate,
                     GPA = student.GPA,
                     IsGraduated = student.IsGraduated,
-                    GraduationDate = student.GraduationDate,
                     IsActive = student.User?.IsActive ?? false,
                     CreatedAt = student.User?.CreatedAt ?? DateTime.MinValue,
-
-                    // Contact & blockchain info
-                    PhoneNumber = student.User?.PhoneNumber,
                     WalletAddress = student.User?.WalletAddress,
                     ProfileImageUrl = student.User?.ProfileImageUrl,
-
-                    // Empty lists for heavy relations
-                    Enrollments = new List<EnrollmentInfo>(),
-                    CurrentClasses = new List<ClassInfo>(),
-
-                    // Statistics (basic only)
-                    TotalEnrollments = 0,
-                    ApprovedEnrollments = 0,
-                    PendingEnrollments = 0,
-                    TotalClasses = 0,
-                    TotalGrades = 0,
-                    TotalAttendances = 0
+                    TotalClasses = totalClasses
                 };
+
+                return profile;
             }
             catch (Exception ex)
             {

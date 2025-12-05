@@ -52,6 +52,22 @@ namespace Fap.Domain.DTOs.Student
         public int TotalAttendances { get; set; }
     }
 
+    public class StudentSelfProfileDto
+    {
+        public Guid Id { get; set; }
+        public string StudentCode { get; set; }
+        public string FullName { get; set; }
+        public string Email { get; set; }
+        public DateTime EnrollmentDate { get; set; }
+        public decimal GPA { get; set; }
+        public bool IsGraduated { get; set; }
+        public bool IsActive { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public string? WalletAddress { get; set; }
+        public string? ProfileImageUrl { get; set; }
+        public int TotalClasses { get; set; }
+    }
+
     public class EnrollmentInfo
     {
         public Guid Id { get; set; }
