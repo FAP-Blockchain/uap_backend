@@ -4,6 +4,14 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Fap.Domain.DTOs.Attendance;
 
+public class AttendanceOnChainPayloadDto
+{
+    public string StudentWalletAddress { get; set; } = string.Empty;
+    public Guid AttendanceId { get; set; }
+    public string AttendanceDataJson { get; set; } = string.Empty;
+    public long ExpiresAtUnix { get; set; }
+}
+
 public class AttendanceDto
 {
     public Guid Id { get; set; }
@@ -30,6 +38,9 @@ public class AttendanceDetailDto : AttendanceDto
     public string TeacherName { get; set; }
     public string SemesterName { get; set; }
     public string SlotStatus { get; set; }
+
+    // Payload cho frontend gọi smart contract
+    public AttendanceOnChainPayloadDto? OnChainPayload { get; set; }
 }
 
 public class AttendanceStatisticsDto
@@ -133,6 +144,8 @@ public class StudentAttendanceRecord
     public string? Notes { get; set; }
     public bool IsExcused { get; set; }
     public string? ExcuseReason { get; set; }
+    // Optional: payload for frontend to call smart contract per attendance record
+    public AttendanceOnChainPayloadDto? OnChainPayload { get; set; }
 }
 
 // ==================== NEW: PENDING ATTENDANCE ====================
@@ -192,6 +205,12 @@ public class AttendanceFilterRequest
     public bool? IsExcused { get; set; }
     public int PageNumber { get; set; } = 1;
     public int PageSize { get; set; } = 10;
+}
+
+public class SaveAttendanceOnChainRequest
+{
+    public long OnChainRecordId { get; set; }
+    public string TransactionHash { get; set; } = string.Empty;
 }
 
 // ==================== BY CLASS STATISTICS ====================

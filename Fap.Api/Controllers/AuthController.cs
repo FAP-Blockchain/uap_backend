@@ -219,7 +219,8 @@ namespace Fap.Api.Controllers
                 {
                     UserId = result.UserId,
                     Email = result.Email,
-                    RoleName = result.RoleName
+                    RoleName = result.RoleName,
+                    WalletAddress = result.WalletAddress
                 },
                 BlockchainInfo = result.Blockchain != null ? new
                 {
@@ -283,6 +284,7 @@ namespace Fap.Api.Controllers
                     UserId = r.UserId,
                     Email = r.Email,
                     RoleName = r.RoleName,
+                    WalletAddress = r.WalletAddress,
                     Success = r.Success,
                     Message = r.Message,
                     Blockchain = r.Blockchain != null ? new

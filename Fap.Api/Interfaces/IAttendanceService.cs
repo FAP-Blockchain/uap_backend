@@ -23,6 +23,11 @@ namespace Fap.Api.Interfaces
         /// Get attendance for a specific slot
         /// </summary>
         Task<SlotAttendanceDto?> GetSlotAttendanceAsync(Guid slotId);
+
+        /// <summary>
+        /// Get detailed attendance information (including on-chain payload) by attendance id
+        /// </summary>
+        Task<AttendanceDetailDto?> GetAttendanceDetailByIdAsync(Guid attendanceId);
         
         /// <summary>
         /// Delete attendance for a slot (if wrong)
@@ -97,5 +102,8 @@ namespace Fap.Api.Interfaces
         // Validation
         Task<bool> CanTakeAttendanceAsync(Guid slotId, Guid teacherUserId);
         Task<bool> CanExcuseAbsenceAsync(Guid attendanceId, Guid studentUserId);
+
+        // On-chain integration (frontend-driven)
+        Task<Fap.Domain.DTOs.ServiceResult<bool>> SaveAttendanceOnChainAsync(Guid attendanceId, SaveAttendanceOnChainRequest request);
     }
 }

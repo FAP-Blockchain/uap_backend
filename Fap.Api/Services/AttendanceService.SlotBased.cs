@@ -73,49 +73,12 @@ namespace Fap.Api.Services
                 createdAttendances.Add(attendance);
             }
 
+            // Save attendance records only; blockchain is handled client-side
             await _unitOfWork.SaveChangesAsync();
 
-            try
-            {
-                var onChainClassId = (ulong)Math.Abs(classEntity.Id.GetHashCode());
-                var sessionDateUnix = ToUnixSecondsUtc(slot.Date.ToUniversalTime());
-
-                foreach (var attendance in createdAttendances)
-                {
-                    var student = await _unitOfWork.Students.GetByIdAsync(attendance.StudentId);
-                    var wallet = student?.User?.WalletAddress;
-                    if (string.IsNullOrWhiteSpace(wallet))
-                    {
-                        continue;
-                    }
-
-                    var status = ResolveOnChainStatus(attendance);
-
-                    var (recordId, txHash) = await _blockchainService.MarkAttendanceOnChainAsync(
-                        onChainClassId,
-                        wallet,
-                        sessionDateUnix,
-                        status,
-                        attendance.Notes ?? string.Empty
-                    );
-
-                    attendance.OnChainRecordId = recordId;
-                    attendance.OnChainTransactionHash = txHash;
-                    attendance.IsOnBlockchain = recordId > 0;
-
-                    _unitOfWork.Attendances.Update(attendance);
-                }
-
-                await _unitOfWork.SaveChangesAsync();
-            }
-            catch
-            {
-                // Best-effort: ignore blockchain failures to not block attendance flow
-            }
-
             // Return slot attendance
-                        return await GetSlotAttendanceAsync(slotId)
-                                ?? throw new InvalidOperationException("Failed to retrieve slot attendance");
+            return await GetSlotAttendanceAsync(slotId)
+                ?? throw new InvalidOperationException("Failed to retrieve slot attendance");
         }
 
         public async Task<SlotAttendanceDto> UpdateAttendanceForSlotAsync(Guid slotId, UpdateSlotAttendanceRequest request)
@@ -166,13 +129,13 @@ namespace Fap.Api.Services
 
             var studentRecords = new List<StudentAttendanceRecord>();
 
-            // Build student attendance records
+            // Build student attendance records (including optional on-chain payload)
             foreach (var member in classEntity.Members ?? new List<ClassMember>())
             {
                 var attendance = attendanceList.FirstOrDefault(a => a.StudentId == member.StudentId);
                 var student = member.Student;
 
-                studentRecords.Add(new StudentAttendanceRecord
+                var record = new StudentAttendanceRecord
                 {
                     AttendanceId = attendance?.Id ?? Guid.Empty,
                     StudentId = student.Id,
@@ -184,7 +147,36 @@ namespace Fap.Api.Services
                     Notes = attendance?.Notes,
                     IsExcused = attendance?.IsExcused ?? false,
                     ExcuseReason = attendance?.ExcuseReason
-                });
+                };
+
+                // Build per-record on-chain payload if wallet and attendance exist
+                var wallet = student.User?.WalletAddress;
+                if (attendance != null && !string.IsNullOrWhiteSpace(wallet))
+                {
+                    var metadata = new
+                    {
+                        attendanceId = attendance.Id,
+                        studentId = attendance.StudentId,
+                        subjectId = attendance.SubjectId,
+                        slotId = attendance.SlotId,
+                        isPresent = attendance.IsPresent,
+                        isExcused = attendance.IsExcused,
+                        notes = attendance.Notes,
+                        recordedAt = attendance.RecordedAt
+                    };
+
+                    var json = System.Text.Json.JsonSerializer.Serialize(metadata);
+
+                    record.OnChainPayload = new AttendanceOnChainPayloadDto
+                    {
+                        StudentWalletAddress = wallet!,
+                        AttendanceId = attendance.Id,
+                        AttendanceDataJson = json,
+                        ExpiresAtUnix = 0
+                    };
+                }
+
+                studentRecords.Add(record);
             }
 
             var presentCount = studentRecords.Count(sr => sr.IsPresent == true);

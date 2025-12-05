@@ -271,48 +271,16 @@ namespace Fap.Api.Services
                 await _uow.SaveChangesAsync();
 
                 BlockchainInfo? blockchainInfo = null;
-                var enableBlockchain = _config.GetValue<bool>("BlockchainSettings:EnableRegistration", false);
 
-                if (enableBlockchain)
-                {
-                    try
-                    {
-                        _logger.LogInformation("Registering user on blockchain...");
-                        blockchainInfo = await RegisterOnBlockchainAsync(user, walletAddress);
-
-                        if (blockchainInfo != null)
-                        {
-                            user.BlockchainTxHash = blockchainInfo.TransactionHash;
-                            user.BlockNumber = blockchainInfo.BlockNumber;
-                            user.BlockchainRegisteredAt = blockchainInfo.RegisteredAt;
-                            user.UpdatedAt = DateTime.UtcNow;
-
-                            _uow.Users.Update(user);
-                            await _uow.SaveChangesAsync();
-
-                            _logger.LogInformation("Blockchain registration successful");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Blockchain registration failed");
-
-                        user.BlockchainTxHash = $"FAILED: {ex.Message}";
-                        user.UpdatedAt = DateTime.UtcNow;
-                        _uow.Users.Update(user);
-                        await _uow.SaveChangesAsync();
-
-                        response.Errors.Add($"Blockchain registration failed: {ex.Message}");
-                    }
-                }
-                else
-                {
-                    _logger.LogWarning("Blockchain registration is disabled in configuration");
-                }
+                // Phương án 2: không đăng ký user on-chain trong backend nữa
+                _logger.LogInformation(
+                    "User {UserId} registered off-chain only. On-chain registration (if any) will be handled by frontend or a separate flow.",
+                    user.Id);
 
                 response.Success = true;
                 response.Message = "User registered successfully";
                 response.UserId = user.Id;
+                response.WalletAddress = walletAddress;
                 response.Blockchain = blockchainInfo;
 
                 return response;

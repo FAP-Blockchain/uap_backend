@@ -96,8 +96,8 @@ namespace Fap.Api.Controllers
         }
 
         /// <summary>
-        /// POST /api/credentials/issue - Issue new credential with blockchain registration (Admin only)
-        /// ✅ RECOMMENDED: Issues credential, generates PDF, stores metadata, and registers on blockchain
+        /// POST /api/credentials/issue - Issue new credential and prepare on-chain payload (Admin only)
+        /// Issues credential, generates PDF, stores metadata, and returns payload for frontend to call blockchain.
         /// </summary>
         [HttpPost("issue")]
         [Authorize(Roles = "Admin")]
@@ -149,6 +149,41 @@ namespace Fap.Api.Controllers
             {
                 _logger.LogError(ex, "Error creating credential");
                 return StatusCode(500, new ProblemDetails { Status = 500, Title = "Internal Server Error" });
+            }
+        }
+
+        /// <summary>
+        /// POST /api/credentials/{id}/on-chain - Save on-chain info after frontend issues transaction
+        /// </summary>
+        [HttpPost("{id:guid}/on-chain")]
+        [Authorize(Roles = "Admin,Student")]
+        [ProducesResponseType(typeof(ServiceResult<bool>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> SaveCredentialOnChain(Guid id, [FromBody] SaveCredentialOnChainRequest request)
+        {
+            try
+            {
+                var result = await _credentialService.SaveCredentialOnChainAsync(id, request);
+                if (!result.Success)
+                {
+                    return BadRequest(new ProblemDetails
+                    {
+                        Status = 400,
+                        Title = "Bad Request",
+                        Detail = result.Message
+                    });
+                }
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error saving on-chain info for credential {CredentialId}", id);
+                return StatusCode(500, new ProblemDetails
+                {
+                    Status = 500,
+                    Title = "Internal Server Error",
+                    Detail = "An error occurred while saving on-chain info."
+                });
             }
         }
 

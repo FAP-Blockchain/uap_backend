@@ -38,6 +38,7 @@ namespace Fap.Domain.DTOs.Credential
         public DateTime CreatedAt { get; set; }
         public string? IPFSHash { get; set; }
         public string? PdfUrl { get; set; }
+        public CredentialOnChainPayloadDto? OnChainPayload { get; set; }
     }
 
     public class CredentialShareDto
@@ -148,4 +149,49 @@ namespace Fap.Domain.DTOs.Credential
         
         public string? TemplateName { get; set; }
     }
+
+    public class CredentialOnChainPayloadDto
+    {
+        public string StudentWalletAddress { get; set; } = string.Empty;
+        public string CredentialType { get; set; } = string.Empty;
+        public string CredentialDataJson { get; set; } = string.Empty;
+        public ulong ExpiresAtUnix { get; set; }
+    }
+
+    public class SaveCredentialOnChainRequest
+    {
+        public long BlockchainCredentialId { get; set; }
+        public string TransactionHash { get; set; } = string.Empty;
+    }
 }
+// public class CredentialDetailDto
+//     {
+//         public Guid Id { get; set; }
+//         public string CredentialId { get; set; } = string.Empty;
+//         public Guid StudentId { get; set; }
+//         public string StudentCode { get; set; } = string.Empty;
+//         public string StudentFullName { get; set; } = string.Empty;
+//         public string CertificateType { get; set; } = string.Empty;
+//         public Guid CertificateTemplateId { get; set; }
+//         public Guid? SubjectId { get; set; }
+//         public Guid? SemesterId { get; set; }
+//         public Guid? StudentRoadmapId { get; set; }
+//         public DateTime IssuedDate { get; set; }
+//         public DateTime? CompletionDate { get; set; }
+//         public decimal? FinalGrade { get; set; }
+//         public string? LetterGrade { get; set; }
+//         public string? Classification { get; set; }
+//         public string VerificationHash { get; set; } = string.Empty;
+//         public string Status { get; set; } = string.Empty;
+//         public string? ShareableUrl { get; set; }
+//         public string? IPFSHash { get; set; }
+//         public string? FileUrl { get; set; }
+//         public string? PdfUrl { get; set; }
+//         public bool IsOnBlockchain { get; set; }
+//         public long? BlockchainCredentialId { get; set; }
+//         public string? BlockchainTransactionHash { get; set; }
+//         public DateTime? BlockchainStoredAt { get; set; }
+
+//         // On-chain payload for frontend to call smart contract
+//         public CredentialOnChainPayloadDto? OnChainPayload { get; set; }
+//     }

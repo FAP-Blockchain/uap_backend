@@ -1,5 +1,6 @@
 using Fap.Api.Interfaces;
 using Fap.Domain.DTOs.Attendance;
+using Fap.Domain.DTOs; // ServiceResult
 using Fap.Domain.Entities;
 using Fap.Domain.Repositories;
 using AutoMapper;
@@ -45,6 +46,59 @@ namespace Fap.Api.Services
             return _mapper.Map<AttendanceDto>(detailedAttendance);
         }
 
+        public async Task<AttendanceDetailDto?> GetAttendanceDetailByIdAsync(Guid attendanceId)
+        {
+            var attendance = await _unitOfWork.Attendances.GetByIdAsync(attendanceId);
+            if (attendance == null)
+            {
+                return null;
+            }
+
+            var detailedAttendance = await _unitOfWork.Attendances.GetByStudentAndSlotAsync(
+                attendance.StudentId,
+                attendance.SlotId
+            );
+
+            if (detailedAttendance == null)
+            {
+                return null;
+            }
+
+            var dto = _mapper.Map<AttendanceDetailDto>(detailedAttendance);
+
+            // Build on-chain payload for frontend to call smart contract
+            var student = detailedAttendance.Student ?? (await _unitOfWork.Students
+                .FindAsync(s => s.Id == detailedAttendance.StudentId)).FirstOrDefault();
+
+            var wallet = student?.User?.WalletAddress;
+            if (!string.IsNullOrWhiteSpace(wallet))
+            {
+                var metadata = new
+                {
+                    attendanceId = detailedAttendance.Id,
+                    studentId = detailedAttendance.StudentId,
+                    subjectId = detailedAttendance.SubjectId,
+                    slotId = detailedAttendance.SlotId,
+                    isPresent = detailedAttendance.IsPresent,
+                    isExcused = detailedAttendance.IsExcused,
+                    notes = detailedAttendance.Notes,
+                    recordedAt = detailedAttendance.RecordedAt
+                };
+
+                var json = System.Text.Json.JsonSerializer.Serialize(metadata);
+
+                dto.OnChainPayload = new AttendanceOnChainPayloadDto
+                {
+                    StudentWalletAddress = wallet,
+                    AttendanceId = detailedAttendance.Id,
+                    AttendanceDataJson = json,
+                    ExpiresAtUnix = 0
+                };
+            }
+
+            return dto;
+        }
+
         public async Task<IEnumerable<AttendanceDto>> GetAttendancesBySlotIdAsync(Guid slotId)
         {
             var attendances = await _unitOfWork.Attendances.GetBySlotIdAsync(slotId);
@@ -61,18 +115,6 @@ namespace Fap.Api.Services
         {
             var attendances = await _unitOfWork.Attendances.GetByStudentIdAsync(studentId);
             return _mapper.Map<IEnumerable<AttendanceDto>>(attendances);
-        }
-
-        private static byte ResolveOnChainStatus(Attendance attendance)
-        {
-            if (attendance.IsPresent) return 0; // PRESENT
-            if (!attendance.IsPresent && attendance.IsExcused) return 3; // EXCUSED
-            return 1; // ABSENT
-        }
-
-        private static ulong ToUnixSecondsUtc(DateTime dateTimeUtc)
-        {
-            return (ulong)new DateTimeOffset(dateTimeUtc, TimeSpan.Zero).ToUnixTimeSeconds();
         }
 
         #endregion
@@ -132,45 +174,8 @@ namespace Fap.Api.Services
                 attendances.Add(attendance);
             }
 
+            // Chỉ lưu attendance vào DB, không gọi blockchain tại backend nữa
             await _unitOfWork.SaveChangesAsync();
-
-            try
-            {
-                var onChainClassId = (ulong)Math.Abs(classData.Id.GetHashCode());
-                var sessionDateUnix = ToUnixSecondsUtc(slot.Date.ToUniversalTime());
-
-                foreach (var attendance in attendances)
-                {
-                    var student = await _unitOfWork.Students.GetByIdAsync(attendance.StudentId);
-                    var wallet = student?.User?.WalletAddress;
-                    if (string.IsNullOrWhiteSpace(wallet))
-                    {
-                        continue;
-                    }
-
-                    var status = ResolveOnChainStatus(attendance);
-
-                    var (recordId, txHash) = await _blockchainService.MarkAttendanceOnChainAsync(
-                        onChainClassId,
-                        wallet,
-                        sessionDateUnix,
-                        status,
-                        attendance.Notes ?? string.Empty
-                    );
-
-                    attendance.OnChainRecordId = recordId;
-                    attendance.OnChainTransactionHash = txHash;
-                    attendance.IsOnBlockchain = recordId > 0;
-
-                    _unitOfWork.Attendances.Update(attendance);
-                }
-
-                await _unitOfWork.SaveChangesAsync();
-            }
-            catch
-            {
-                // Best-effort: ignore blockchain failures to not block attendance flow
-            }
 
             var attendancesWithDetails = await _unitOfWork.Attendances.GetBySlotIdAsync(request.SlotId);
             return _mapper.Map<IEnumerable<AttendanceDto>>(attendancesWithDetails);
@@ -427,6 +432,24 @@ namespace Fap.Api.Services
             // Student can only excuse their own attendance
             var student = await _unitOfWork.Students.GetByIdAsync(attendance.StudentId);
             return student != null && student.UserId == studentUserId;
+        }
+
+        public async Task<ServiceResult<bool>> SaveAttendanceOnChainAsync(Guid attendanceId, SaveAttendanceOnChainRequest request)
+        {
+            var attendance = await _unitOfWork.Attendances.GetByIdAsync(attendanceId);
+            if (attendance == null)
+            {
+                return ServiceResult<bool>.Fail("Attendance not found");
+            }
+
+            attendance.OnChainRecordId = request.OnChainRecordId;
+            attendance.OnChainTransactionHash = request.TransactionHash;
+            attendance.IsOnBlockchain = true;
+
+            _unitOfWork.Attendances.Update(attendance);
+            await _unitOfWork.SaveChangesAsync();
+
+            return ServiceResult<bool>.SuccessResponse(true);
         }
 
         #endregion

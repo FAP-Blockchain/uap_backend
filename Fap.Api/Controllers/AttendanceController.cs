@@ -1,5 +1,6 @@
 ﻿using Fap.Api.Interfaces;
 using Fap.Domain.DTOs.Attendance;
+using Fap.Domain.DTOs; // ServiceResult
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System;
@@ -87,7 +88,7 @@ namespace Fap.Api.Controllers
         {
             try
             {
-                var result = await _attendanceService.GetAttendanceByIdAsync(id);
+                var result = await _attendanceService.GetAttendanceDetailByIdAsync(id);
                 if (result == null)
                 {
                     _logger.LogWarning("Attendance {AttendanceId} not found", id);
@@ -199,6 +200,41 @@ namespace Fap.Api.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, new { success = false, message = "An error occurred", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// POST /api/attendance/{id}/on-chain - Save on-chain info after frontend issues tx
+        /// </summary>
+        [HttpPost("{id:guid}/on-chain")]
+        [Authorize(Roles = "Admin,Teacher,Student")]
+        [ProducesResponseType(typeof(ServiceResult<bool>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> SaveAttendanceOnChain(Guid id, [FromBody] SaveAttendanceOnChainRequest request)
+        {
+            try
+            {
+                var result = await _attendanceService.SaveAttendanceOnChainAsync(id, request);
+                if (!result.Success)
+                {
+                    return BadRequest(new ProblemDetails
+                    {
+                        Status = 400,
+                        Title = "Bad Request",
+                        Detail = result.Message
+                    });
+                }
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error saving on-chain info for attendance {AttendanceId}", id);
+                return StatusCode(500, new ProblemDetails
+                {
+                    Status = 500,
+                    Title = "Internal Server Error",
+                    Detail = "An error occurred while saving on-chain info."
+                });
             }
         }
     }

@@ -11,5 +11,6 @@ namespace Fap.Api.Interfaces
         Task<UpdateUserResponse> ActivateUserAsync(Guid id); 
         Task<UpdateUserResponse> DeactivateUserAsync(Guid id); 
         Task<string> UpdateProfileImageAsync(Guid userId, Stream imageStream, string fileName);
+        Task<UpdateUserResponse> UpdateUserOnChainAsync(Guid userId, UpdateUserOnChainRequest request);
     }
 }

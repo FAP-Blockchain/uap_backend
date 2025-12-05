@@ -355,5 +355,54 @@ namespace Fap.Api.Services
                 throw;
             }
         }
+
+        // Update user's blockchain registration info from frontend-provided data
+        public async Task<UpdateUserResponse> UpdateUserOnChainAsync(Guid userId, UpdateUserOnChainRequest request)
+        {
+            var response = new UpdateUserResponse
+            {
+                UserId = userId
+            };
+
+            try
+            {
+                var user = await _uow.Users.GetByIdAsync(userId);
+                if (user == null)
+                {
+                    response.Errors.Add($"User with ID {userId} not found");
+                    response.Message = "Update failed";
+                    return response;
+                }
+
+                if (string.IsNullOrWhiteSpace(request.TransactionHash))
+                {
+                    response.Errors.Add("TransactionHash is required");
+                    response.Message = "Update failed";
+                    return response;
+                }
+
+                user.BlockchainTxHash = request.TransactionHash;
+                user.BlockNumber = request.BlockNumber;
+                user.BlockchainRegisteredAt = request.RegisteredAtUtc ?? DateTime.UtcNow;
+                user.UpdatedAt = DateTime.UtcNow;
+
+                _uow.Users.Update(user);
+                await _uow.SaveChangesAsync();
+
+                response.Success = true;
+                response.Message = "User on-chain info updated successfully";
+                _logger.LogInformation("User {UserId} blockchain info updated: TxHash={TxHash}, Block={Block}",
+                    userId, request.TransactionHash, request.BlockNumber);
+
+                return response;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating blockchain info for user {UserId}", userId);
+                response.Errors.Add($"Internal error: {ex.Message}");
+                response.Message = "Update failed";
+                return response;
+            }
+        }
     }
 }

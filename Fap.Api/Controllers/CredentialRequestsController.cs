@@ -121,7 +121,8 @@ namespace Fap.Api.Controllers
         }
 
         /// <summary>
-        /// POST /api/credential-requests/{id}/approve - Approve request (Admin)
+        /// POST /api/credential-requests/{id}/approve - Approve request and issue credential (Admin)
+        /// Issues credential (off-chain) and returns detail + on-chain payload for frontend to call blockchain.
         /// </summary>
         [HttpPost("{id:guid}/approve")]
         [Authorize(Roles = "Admin")]

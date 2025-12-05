@@ -186,5 +186,30 @@ namespace Fap.Api.Controllers
                 return StatusCode(500, new { message = "An error occurred while uploading the profile picture" });
             }
         }
+
+        /// <summary>
+        /// POST /api/user/{id}/on-chain - Persist user's on-chain registration info (Admin only)
+        /// </summary>
+        [HttpPost("{id}/on-chain")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> UpdateUserOnChain(Guid id, [FromBody] UpdateUserOnChainRequest request)
+        {
+            try
+            {
+                var result = await _userService.UpdateUserOnChainAsync(id, request);
+
+                if (!result.Success)
+                {
+                    return BadRequest(result);
+                }
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating blockchain info for user {UserId}", id);
+                return StatusCode(500, new { message = "An error occurred while updating user blockchain info" });
+            }
+        }
     }
 }
