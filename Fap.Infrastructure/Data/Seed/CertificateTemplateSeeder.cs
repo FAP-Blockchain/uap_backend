@@ -149,7 +149,7 @@ namespace Fap.Infrastructure.Data.Seed
 </head>
 <body>
     <div class='container'>
-        <div class='university-name'>FAP Blockchain University</div>
+        <div class='university-name'>UAP Blockchain University</div>
         <div class='content'>
             <div>Upon the recommendation of the Faculty and by the authority of the Board of Trustees</div>
             <div>has conferred upon</div>

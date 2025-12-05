@@ -124,6 +124,7 @@ builder.Services.AddScoped<ICredentialService, CredentialService>();
 builder.Services.AddScoped<IPdfService, PdfService>();
 builder.Services.AddScoped<ICloudStorageService, CloudinaryStorageService>();
 builder.Services.AddScoped<ISubjectOfferingService, SubjectOfferingService>();
+builder.Services.AddScoped<ISpecializationService, SpecializationService>();
 builder.Services.AddSingleton<IValidationService, ValidationService>();
 
 // AutoMapper profiles
