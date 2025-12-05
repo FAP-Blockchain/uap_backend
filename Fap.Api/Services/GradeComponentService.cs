@@ -154,6 +154,13 @@ namespace Fap.Api.Services
                     return response;
                 }
 
+                if (component.SubjectId != request.SubjectId)
+                {
+                    response.Errors.Add("Updating the subject of an existing grade component is not supported. Use the bulk configuration endpoint to restructure components.");
+                    response.Message = "Grade component update failed";
+                    return response;
+                }
+
                 // Validate SubjectId exists
                 var subject = await _uow.Subjects.GetByIdAsync(request.SubjectId);
                 if (subject == null)
@@ -163,16 +170,49 @@ namespace Fap.Api.Services
                     return response;
                 }
 
+                // Load subject component graph for validation
+                var subjectComponents = await _uow.GradeComponents.GetBySubjectWithGradesAsync(component.SubjectId);
+                var componentSnapshot = subjectComponents.FirstOrDefault(gc => gc.Id == id);
+                if (componentSnapshot == null)
+                {
+                    response.Errors.Add("Unable to load grade component details for validation");
+                    response.Message = "Grade component update failed";
+                    return response;
+                }
+
+                var componentLookup = subjectComponents.ToDictionary(gc => gc.Id, gc => gc);
+                var childrenLookup = subjectComponents
+                    .GroupBy(gc => gc.ParentId ?? Guid.Empty)
+                    .ToDictionary(g => g.Key, g => g.ToList());
+
+                // Prevent edits when grades already recorded for this component or its descendants
+                if (HasRecordedGradesInTree(componentSnapshot.Id, componentLookup, childrenLookup))
+                {
+                    response.Errors.Add("Cannot update this grade component because grades have already been recorded for it or its sub components.");
+                    response.Message = "Grade component update failed";
+                    return response;
+                }
+
                 // Check if another component with same name exists for this subject
-                var existingComponents = await _uow.GradeComponents.GetAllWithGradeCountAsync();
-                var duplicate = existingComponents.FirstOrDefault(gc => 
-                    gc.SubjectId == request.SubjectId && 
+                var duplicate = subjectComponents.FirstOrDefault(gc =>
+                    gc.SubjectId == request.SubjectId &&
                     gc.Name.Equals(request.Name, StringComparison.OrdinalIgnoreCase) &&
                     gc.Id != id);
                     
                 if (duplicate != null)
                 {
                     response.Errors.Add($"Grade component '{request.Name}' already exists for subject '{subject.SubjectCode}'");
+                    response.Message = "Grade component update failed";
+                    return response;
+                }
+
+                try
+                {
+                    ValidateWeightsForUpdate(componentSnapshot, request.WeightPercent, componentLookup, childrenLookup);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    response.Errors.Add(ex.Message);
                     response.Message = "Grade component update failed";
                     return response;
                 }
@@ -419,6 +459,77 @@ namespace Fap.Api.Services
             }
 
             return response;
+        }
+
+        private static bool HasRecordedGradesInTree(
+            Guid componentId,
+            Dictionary<Guid, GradeComponent> componentLookup,
+            Dictionary<Guid, List<GradeComponent>> childrenLookup)
+        {
+            var stack = new Stack<Guid>();
+            stack.Push(componentId);
+
+            while (stack.Count > 0)
+            {
+                var currentId = stack.Pop();
+
+                if (componentLookup.TryGetValue(currentId, out var component) &&
+                    component.Grades?.Any() == true)
+                {
+                    return true;
+                }
+
+                if (childrenLookup.TryGetValue(currentId, out var children))
+                {
+                    foreach (var child in children)
+                    {
+                        stack.Push(child.Id);
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private static void ValidateWeightsForUpdate(
+            GradeComponent componentSnapshot,
+            int requestedWeight,
+            Dictionary<Guid, GradeComponent> componentLookup,
+            Dictionary<Guid, List<GradeComponent>> childrenLookup)
+        {
+            var parentId = componentSnapshot.ParentId;
+            var siblingsKey = parentId ?? Guid.Empty;
+            var siblings = childrenLookup.TryGetValue(siblingsKey, out var siblingList)
+                ? siblingList
+                : new List<GradeComponent>();
+
+            var expectedTotal = parentId.HasValue
+                ? componentLookup.TryGetValue(parentId.Value, out var parent)
+                    ? parent.WeightPercent
+                    : throw new InvalidOperationException("Parent grade component could not be found while validating weights.")
+                : 100;
+
+            var siblingTotal = siblings.Sum(gc => gc.Id == componentSnapshot.Id ? requestedWeight : gc.WeightPercent);
+
+            if (siblingTotal != expectedTotal)
+            {
+                var context = parentId.HasValue
+                    ? $"children of '{componentLookup[parentId.Value].Name}'"
+                    : "top-level components";
+
+                throw new InvalidOperationException(
+                    $"Weight verification failed for {context}. Expected {expectedTotal}% but found {siblingTotal}%.");
+            }
+
+            if (childrenLookup.TryGetValue(componentSnapshot.Id, out var childComponents) && childComponents.Any())
+            {
+                var childTotal = childComponents.Sum(c => c.WeightPercent);
+                if (childTotal != requestedWeight)
+                {
+                    throw new InvalidOperationException(
+                        $"Weight verification failed for component '{componentSnapshot.Name}'. Its sub components sum to {childTotal}%, so the component weight must also be {childTotal}%.");
+                }
+            }
         }
     }
 }

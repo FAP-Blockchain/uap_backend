@@ -83,6 +83,11 @@ namespace Fap.Api.Services
 
         public async Task<SlotAttendanceDto> UpdateAttendanceForSlotAsync(Guid slotId, UpdateSlotAttendanceRequest request)
         {
+            var slot = await _unitOfWork.Slots.GetByIdWithDetailsAsync(slotId)
+                ?? throw new InvalidOperationException("Slot not found");
+
+            EnsureAttendanceDateCompliance(slot.Date);
+
             // Get existing attendances
             var existingAttendances = await _unitOfWork.Attendances.GetBySlotIdAsync(slotId);
             if (!existingAttendances.Any())
@@ -224,6 +229,8 @@ namespace Fap.Api.Services
                 throw new InvalidOperationException("Slot not found");
             }
 
+            EnsureAttendanceDateCompliance(slot.Date);
+
             var classEntity = await _unitOfWork.Classes.GetByIdWithDetailsAsync(slot.ClassId);
             if (classEntity == null)
             {
@@ -256,6 +263,8 @@ namespace Fap.Api.Services
             {
                 throw new InvalidOperationException("Slot not found");
             }
+
+            EnsureAttendanceDateCompliance(slot.Date);
 
             var classEntity = await _unitOfWork.Classes.GetByIdWithDetailsAsync(slot.ClassId);
             if (classEntity == null)

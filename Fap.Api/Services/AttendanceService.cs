@@ -391,18 +391,16 @@ namespace Fap.Api.Services
 
         private void EnsureAttendanceDateCompliance(DateTime slotDate)
         {
-            if (!_validationService.IsAttendanceDateValidationEnabled)
+            if (_validationService.IsAttendanceDateValidationEnabled)
             {
-                return;
-            }
+                var today = DateTime.UtcNow.Date;
+                var targetDate = slotDate.Date;
 
-            var today = DateTime.UtcNow.Date;
-            var targetDate = slotDate.Date;
-
-            if (today != targetDate)
-            {
-                throw new InvalidOperationException(
-                    $"Attendance can only be taken on {targetDate:yyyy-MM-dd}. Current date: {today:yyyy-MM-dd}. Toggle validation via /api/validation/attendance_date.");
+                if (today != targetDate)
+                {
+                    throw new InvalidOperationException(
+                        $"Attendance can only be taken on {targetDate:yyyy-MM-dd}. Current date: {today:yyyy-MM-dd}. Toggle validation via /api/validation/attendance_date.");
+                }
             }
         }
 
