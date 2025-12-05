@@ -27,7 +27,6 @@ namespace Fap.Infrastructure.Data.Seed
             }
 
             var components = new List<GradeComponent>();
-            int componentIndex = 1;
 
             foreach (var subject in subjects)
             {

@@ -17,6 +17,8 @@ namespace Fap.Infrastructure.Repositories
                 .Include(u => u.Role)
                 .Include(u => u.Student)  // Load Student data
                 .Include(u => u.Teacher) // Load Teacher data
+                    .ThenInclude(t => t.TeacherSpecializations)
+                        .ThenInclude(ts => ts.Specialization)
                 .FirstOrDefaultAsync(u => u.Email == email);
         }
 
@@ -26,6 +28,8 @@ namespace Fap.Infrastructure.Repositories
                 .Include(u => u.Role)
                 .Include(u => u.Student)
                 .Include(u => u.Teacher)
+                    .ThenInclude(t => t.TeacherSpecializations)
+                        .ThenInclude(ts => ts.Specialization)
                 .FirstOrDefaultAsync(u => u.Id == id);
         }
 
@@ -43,6 +47,8 @@ namespace Fap.Infrastructure.Repositories
                 .Include(u => u.Role)
                 .Include(u => u.Student)
                 .Include(u => u.Teacher)
+                    .ThenInclude(t => t.TeacherSpecializations)
+                        .ThenInclude(ts => ts.Specialization)
                 .AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(searchTerm))

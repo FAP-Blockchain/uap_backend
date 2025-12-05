@@ -51,7 +51,6 @@ namespace Fap.Api.Mappings
                 .ForMember(dest => dest.UserId, opt => opt.Ignore())
                 .ForMember(dest => dest.TeacherCode, opt => opt.MapFrom(src => src.TeacherCode))
                 .ForMember(dest => dest.HireDate, opt => opt.MapFrom(src => src.HireDate ?? DateTime.UtcNow))
-                .ForMember(dest => dest.Specialization, opt => opt.MapFrom(src => src.Specialization))
                 .ForMember(dest => dest.User, opt => opt.Ignore())
                 .ForMember(dest => dest.Classes, opt => opt.Ignore());
 
@@ -98,6 +97,7 @@ namespace Fap.Api.Mappings
                 // Student/Teacher Info
                 .ForMember(dest => dest.StudentCode, opt => opt.MapFrom(src => src.Student != null ? src.Student.StudentCode : null))
                 .ForMember(dest => dest.TeacherCode, opt => opt.MapFrom(src => src.Teacher != null ? src.Teacher.TeacherCode : null))
+                .ForMember(dest => dest.Specializations, opt => opt.MapFrom(src => src.Teacher != null ? src.Teacher.TeacherSpecializations.Select(ts => ts.Specialization) : new List<Specialization>()))
                 
                 // Blockchain info
                 .ForMember(dest => dest.WalletAddress, opt => opt.MapFrom(src => src.WalletAddress))

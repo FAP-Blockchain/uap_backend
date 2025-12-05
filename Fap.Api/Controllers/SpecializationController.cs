@@ -68,7 +68,7 @@ namespace Fap.Api.Controllers
                 if (!success) return NotFound();
                 return NoContent();
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 // Handle FK constraint violation
                 return BadRequest(new { message = "Cannot delete specialization because it is in use." });

@@ -173,11 +173,6 @@ namespace Fap.Api.Services
                         user.Teacher.HireDate = request.HireDate.Value;
                     }
 
-                    if (!string.IsNullOrWhiteSpace(request.Specialization))
-                    {
-                        user.Teacher.Specialization = request.Specialization;
-                    }
-
                     if (!string.IsNullOrWhiteSpace(request.PhoneNumber))
                     {
                         user.PhoneNumber = request.PhoneNumber;

@@ -19,6 +19,7 @@ namespace Fap.Domain.DTOs.User
         // Optional: Student/Teacher info
         public string? StudentCode { get; set; }
         public string? TeacherCode { get; set; }
+        public List<Fap.Domain.DTOs.Specialization.SpecializationDto> Specializations { get; set; } = new();
         
         // ======================================================================
         // BLOCKCHAIN INTEGRATION

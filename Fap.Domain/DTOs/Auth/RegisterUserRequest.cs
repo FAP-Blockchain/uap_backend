@@ -37,9 +37,6 @@ namespace Fap.Domain.DTOs.Auth
 
         public DateTime? HireDate { get; set; }
 
-    [MaxLength(200)]
-    public string? Specialization { get; set; }  // Nullable legacy support
-
     public List<Guid> SpecializationIds { get; set; } = new();
 
     [MaxLength(20)]
