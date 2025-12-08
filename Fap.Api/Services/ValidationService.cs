@@ -24,6 +24,12 @@ namespace Fap.Api.Services
             _cache = cache;
             _settings = settings;
             _logger = logger;
+
+            // Update cache when settings change
+            _settings.OnChange(vals =>
+            {
+                SetAttendanceDateValidationAsync(vals.EnforceAttendanceDateValidation);
+            });
         }
 
         public bool IsAttendanceDateValidationEnabled =>

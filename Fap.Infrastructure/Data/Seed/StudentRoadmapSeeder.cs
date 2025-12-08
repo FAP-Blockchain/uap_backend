@@ -14,82 +14,101 @@ namespace Fap.Infrastructure.Data.Seed
         {
             if (await _context.StudentRoadmaps.AnyAsync())
             {
-                Console.WriteLine("??  Student Roadmaps already exist. Skipping...");
+                Console.WriteLine("⏭️  Student Roadmaps already exist. Skipping...");
                 return;
             }
 
             var roadmaps = new List<StudentRoadmap>();
 
-            // Get all students
-            var students = await _context.Students.Take(6).ToListAsync();
-
-            // Get all subjects
-            var subjects = await _context.Subjects.OrderBy(s => s.SubjectCode).ToListAsync();
+            // Get all students with their curriculum
+            var students = await _context.Students
+                .Include(s => s.Curriculum)
+                .ToListAsync();
 
             // Get all semesters
             var semesters = await _context.Semesters.OrderBy(s => s.StartDate).ToListAsync();
 
-            if (!students.Any() || !subjects.Any() || !semesters.Any())
+            if (!students.Any() || !semesters.Any())
             {
-                Console.WriteLine("??  Missing required data for roadmaps. Skipping...");
+                Console.WriteLine("⚠️  Missing required data for roadmaps. Skipping...");
                 return;
             }
 
+            // Pre-fetch curriculum subjects for all curriculums
+            var curriculumSubjects = await _context.CurriculumSubjects
+                .Include(cs => cs.Subject)
+                .ToListAsync();
+
             var random = new Random(77777);
 
-            // ? CREATE SPECIFIC TEST SCENARIOS
-            Console.WriteLine("   ?? Creating test scenarios...");
+            Console.WriteLine("   🧪 Creating student roadmaps based on curriculum...");
 
-            // SCENARIO 1: Student 1 - Perfect student (all prerequisites met, ready for advanced classes)
-            if (students.Count > 0)
+            foreach (var student in students)
             {
-                CreatePerfectStudentRoadmap(students[0], subjects, semesters, roadmaps);
-                Console.WriteLine("   ? Scenario 1: Perfect student with all prerequisites");
-            }
+                if (student.CurriculumId == 0) continue;
 
-            // SCENARIO 2: Student 2 - Missing prerequisites (cannot enroll in advanced subjects)
-            if (students.Count > 1)
-            {
-                CreateStudentMissingPrerequisites(students[1], subjects, semesters, roadmaps);
-                Console.WriteLine("   ? Scenario 2: Student missing prerequisites");
-            }
+                // Get subjects for this student's curriculum
+                var studentSubjects = curriculumSubjects
+                    .Where(cs => cs.CurriculumId == student.CurriculumId)
+                    .OrderBy(cs => cs.SemesterNumber)
+                    .Select(cs => new { cs.Subject, cs.SemesterNumber })
+                    .ToList();
 
-            // SCENARIO 3: Student 3 - Already completed some subjects (test duplicate prevention)
-            if (students.Count > 2)
-            {
-                CreateStudentWithCompletedSubjects(students[2], subjects, semesters, roadmaps);
-                Console.WriteLine("   ? Scenario 3: Student with completed subjects");
-            }
+                if (!studentSubjects.Any()) continue;
 
-            // SCENARIO 4: Student 4 - Currently in progress (active enrollment)
-            if (students.Count > 3)
-            {
-                CreateStudentInProgress(students[3], subjects, semesters, roadmaps);
-                Console.WriteLine("   ? Scenario 4: Student with in-progress subjects");
-            }
-
-            // SCENARIO 5: Student 5 - Failed some subjects (need retake)
-            if (students.Count > 4)
-            {
-                CreateStudentWithFailures(students[4], subjects, semesters, roadmaps);
-                Console.WriteLine("   ? Scenario 5: Student with failed subjects");
-            }
-
-            // SCENARIO 6: Student 6 - Fresh student (all planned, no completion)
-            if (students.Count > 5)
-            {
-                CreateFreshStudent(students[5], subjects, semesters, roadmaps);
-                Console.WriteLine("   ? Scenario 6: Fresh student with all planned");
+                // Apply different scenarios based on student index or ID
+                // We can use a simple modulo or check specific IDs
+                
+                if (student.Id == TeacherStudentSeeder.Student1Id)
+                {
+                    // Scenario 1: Perfect student (SE)
+                    CreatePerfectStudentRoadmap(student, studentSubjects.Select(s => s.Subject).ToList(), semesters, roadmaps);
+                }
+                else if (student.Id == TeacherStudentSeeder.Student2Id)
+                {
+                    // Scenario 2: Missing prerequisites (SE)
+                    CreateStudentMissingPrerequisites(student, studentSubjects.Select(s => s.Subject).ToList(), semesters, roadmaps);
+                }
+                else if (student.Id == TeacherStudentSeeder.Student3Id)
+                {
+                    // Scenario 3: Completed some (SE)
+                    CreateStudentWithCompletedSubjects(student, studentSubjects.Select(s => s.Subject).ToList(), semesters, roadmaps);
+                }
+                else if (student.Id == TeacherStudentSeeder.Student4Id)
+                {
+                    // Scenario 4: In Progress (SE)
+                    CreateStudentInProgress(student, studentSubjects.Select(s => s.Subject).ToList(), semesters, roadmaps);
+                }
+                else if (student.Id == TeacherStudentSeeder.Student5Id) // IA Student
+                {
+                    // Scenario 5: IA Student - Good progress
+                    CreateStudentWithCompletedSubjects(student, studentSubjects.Select(s => s.Subject).ToList(), semesters, roadmaps);
+                }
+                else if (student.Id == TeacherStudentSeeder.Student6Id) // IA Student
+                {
+                    // Scenario 6: IA Student - Fresh/In Progress
+                    CreateStudentInProgress(student, studentSubjects.Select(s => s.Subject).ToList(), semesters, roadmaps);
+                }
+                else if (student.Id == TeacherStudentSeeder.Student7Id) // GD Student
+                {
+                    // Scenario 7: GD Student - Perfect
+                    CreatePerfectStudentRoadmap(student, studentSubjects.Select(s => s.Subject).ToList(), semesters, roadmaps);
+                }
+                else if (student.Id == TeacherStudentSeeder.Student8Id) // GD Student
+                {
+                    // Scenario 8: GD Student - Fresh
+                    CreateFreshStudent(student, studentSubjects.Select(s => s.Subject).ToList(), semesters, roadmaps);
+                }
             }
 
             await _context.StudentRoadmaps.AddRangeAsync(roadmaps);
             await SaveAsync("Student Roadmaps");
 
-            Console.WriteLine($"   ?? Created {roadmaps.Count} student roadmap entries:");
-            Console.WriteLine($"      � Completed: {roadmaps.Count(r => r.Status == "Completed")}");
-            Console.WriteLine($"  � In Progress: {roadmaps.Count(r => r.Status == "InProgress")}");
-            Console.WriteLine($"      � Planned: {roadmaps.Count(r => r.Status == "Planned")}");
-            Console.WriteLine($"      � Failed: {roadmaps.Count(r => r.Status == "Failed")}");
+            Console.WriteLine($"   ✅ Created {roadmaps.Count} student roadmap entries:");
+            Console.WriteLine($"      • Completed: {roadmaps.Count(r => r.Status == "Completed")}");
+            Console.WriteLine($"      • In Progress: {roadmaps.Count(r => r.Status == "InProgress")}");
+            Console.WriteLine($"      • Planned: {roadmaps.Count(r => r.Status == "Planned")}");
+            Console.WriteLine($"      • Failed: {roadmaps.Count(r => r.Status == "Failed")}");
         }
 
         // ==================== TEST SCENARIO CREATORS ====================

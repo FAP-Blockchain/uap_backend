@@ -393,13 +393,18 @@ namespace Fap.Api.Services
         {
             if (_validationService.IsAttendanceDateValidationEnabled)
             {
-                var today = DateTime.UtcNow.Date;
+                var todayUtc = DateTime.UtcNow.Date;
                 var targetDate = slotDate.Date;
 
-                if (today != targetDate)
+                // Allow a 1-day buffer to handle timezone differences (e.g., UTC vs UTC+7)
+                // This ensures that if it's "Today" in the user's timezone, it passes validation
+                // even if UTC date is yesterday or tomorrow.
+                var dayDifference = Math.Abs((targetDate - todayUtc).TotalDays);
+
+                if (dayDifference > 1)
                 {
                     throw new InvalidOperationException(
-                        $"Attendance can only be taken on {targetDate:yyyy-MM-dd}. Current date: {today:yyyy-MM-dd}. Toggle validation via /api/validation/attendance_date.");
+                        $"Attendance can only be taken on {targetDate:yyyy-MM-dd}. Current UTC date: {todayUtc:yyyy-MM-dd}. Toggle validation via /api/validation/attendance_date.");
                 }
             }
         }

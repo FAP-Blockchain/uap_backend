@@ -26,36 +26,44 @@ namespace Fap.Infrastructure.Data.Seed
         {
             var assignments = new List<(Guid ClassId, Guid StudentId, DateTime JoinedAt)>
             {
-                (ClassSeeder.SE101_Winter2025_A, TeacherStudentSeeder.Student1Id, new DateTime(2025, 11, 10)),
-                (ClassSeeder.SE101_Winter2025_A, TeacherStudentSeeder.Student2Id, new DateTime(2025, 11, 10)),
-                (ClassSeeder.SE101_Winter2025_A, TeacherStudentSeeder.Student3Id, new DateTime(2025, 11, 11)),
+                (ClassSeeder.PRF192_Winter2025_A, TeacherStudentSeeder.Student1Id, new DateTime(2025, 11, 10)),
+                (ClassSeeder.PRF192_Winter2025_A, TeacherStudentSeeder.Student2Id, new DateTime(2025, 11, 10)),
+                (ClassSeeder.PRF192_Winter2025_A, TeacherStudentSeeder.Student3Id, new DateTime(2025, 11, 11)),
 
-                (ClassSeeder.CS101_Winter2025_A, TeacherStudentSeeder.Student1Id, new DateTime(2025, 11, 11)),
-                (ClassSeeder.CS101_Winter2025_A, TeacherStudentSeeder.Student4Id, new DateTime(2025, 11, 12)),
-                (ClassSeeder.CS101_Winter2025_A, TeacherStudentSeeder.Student2Id, new DateTime(2025, 11, 12)),
+                (ClassSeeder.CSI106_Winter2025_A, TeacherStudentSeeder.Student1Id, new DateTime(2025, 11, 11)),
+                (ClassSeeder.CSI106_Winter2025_A, TeacherStudentSeeder.Student4Id, new DateTime(2025, 11, 12)),
+                (ClassSeeder.CSI106_Winter2025_A, TeacherStudentSeeder.Student2Id, new DateTime(2025, 11, 12)),
 
-                (ClassSeeder.MATH101_Winter2025_A, TeacherStudentSeeder.Student1Id, new DateTime(2025, 11, 13)),
-                (ClassSeeder.MATH101_Winter2025_A, TeacherStudentSeeder.Student3Id, new DateTime(2025, 11, 13)),
-                (ClassSeeder.MATH101_Winter2025_A, TeacherStudentSeeder.Student5Id, new DateTime(2025, 11, 14)),
-                (ClassSeeder.MATH101_Winter2025_A, TeacherStudentSeeder.Student6Id, new DateTime(2025, 11, 14)),
+                (ClassSeeder.MAE101_Winter2025_A, TeacherStudentSeeder.Student1Id, new DateTime(2025, 11, 13)),
+                (ClassSeeder.MAE101_Winter2025_A, TeacherStudentSeeder.Student3Id, new DateTime(2025, 11, 13)),
+                (ClassSeeder.MAE101_Winter2025_A, TeacherStudentSeeder.Student5Id, new DateTime(2025, 11, 14)),
+                (ClassSeeder.MAE101_Winter2025_A, TeacherStudentSeeder.Student6Id, new DateTime(2025, 11, 14)),
 
-                (ClassSeeder.DB201_Winter2025_Evening, TeacherStudentSeeder.Student2Id, new DateTime(2025, 11, 15)),
-                (ClassSeeder.DB201_Winter2025_Evening, TeacherStudentSeeder.Student5Id, new DateTime(2025, 11, 15)),
+                (ClassSeeder.CEA201_Winter2025_Evening, TeacherStudentSeeder.Student2Id, new DateTime(2025, 11, 15)),
+                (ClassSeeder.CEA201_Winter2025_Evening, TeacherStudentSeeder.Student5Id, new DateTime(2025, 11, 15)),
 
-                (ClassSeeder.SE102_Spring2026_A, TeacherStudentSeeder.Student1Id, new DateTime(2026, 1, 15)),
-                (ClassSeeder.SE102_Spring2026_A, TeacherStudentSeeder.Student2Id, new DateTime(2026, 1, 15)),
-                (ClassSeeder.SE101_Spring2026_A, TeacherStudentSeeder.Student5Id, new DateTime(2026, 1, 16)),
-                (ClassSeeder.SE101_Spring2026_A, TeacherStudentSeeder.Student6Id, new DateTime(2026, 1, 16)),
-                (ClassSeeder.CS101_Spring2026_A, TeacherStudentSeeder.Student6Id, new DateTime(2026, 1, 17)),
-                (ClassSeeder.MATH101_Spring2026_A, TeacherStudentSeeder.Student4Id, new DateTime(2026, 1, 17)),
+                (ClassSeeder.MAD101_Spring2026_A, TeacherStudentSeeder.Student1Id, new DateTime(2026, 1, 15)),
+                (ClassSeeder.MAD101_Spring2026_A, TeacherStudentSeeder.Student2Id, new DateTime(2026, 1, 15)),
+                (ClassSeeder.PRO192_Spring2026_A, TeacherStudentSeeder.Student5Id, new DateTime(2026, 1, 16)),
+                (ClassSeeder.PRO192_Spring2026_A, TeacherStudentSeeder.Student6Id, new DateTime(2026, 1, 16)),
+                (ClassSeeder.PFP191_Spring2026_A, TeacherStudentSeeder.Student6Id, new DateTime(2026, 1, 17)),
+                (ClassSeeder.MAS291_Spring2026_A, TeacherStudentSeeder.Student4Id, new DateTime(2026, 1, 17)),
 
-                (ClassSeeder.DB201_Summer2026_A, TeacherStudentSeeder.Student3Id, new DateTime(2026, 5, 20)),
-                (ClassSeeder.DB201_Summer2026_A, TeacherStudentSeeder.Student4Id, new DateTime(2026, 5, 20)),
-                (ClassSeeder.WEB301_Summer2026_A, TeacherStudentSeeder.Student5Id, new DateTime(2026, 5, 21)),
-                (ClassSeeder.CS201_Summer2026_A, TeacherStudentSeeder.Student1Id, new DateTime(2026, 5, 22)),
-                (ClassSeeder.WEB301_Fall2026_A, TeacherStudentSeeder.Student6Id, new DateTime(2026, 8, 10)),
-                (ClassSeeder.MATH201_Fall2026_A, TeacherStudentSeeder.Student1Id, new DateTime(2026, 8, 10)),
-                (ClassSeeder.SE102_Fall2026_A, TeacherStudentSeeder.Student2Id, new DateTime(2026, 8, 11))
+                (ClassSeeder.DBI202_Summer2026_A, TeacherStudentSeeder.Student3Id, new DateTime(2026, 5, 20)),
+                (ClassSeeder.DBI202_Summer2026_A, TeacherStudentSeeder.Student4Id, new DateTime(2026, 5, 20)),
+                (ClassSeeder.CSD201_Summer2026_A, TeacherStudentSeeder.Student5Id, new DateTime(2026, 5, 21)),
+                (ClassSeeder.NWC204_Summer2026_A, TeacherStudentSeeder.Student1Id, new DateTime(2026, 5, 22)),
+                (ClassSeeder.OSG202_Fall2026_A, TeacherStudentSeeder.Student6Id, new DateTime(2026, 8, 10)),
+                (ClassSeeder.CRY303c_Fall2026_A, TeacherStudentSeeder.Student1Id, new DateTime(2026, 8, 10)),
+                (ClassSeeder.SWP391_Winter2026_A, TeacherStudentSeeder.Student2Id, new DateTime(2026, 8, 11)),
+
+                // GD Students
+                (ClassSeeder.DRP101_Winter2025_A, TeacherStudentSeeder.Student7Id, new DateTime(2025, 11, 10)),
+                (ClassSeeder.DTG102_Winter2025_A, TeacherStudentSeeder.Student7Id, new DateTime(2025, 11, 10)),
+                (ClassSeeder.DRP101_Winter2025_A, TeacherStudentSeeder.Student8Id, new DateTime(2025, 11, 10)),
+                (ClassSeeder.DTG102_Winter2025_A, TeacherStudentSeeder.Student8Id, new DateTime(2025, 11, 10)),
+                (ClassSeeder.DRS102_Spring2026_A, TeacherStudentSeeder.Student7Id, new DateTime(2026, 1, 15)),
+                (ClassSeeder.VCM202_Spring2026_A, TeacherStudentSeeder.Student7Id, new DateTime(2026, 1, 15))
             };
 
             var classMembers = assignments.Select(a => new ClassMember
@@ -75,24 +83,32 @@ namespace Fap.Infrastructure.Data.Seed
         {
             var enrollmentDefinitions = new List<(Guid ClassId, Guid StudentId, DateTime RegisteredAt)>
             {
-                (ClassSeeder.SE101_Winter2025_A, TeacherStudentSeeder.Student1Id, new DateTime(2025, 10, 20)),
-                (ClassSeeder.CS101_Winter2025_A, TeacherStudentSeeder.Student1Id, new DateTime(2025, 10, 21)),
-                (ClassSeeder.MATH101_Winter2025_A, TeacherStudentSeeder.Student1Id, new DateTime(2025, 10, 22)),
-                (ClassSeeder.DB201_Winter2025_Evening, TeacherStudentSeeder.Student2Id, new DateTime(2025, 10, 25)),
-                (ClassSeeder.MATH101_Winter2025_A, TeacherStudentSeeder.Student3Id, new DateTime(2025, 10, 23)),
+                (ClassSeeder.PRF192_Winter2025_A, TeacherStudentSeeder.Student1Id, new DateTime(2025, 10, 20)),
+                (ClassSeeder.CSI106_Winter2025_A, TeacherStudentSeeder.Student1Id, new DateTime(2025, 10, 21)),
+                (ClassSeeder.MAE101_Winter2025_A, TeacherStudentSeeder.Student1Id, new DateTime(2025, 10, 22)),
+                (ClassSeeder.CEA201_Winter2025_Evening, TeacherStudentSeeder.Student2Id, new DateTime(2025, 10, 25)),
+                (ClassSeeder.MAE101_Winter2025_A, TeacherStudentSeeder.Student3Id, new DateTime(2025, 10, 23)),
 
-                (ClassSeeder.SE102_Spring2026_A, TeacherStudentSeeder.Student1Id, new DateTime(2025, 12, 15)),
-                (ClassSeeder.SE102_Spring2026_A, TeacherStudentSeeder.Student2Id, new DateTime(2025, 12, 15)),
-                (ClassSeeder.SE101_Spring2026_A, TeacherStudentSeeder.Student5Id, new DateTime(2025, 12, 20)),
-                (ClassSeeder.SE101_Spring2026_A, TeacherStudentSeeder.Student6Id, new DateTime(2025, 12, 20)),
-                (ClassSeeder.CS101_Spring2026_A, TeacherStudentSeeder.Student6Id, new DateTime(2025, 12, 22)),
+                (ClassSeeder.MAD101_Spring2026_A, TeacherStudentSeeder.Student1Id, new DateTime(2025, 12, 15)),
+                (ClassSeeder.MAD101_Spring2026_A, TeacherStudentSeeder.Student2Id, new DateTime(2025, 12, 15)),
+                (ClassSeeder.PRO192_Spring2026_A, TeacherStudentSeeder.Student5Id, new DateTime(2025, 12, 20)),
+                (ClassSeeder.PRO192_Spring2026_A, TeacherStudentSeeder.Student6Id, new DateTime(2025, 12, 20)),
+                (ClassSeeder.PFP191_Spring2026_A, TeacherStudentSeeder.Student6Id, new DateTime(2025, 12, 22)),
 
-                (ClassSeeder.DB201_Summer2026_A, TeacherStudentSeeder.Student3Id, new DateTime(2026, 4, 10)),
-                (ClassSeeder.CS201_Summer2026_A, TeacherStudentSeeder.Student1Id, new DateTime(2026, 4, 12)),
-                (ClassSeeder.WEB301_Summer2026_A, TeacherStudentSeeder.Student5Id, new DateTime(2026, 4, 15)),
-                (ClassSeeder.WEB301_Fall2026_A, TeacherStudentSeeder.Student6Id, new DateTime(2026, 7, 15)),
-                (ClassSeeder.MATH201_Fall2026_A, TeacherStudentSeeder.Student1Id, new DateTime(2026, 7, 16)),
-                (ClassSeeder.SE102_Fall2026_A, TeacherStudentSeeder.Student2Id, new DateTime(2026, 7, 16))
+                (ClassSeeder.DBI202_Summer2026_A, TeacherStudentSeeder.Student3Id, new DateTime(2026, 4, 10)),
+                (ClassSeeder.NWC204_Summer2026_A, TeacherStudentSeeder.Student1Id, new DateTime(2026, 4, 12)),
+                (ClassSeeder.CSD201_Summer2026_A, TeacherStudentSeeder.Student5Id, new DateTime(2026, 4, 15)),
+                (ClassSeeder.OSG202_Fall2026_A, TeacherStudentSeeder.Student6Id, new DateTime(2026, 7, 15)),
+                (ClassSeeder.CRY303c_Fall2026_A, TeacherStudentSeeder.Student1Id, new DateTime(2026, 7, 16)),
+                (ClassSeeder.SWP391_Winter2026_A, TeacherStudentSeeder.Student2Id, new DateTime(2026, 7, 16)),
+
+                // GD Students
+                (ClassSeeder.DRP101_Winter2025_A, TeacherStudentSeeder.Student7Id, new DateTime(2025, 10, 20)),
+                (ClassSeeder.DTG102_Winter2025_A, TeacherStudentSeeder.Student7Id, new DateTime(2025, 10, 20)),
+                (ClassSeeder.DRP101_Winter2025_A, TeacherStudentSeeder.Student8Id, new DateTime(2025, 10, 20)),
+                (ClassSeeder.DTG102_Winter2025_A, TeacherStudentSeeder.Student8Id, new DateTime(2025, 10, 20)),
+                (ClassSeeder.DRS102_Spring2026_A, TeacherStudentSeeder.Student7Id, new DateTime(2025, 12, 15)),
+                (ClassSeeder.VCM202_Spring2026_A, TeacherStudentSeeder.Student7Id, new DateTime(2025, 12, 15))
             };
 
             var enrolls = enrollmentDefinitions.Select(def => new Enroll

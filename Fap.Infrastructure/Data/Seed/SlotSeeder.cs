@@ -21,23 +21,28 @@ namespace Fap.Infrastructure.Data.Seed
 
         private static readonly IReadOnlyDictionary<Guid, ClassSchedule> ClassSchedules = new Dictionary<Guid, ClassSchedule>
         {
-            [ClassSeeder.SE101_Winter2025_A] = new ClassSchedule(DayOfWeek.Monday, TimeSlotSeeder.Slot1Id, DayOfWeek.Wednesday, TimeSlotSeeder.Slot1Id),
-            [ClassSeeder.CS101_Winter2025_A] = new ClassSchedule(DayOfWeek.Tuesday, TimeSlotSeeder.Slot2Id, DayOfWeek.Thursday, TimeSlotSeeder.Slot2Id),
-            [ClassSeeder.MATH101_Winter2025_A] = new ClassSchedule(DayOfWeek.Tuesday, TimeSlotSeeder.Slot3Id, DayOfWeek.Thursday, TimeSlotSeeder.Slot3Id),
-            [ClassSeeder.DB201_Winter2025_Evening] = new ClassSchedule(DayOfWeek.Tuesday, TimeSlotSeeder.Slot7Id, DayOfWeek.Friday, TimeSlotSeeder.Slot7Id),
+            [ClassSeeder.PRF192_Winter2025_A] = new ClassSchedule(DayOfWeek.Monday, TimeSlotSeeder.Slot1Id, DayOfWeek.Wednesday, TimeSlotSeeder.Slot1Id),
+            [ClassSeeder.CSI106_Winter2025_A] = new ClassSchedule(DayOfWeek.Tuesday, TimeSlotSeeder.Slot2Id, DayOfWeek.Thursday, TimeSlotSeeder.Slot2Id),
+            [ClassSeeder.MAE101_Winter2025_A] = new ClassSchedule(DayOfWeek.Tuesday, TimeSlotSeeder.Slot3Id, DayOfWeek.Thursday, TimeSlotSeeder.Slot3Id),
+            [ClassSeeder.CEA201_Winter2025_Evening] = new ClassSchedule(DayOfWeek.Tuesday, TimeSlotSeeder.Slot7Id, DayOfWeek.Friday, TimeSlotSeeder.Slot7Id),
 
-            [ClassSeeder.SE101_Spring2026_A] = new ClassSchedule(DayOfWeek.Monday, TimeSlotSeeder.Slot1Id, DayOfWeek.Wednesday, TimeSlotSeeder.Slot1Id),
-            [ClassSeeder.SE102_Spring2026_A] = new ClassSchedule(DayOfWeek.Tuesday, TimeSlotSeeder.Slot4Id, DayOfWeek.Thursday, TimeSlotSeeder.Slot4Id),
-            [ClassSeeder.MATH101_Spring2026_A] = new ClassSchedule(DayOfWeek.Monday, TimeSlotSeeder.Slot3Id, DayOfWeek.Thursday, TimeSlotSeeder.Slot3Id),
-            [ClassSeeder.CS101_Spring2026_A] = new ClassSchedule(DayOfWeek.Tuesday, TimeSlotSeeder.Slot2Id, DayOfWeek.Thursday, TimeSlotSeeder.Slot2Id),
-            [ClassSeeder.CS201_Summer2026_A] = new ClassSchedule(DayOfWeek.Friday, TimeSlotSeeder.Slot5Id, DayOfWeek.Saturday, TimeSlotSeeder.Slot6Id),
+            [ClassSeeder.PRO192_Spring2026_A] = new ClassSchedule(DayOfWeek.Monday, TimeSlotSeeder.Slot1Id, DayOfWeek.Wednesday, TimeSlotSeeder.Slot1Id),
+            [ClassSeeder.MAD101_Spring2026_A] = new ClassSchedule(DayOfWeek.Tuesday, TimeSlotSeeder.Slot4Id, DayOfWeek.Thursday, TimeSlotSeeder.Slot4Id),
+            [ClassSeeder.MAS291_Spring2026_A] = new ClassSchedule(DayOfWeek.Monday, TimeSlotSeeder.Slot3Id, DayOfWeek.Thursday, TimeSlotSeeder.Slot3Id),
+            [ClassSeeder.PFP191_Spring2026_A] = new ClassSchedule(DayOfWeek.Tuesday, TimeSlotSeeder.Slot2Id, DayOfWeek.Thursday, TimeSlotSeeder.Slot2Id),
+            [ClassSeeder.NWC204_Summer2026_A] = new ClassSchedule(DayOfWeek.Friday, TimeSlotSeeder.Slot5Id, DayOfWeek.Saturday, TimeSlotSeeder.Slot6Id),
 
-            [ClassSeeder.SE101_Fall2026_A] = new ClassSchedule(DayOfWeek.Monday, TimeSlotSeeder.Slot1Id, DayOfWeek.Wednesday, TimeSlotSeeder.Slot1Id),
-            [ClassSeeder.SE102_Fall2026_A] = new ClassSchedule(DayOfWeek.Tuesday, TimeSlotSeeder.Slot4Id, DayOfWeek.Thursday, TimeSlotSeeder.Slot4Id),
-            [ClassSeeder.DB201_Summer2026_A] = new ClassSchedule(DayOfWeek.Monday, TimeSlotSeeder.Slot5Id, DayOfWeek.Wednesday, TimeSlotSeeder.Slot5Id),
-            [ClassSeeder.WEB301_Summer2026_A] = new ClassSchedule(DayOfWeek.Tuesday, TimeSlotSeeder.Slot6Id, DayOfWeek.Thursday, TimeSlotSeeder.Slot6Id),
-            [ClassSeeder.WEB301_Fall2026_A] = new ClassSchedule(DayOfWeek.Tuesday, TimeSlotSeeder.Slot6Id, DayOfWeek.Thursday, TimeSlotSeeder.Slot6Id),
-            [ClassSeeder.MATH201_Fall2026_A] = new ClassSchedule(DayOfWeek.Monday, TimeSlotSeeder.Slot3Id, DayOfWeek.Wednesday, TimeSlotSeeder.Slot3Id)
+            [ClassSeeder.PRJ301_Fall2026_A] = new ClassSchedule(DayOfWeek.Monday, TimeSlotSeeder.Slot1Id, DayOfWeek.Wednesday, TimeSlotSeeder.Slot1Id),
+            [ClassSeeder.SWP391_Winter2026_A] = new ClassSchedule(DayOfWeek.Tuesday, TimeSlotSeeder.Slot4Id, DayOfWeek.Thursday, TimeSlotSeeder.Slot4Id),
+            [ClassSeeder.DBI202_Summer2026_A] = new ClassSchedule(DayOfWeek.Monday, TimeSlotSeeder.Slot5Id, DayOfWeek.Wednesday, TimeSlotSeeder.Slot5Id),
+            [ClassSeeder.CSD201_Summer2026_A] = new ClassSchedule(DayOfWeek.Tuesday, TimeSlotSeeder.Slot6Id, DayOfWeek.Thursday, TimeSlotSeeder.Slot6Id),
+            [ClassSeeder.OSG202_Fall2026_A] = new ClassSchedule(DayOfWeek.Tuesday, TimeSlotSeeder.Slot6Id, DayOfWeek.Thursday, TimeSlotSeeder.Slot6Id),
+            [ClassSeeder.CRY303c_Fall2026_A] = new ClassSchedule(DayOfWeek.Monday, TimeSlotSeeder.Slot3Id, DayOfWeek.Wednesday, TimeSlotSeeder.Slot3Id),
+
+            [ClassSeeder.DRP101_Winter2025_A] = new ClassSchedule(DayOfWeek.Monday, TimeSlotSeeder.Slot2Id, DayOfWeek.Wednesday, TimeSlotSeeder.Slot2Id),
+            [ClassSeeder.DTG102_Winter2025_A] = new ClassSchedule(DayOfWeek.Tuesday, TimeSlotSeeder.Slot5Id, DayOfWeek.Thursday, TimeSlotSeeder.Slot5Id),
+            [ClassSeeder.DRS102_Spring2026_A] = new ClassSchedule(DayOfWeek.Monday, TimeSlotSeeder.Slot2Id, DayOfWeek.Wednesday, TimeSlotSeeder.Slot2Id),
+            [ClassSeeder.VCM202_Spring2026_A] = new ClassSchedule(DayOfWeek.Tuesday, TimeSlotSeeder.Slot5Id, DayOfWeek.Thursday, TimeSlotSeeder.Slot5Id)
         };
 
         public SlotSeeder(FapDbContext context) : base(context) { }

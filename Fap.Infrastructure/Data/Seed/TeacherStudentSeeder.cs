@@ -18,6 +18,8 @@ namespace Fap.Infrastructure.Data.Seed
         public static readonly Guid Student4Id = Guid.Parse("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeef1");
         public static readonly Guid Student5Id = Guid.Parse("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeef2");
         public static readonly Guid Student6Id = Guid.Parse("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeef3");
+        public static readonly Guid Student7Id = Guid.Parse("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeef4");
+        public static readonly Guid Student8Id = Guid.Parse("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeef5");
 
         public TeacherStudentSeeder(FapDbContext context) : base(context) { }
 
@@ -123,21 +125,41 @@ namespace Fap.Infrastructure.Data.Seed
                 {
                     Id = Student5Id,
                     UserId = UserSeeder.Student5UserId,
-                    StudentCode = "SE150005",
+                    StudentCode = "IA150001",
                     EnrollmentDate = new DateTime(2022, 9, 1),
                     GPA = 3.60m,
                     IsGraduated = false,
-                    CurriculumId = 2  // Data Science 2024
+                    CurriculumId = CurriculumSeeder.InformationAssurance2024Id
                 },
                 new Student
                 {
                     Id = Student6Id,
                     UserId = UserSeeder.Student6UserId,
-                    StudentCode = "SE150006",
+                    StudentCode = "IA150002",
                     EnrollmentDate = new DateTime(2022, 9, 1),
                     GPA = 3.40m,
                     IsGraduated = false,
-                    CurriculumId = 2  // Data Science 2024
+                    CurriculumId = CurriculumSeeder.InformationAssurance2024Id
+                },
+                new Student
+                {
+                    Id = Student7Id,
+                    UserId = UserSeeder.Student7UserId, // Assuming UserSeeder has this, if not I need to check UserSeeder
+                    StudentCode = "GD150001",
+                    EnrollmentDate = new DateTime(2022, 9, 1),
+                    GPA = 3.80m,
+                    IsGraduated = false,
+                    CurriculumId = CurriculumSeeder.GraphicDesign2024Id
+                },
+                new Student
+                {
+                    Id = Student8Id,
+                    UserId = UserSeeder.Student8UserId, // Assuming UserSeeder has this
+                    StudentCode = "GD150002",
+                    EnrollmentDate = new DateTime(2022, 9, 1),
+                    GPA = 3.20m,
+                    IsGraduated = false,
+                    CurriculumId = CurriculumSeeder.GraphicDesign2024Id
                 }
             };
 

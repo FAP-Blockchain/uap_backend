@@ -21,6 +21,8 @@ namespace Fap.Infrastructure.Data.Seed
         public static readonly Guid Student4UserId = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccf");
         public static readonly Guid Student5UserId = Guid.Parse("cccccccc-cccc-cccc-cccc-ccccccccccd0");
         public static readonly Guid Student6UserId = Guid.Parse("cccccccc-cccc-cccc-cccc-ccccccccccd1");
+        public static readonly Guid Student7UserId = Guid.Parse("cccccccc-cccc-cccc-cccc-ccccccccccd2");
+        public static readonly Guid Student8UserId = Guid.Parse("cccccccc-cccc-cccc-cccc-ccccccccccd3");
 
         public UserSeeder(FapDbContext context) : base(context) { }
 
@@ -161,6 +163,28 @@ namespace Fap.Infrastructure.Data.Seed
                     Email = "student6@fap.edu.vn",
                     PasswordHash = studentPasswordHash,
                     PhoneNumber = "0986666666",
+                    IsActive = true,
+                    RoleId = RoleSeeder.StudentRoleId,
+                    CreatedAt = DateTime.UtcNow
+                },
+                new User
+                {
+                    Id = Student7UserId,
+                    FullName = "Đặng Văn Giang",
+                    Email = "student7@fap.edu.vn",
+                    PasswordHash = studentPasswordHash,
+                    PhoneNumber = "0987777777",
+                    IsActive = true,
+                    RoleId = RoleSeeder.StudentRoleId,
+                    CreatedAt = DateTime.UtcNow
+                },
+                new User
+                {
+                    Id = Student8UserId,
+                    FullName = "Bùi Thị Hạnh",
+                    Email = "student8@fap.edu.vn",
+                    PasswordHash = studentPasswordHash,
+                    PhoneNumber = "0988888888",
                     IsActive = true,
                     RoleId = RoleSeeder.StudentRoleId,
                     CreatedAt = DateTime.UtcNow
