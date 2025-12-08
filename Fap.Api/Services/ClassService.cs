@@ -450,6 +450,9 @@ namespace Fap.Api.Services
                 var subjectId = subjectOffering.SubjectId;
                 var semesterId = subjectOffering.SemesterId;
 
+                // Pre-fetch grade components
+                var gradeComponents = await _uow.GradeComponents.FindAsync(gc => gc.SubjectId == subjectId);
+
                 // 2. Check max enrollment limit using ClassMembers
                 var currentStudentCount = await _uow.ClassMembers.GetClassMemberCountAsync(classId);
                 var availableSlots = @class.MaxEnrollment - currentStudentCount;
@@ -537,7 +540,6 @@ namespace Fap.Api.Services
                     await _uow.ClassMembers.AddAsync(classMember);
 
                     // Auto-create grade records with null scores for all grade components
-                    var gradeComponents = await _uow.GradeComponents.FindAsync(gc => gc.SubjectId == subjectId);
                     var gradesCreatedCount = 0;
                     
                     foreach (var component in gradeComponents)
@@ -569,6 +571,12 @@ namespace Fap.Api.Services
                             "Auto-created {Count} grade records for student {StudentCode} in subject {SubjectId}",
                             gradesCreatedCount, student.StudentCode, subjectId);
                     }
+
+                    // Update roadmap with actual semester and set status to InProgress
+                    await _studentRoadmapService.UpdateRoadmapWithActualSemesterAsync(
+                        studentId,
+                        subjectId,
+                        semesterId);
 
                     // Add to response
                     assignedStudents.Add(new AssignedStudentInfo
