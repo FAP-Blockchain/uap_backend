@@ -39,10 +39,12 @@ namespace Fap.Infrastructure.Data.Seed
         .Where(cm => cm.ClassId == slot.ClassId)
         .ToListAsync();
 
-       foreach (var member in classMembers)
-          {
-           // Generate varied attendance patterns
-            var attendancePattern = GetAttendancePattern(random);
+     foreach (var member in classMembers)
+       {
+        // Generate varied attendance patterns (Student1 always present)
+        var attendancePattern = member.StudentId == TeacherStudentSeeder.Student1Id
+           ? (true, false, null, "Perfect attendance recorded")
+           : GetAttendancePattern(random);
     
  var attendance = new Attendance
        {

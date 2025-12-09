@@ -42,6 +42,7 @@ namespace Fap.Infrastructure.Data.Seed
 
                 // Determine student performance level
                 var performanceLevel = GetStudentPerformanceLevel(random);
+                var isHonorStudent = studentId == TeacherStudentSeeder.Student1Id;
 
                 // Get components for this subject only
                 var subjectComponents = leafComponents.Where(c => c.SubjectId == subjectId).ToList();
@@ -49,24 +50,28 @@ namespace Fap.Infrastructure.Data.Seed
                 // Create grades for each component
                 foreach (var component in subjectComponents)
                 {
-                    // Not all components may be graded yet
-                    if (random.Next(100) < 85) // 85% chance component is graded
+                    // Honor student (Student1) always has completed grades
+                    if (!isHonorStudent && random.Next(100) >= 85)
                     {
-                        var score = GenerateScore(performanceLevel, component.Name, random);
-
-                        var grade = new Grade
-                        {
-                            Id = Guid.NewGuid(),
-                            StudentId = studentId,
-                            SubjectId = subjectId,
-                            GradeComponentId = component.Id,
-                            Score = score,
-                            LetterGrade = ConvertToLetterGrade(score),
-                            UpdatedAt = DateTime.UtcNow.AddDays(-random.Next(1, 30))
-                        };
-
-                        grades.Add(grade);
+                        continue; // 85% chance component is graded for others
                     }
+
+                    var score = isHonorStudent
+                        ? GenerateHonorScore(component.Name, random)
+                        : GenerateScore(performanceLevel, component.Name, random);
+
+                    var grade = new Grade
+                    {
+                        Id = Guid.NewGuid(),
+                        StudentId = studentId,
+                        SubjectId = subjectId,
+                        GradeComponentId = component.Id,
+                        Score = score,
+                        LetterGrade = ConvertToLetterGrade(score),
+                        UpdatedAt = DateTime.UtcNow.AddDays(-random.Next(1, 30))
+                    };
+
+                    grades.Add(grade);
                 }
             }
 
@@ -120,6 +125,22 @@ namespace Fap.Infrastructure.Data.Seed
             score = Math.Max(5.0m, Math.Min(10m, score));
 
             // Round to 1 decimal place
+            return Math.Round(score, 1);
+        }
+
+        private decimal GenerateHonorScore(string componentName, Random random)
+        {
+            var baseScore = 8.8m + (decimal)random.NextDouble() * 1.2m;
+            var adjustment = componentName switch
+            {
+                "Final Exam" => 0.1m,
+                "Midterm Exam" => 0.2m,
+                "Quiz" => 0.3m,
+                "Attendance & Participation" => 0.5m,
+                _ => 0.0m
+            };
+
+            var score = Math.Min(10m, baseScore + adjustment);
             return Math.Round(score, 1);
         }
 
