@@ -61,6 +61,7 @@ namespace Fap.Infrastructure.Data.Seed
             var classes = await _context.Classes
                 .Include(c => c.SubjectOffering)
                 .ThenInclude(o => o.Semester)
+                .Include(c => c.Members)
                 .ToListAsync();
 
             if (!classes.Any())
@@ -77,6 +78,8 @@ namespace Fap.Infrastructure.Data.Seed
                     ? configured
                     : DefaultSchedule;
 
+                var hasStudent1 = cls.Members.Any(m => m.StudentId == TeacherStudentSeeder.Student1Id);
+
                 var semesterStart = cls.SubjectOffering?.Semester?.StartDate.Date ?? DateTime.UtcNow.Date;
                 var firstMeeting = AlignToDay(semesterStart, schedule.PrimaryDay);
                 var secondMeeting = AlignToDay(semesterStart, schedule.SecondaryDay);
@@ -84,10 +87,10 @@ namespace Fap.Infrastructure.Data.Seed
                 for (var week = 0; week < WeeksPerClass; week++)
                 {
                     var firstDate = firstMeeting.AddDays(week * 7);
-                    slots.Add(CreateSlot(cls.Id, firstDate, schedule.PrimarySlotId));
+                    slots.Add(CreateSlot(cls.Id, firstDate, schedule.PrimarySlotId, hasStudent1));
 
                     var secondDate = secondMeeting.AddDays(week * 7);
-                    slots.Add(CreateSlot(cls.Id, secondDate, schedule.SecondarySlotId));
+                    slots.Add(CreateSlot(cls.Id, secondDate, schedule.SecondarySlotId, hasStudent1));
                 }
             }
 
@@ -97,9 +100,9 @@ namespace Fap.Infrastructure.Data.Seed
             Console.WriteLine($"Created {slots.Count} slots for {classes.Count} classes over {WeeksPerClass} weeks");
         }
 
-        private static Slot CreateSlot(Guid classId, DateTime date, Guid timeSlotId)
+        private static Slot CreateSlot(Guid classId, DateTime date, Guid timeSlotId, bool forceCompleted = false)
         {
-            var status = date.Date < DateTime.UtcNow.Date ? "Completed" : "Scheduled";
+            var status = (forceCompleted || date.Date < DateTime.UtcNow.Date) ? "Completed" : "Scheduled";
 
             return new Slot
             {
