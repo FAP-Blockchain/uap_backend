@@ -45,7 +45,7 @@ namespace Fap.Api.Services
                             {
                                 row.RelativeItem().Column(col =>
                                 {
-                                    col.Item().AlignCenter().Text("FPT UNIVERSITY")
+                                    col.Item().AlignCenter().Text("UAP")
                                         .FontSize(16).Bold().FontColor(Colors.Orange.Darken3);
                                     col.Item().AlignCenter().Text("CERTIFICATE OF COMPLETION")
                                         .FontSize(28).Bold().FontColor(Colors.Blue.Darken2);

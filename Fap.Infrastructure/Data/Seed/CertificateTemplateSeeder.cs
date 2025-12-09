@@ -11,7 +11,6 @@ namespace Fap.Infrastructure.Data.Seed
         // Fixed GUIDs for certificate templates
         public static readonly Guid CompletionCertificateId = Guid.Parse("60000000-0000-0000-0000-000000000001");
         public static readonly Guid ExcellenceCertificateId = Guid.Parse("60000000-0000-0000-0000-000000000002");
-        public static readonly Guid DiplomaId = Guid.Parse("60000000-0000-0000-0000-000000000003");
         public static readonly Guid TranscriptId = Guid.Parse("60000000-0000-0000-0000-000000000004");
         public static readonly Guid ParticipationId = Guid.Parse("60000000-0000-0000-0000-000000000005");
 
@@ -120,50 +119,6 @@ namespace Fap.Infrastructure.Data.Seed
         <div class='footer'>
             <div class='signature'>
                 <p>University President</p>
-            </div>
-        </div>
-    </div>
-</body>
-</html>"
-                },
-                new CertificateTemplate
-                {
-                    Id = DiplomaId,
-                    Name = "Graduation Diploma",
-                    Description = "Official diploma awarded upon successful completion of degree program",
-                    TemplateFileUrl = "ipfs://QmTemplateDiploma789/template.pdf",
-                    TemplateContent = @"
-<!DOCTYPE html>
-<html>
-<head>
-    <style>
-        body { font-family: 'Times New Roman', serif; color: #000; background-color: #fff; }
-        .container { width: 900px; margin: 0 auto; padding: 60px; border: 20px solid #002244; position: relative; }
-        .university-name { text-align: center; font-size: 40px; font-weight: bold; color: #002244; text-transform: uppercase; margin-bottom: 40px; }
-        .content { text-align: center; line-height: 2.0; font-size: 22px; }
-        .student-name { font-size: 40px; font-weight: bold; color: #003366; margin: 20px 0; font-family: 'Arial', sans-serif; }
-        .degree { font-size: 30px; font-weight: bold; color: #002244; margin: 20px 0; }
-        .footer { margin-top: 100px; display: flex; justify-content: space-between; padding: 0 50px; }
-        .signature { text-align: center; border-top: 1px solid #000; padding-top: 10px; width: 250px; }
-    </style>
-</head>
-<body>
-    <div class='container'>
-        <div class='university-name'>UAP Blockchain University</div>
-        <div class='content'>
-            <div>Upon the recommendation of the Faculty and by the authority of the Board of Trustees</div>
-            <div>has conferred upon</div>
-            <div class='student-name'>{{StudentName}}</div>
-            <div>the degree of</div>
-            <div class='degree'>{{DegreeName}}</div>
-            <div>with all the rights, privileges, and honors thereunto appertaining.</div>
-        </div>
-        <div class='footer'>
-            <div class='signature'>
-                <p>President</p>
-            </div>
-            <div class='signature'>
-                <p>Dean</p>
             </div>
         </div>
     </div>
