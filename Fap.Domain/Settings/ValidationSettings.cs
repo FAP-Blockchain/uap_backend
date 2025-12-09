@@ -6,6 +6,6 @@ namespace Fap.Domain.Settings
         /// Determines whether teachers must take attendance on the exact slot date.
         /// Defaults to true to protect business logic, but can be toggled at runtime.
         /// </summary>
-        public bool EnforceAttendanceDateValidation { get; set; } = true;
+        public bool EnforceAttendanceDateValidation { get; set; } = false;
     }
 }
