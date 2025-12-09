@@ -7,6 +7,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Fap.Api.Hubs;
+using Microsoft.AspNetCore.SignalR;
 
 namespace Fap.Api.Services
 {
@@ -14,11 +16,13 @@ namespace Fap.Api.Services
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
+        private readonly IHubContext<NotificationHub> _hubContext;
 
-        public SlotService(IUnitOfWork unitOfWork, IMapper mapper)
+        public SlotService(IUnitOfWork unitOfWork, IMapper mapper, IHubContext<NotificationHub> hubContext)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
+            _hubContext = hubContext;
         }
 
         #region Basic CRUD
@@ -127,6 +131,29 @@ namespace Fap.Api.Services
             await _unitOfWork.SaveChangesAsync();
 
             var createdSlot = await GetSlotByIdAsync(slot.Id);
+
+            // Phát thông báo realtime khi tạo lịch học
+            try
+            {
+                await _hubContext.Clients.All.SendAsync("ScheduleCreated", new
+                {
+                    slotId = slot.Id,
+                    classId = slot.ClassId,
+                    classCode = classEntity.ClassCode,
+                    subjectCode = classEntity.SubjectOffering?.Subject?.SubjectCode,
+                    subjectName = classEntity.SubjectOffering?.Subject?.SubjectName,
+                    date = slot.Date,
+                    timeSlotId = slot.TimeSlotId,
+                    teacherUserId = classEntity.TeacherUserId,
+                    substituteTeacherId = slot.SubstituteTeacherId,
+                    status = slot.Status
+                });
+            }
+            catch
+            {
+                // Không chặn luồng chính nếu gửi thông báo thất bại
+            }
+
             return createdSlot ?? throw new InvalidOperationException("Failed to retrieve created slot");
         }
 
