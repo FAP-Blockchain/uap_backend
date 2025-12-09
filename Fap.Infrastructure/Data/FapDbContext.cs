@@ -39,6 +39,7 @@ namespace Fap.Infrastructure.Data
     public DbSet<Specialization> Specializations { get; set; }
     public DbSet<TeacherSpecialization> TeacherSpecializations { get; set; }
     public DbSet<SubjectSpecialization> SubjectSpecializations { get; set; }
+    public DbSet<AppSetting> AppSettings { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

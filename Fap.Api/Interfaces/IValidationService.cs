@@ -4,7 +4,7 @@ namespace Fap.Api.Interfaces
 {
     public interface IValidationService
     {
-        bool IsAttendanceDateValidationEnabled { get; }
+        Task<bool> IsAttendanceDateValidationEnabledAsync();
         Task SetAttendanceDateValidationAsync(bool enabled);
     }
 }

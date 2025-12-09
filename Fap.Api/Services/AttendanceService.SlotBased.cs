@@ -36,7 +36,7 @@ namespace Fap.Api.Services
                 throw new InvalidOperationException($"Cannot take attendance for a slot with status: {slot.Status}");
             }
 
-            EnsureAttendanceDateCompliance(slot.Date);
+            await EnsureAttendanceDateComplianceAsync(slot.Date);
 
             // Get class with members
             var classEntity = await _unitOfWork.Classes.GetByIdWithDetailsAsync(slot.ClassId);
@@ -123,7 +123,7 @@ namespace Fap.Api.Services
             var slot = await _unitOfWork.Slots.GetByIdWithDetailsAsync(slotId)
                 ?? throw new InvalidOperationException("Slot not found");
 
-            EnsureAttendanceDateCompliance(slot.Date);
+            await EnsureAttendanceDateComplianceAsync(slot.Date);
 
             // Get existing attendances
             var existingAttendances = await _unitOfWork.Attendances.GetBySlotIdAsync(slotId);
@@ -237,7 +237,7 @@ namespace Fap.Api.Services
                 throw new InvalidOperationException("Slot not found");
             }
 
-            EnsureAttendanceDateCompliance(slot.Date);
+            await EnsureAttendanceDateComplianceAsync(slot.Date);
 
             var classEntity = await _unitOfWork.Classes.GetByIdWithDetailsAsync(slot.ClassId);
             if (classEntity == null)
@@ -272,7 +272,7 @@ namespace Fap.Api.Services
                 throw new InvalidOperationException("Slot not found");
             }
 
-            EnsureAttendanceDateCompliance(slot.Date);
+            await EnsureAttendanceDateComplianceAsync(slot.Date);
 
             var classEntity = await _unitOfWork.Classes.GetByIdWithDetailsAsync(slot.ClassId);
             if (classEntity == null)

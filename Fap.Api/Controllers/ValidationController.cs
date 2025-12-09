@@ -194,14 +194,14 @@ namespace Fap.Api.Controllers
         }
 
         [HttpGet("attendance_date")]
-        public IActionResult GetAttendanceDateValidation()
+        public async Task<IActionResult> GetAttendanceDateValidation()
         {
             return Ok(new
             {
                 success = true,
                 data = new
                 {
-                    enabled = _validationService.IsAttendanceDateValidationEnabled
+                    enabled = await _validationService.IsAttendanceDateValidationEnabledAsync()
                 }
             });
         }

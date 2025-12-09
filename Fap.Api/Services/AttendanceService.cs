@@ -94,7 +94,7 @@ namespace Fap.Api.Services
             if (slot.Status != "Scheduled" && slot.Status != "Completed")
                 throw new InvalidOperationException($"Cannot take attendance for a slot with status: {slot.Status}");
 
-            EnsureAttendanceDateCompliance(slot.Date);
+            await EnsureAttendanceDateComplianceAsync(slot.Date);
 
             var attendances = new List<Attendance>();
 
@@ -380,9 +380,9 @@ namespace Fap.Api.Services
             return _mapper.Map<IEnumerable<AttendanceDto>>(pagedResults);
         }
 
-        private void EnsureAttendanceDateCompliance(DateTime slotDate)
+        private async Task EnsureAttendanceDateComplianceAsync(DateTime slotDate)
         {
-            if (_validationService.IsAttendanceDateValidationEnabled)
+            if (await _validationService.IsAttendanceDateValidationEnabledAsync())
             {
                 var todayUtc = DateTime.UtcNow.Date;
                 var targetDate = slotDate.Date;
