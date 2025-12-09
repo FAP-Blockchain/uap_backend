@@ -72,42 +72,28 @@ namespace Fap.Infrastructure.Data.Seed
 
       Console.WriteLine($"   ✅ Created {attendances.Count} attendance records:");
  Console.WriteLine($"      • Present: {attendances.Count(a => a.IsPresent)}");
-      Console.WriteLine($"      • Absent (Excused): {attendances.Count(a => !a.IsPresent && a.IsExcused)}");
-            Console.WriteLine($"   • Absent (Unexcused): {attendances.Count(a => !a.IsPresent && !a.IsExcused)}");
+      Console.WriteLine($"      • Absent (Unexcused): {attendances.Count(a => !a.IsPresent && !a.IsExcused)}");
    }
 
  private (bool IsPresent, bool IsExcused, string? ExcuseReason, string? Notes) GetAttendancePattern(Random random)
         {
-    var roll = random.Next(100);
+            var roll = random.Next(100);
 
-            if (roll < 80) // 80% present
+            if (roll < 90) // 90% present
             {
-           return (true, false, null, null);
-         }
-            else if (roll < 90) // 10% absent but excused
-       {
-    var excuseReasons = new[]
-       {
-        "Medical appointment with doctor's note",
-               "Family emergency - documented",
-            "Attending university-sanctioned event",
-       "Illness - medical certificate provided",
-   "Religious observance"
-  };
-          
-     return (false, true, excuseReasons[random.Next(excuseReasons.Length)], "Excuse approved by instructor");
+                return (true, false, null, null);
             }
-  else // 10% absent unexcused
-        {
-    var notes = random.Next(3) switch
-        {
-         0 => "No prior notification",
-   1 => "Late notification - not approved",
-     _ => null
- };
-     
-  return (false, false, null, notes);
-  }
-    }
+            else // 10% absent unexcused
+            {
+                var notes = random.Next(3) switch
+                {
+                    0 => "No prior notification",
+                    1 => "Late notification - not approved",
+                    _ => null
+                };
+
+                return (false, false, null, notes);
+            }
+        }
     }
 }

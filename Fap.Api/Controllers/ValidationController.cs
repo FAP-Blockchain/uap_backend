@@ -34,7 +34,7 @@ namespace Fap.Api.Controllers
         {
             var credentials = await _context.Credentials
                 .Include(c => c.Student)
-                    .ThenInclude(s => s.User)
+                    .ThenInclude(s => s!.User)
                 .Include(c => c.CertificateTemplate)
                 .OrderByDescending(c => c.IssuedDate)
                 .Take(50) // Limit to last 50
