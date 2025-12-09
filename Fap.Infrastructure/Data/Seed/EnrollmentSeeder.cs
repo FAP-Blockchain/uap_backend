@@ -26,18 +26,6 @@ namespace Fap.Infrastructure.Data.Seed
         {
             var assignments = new List<(Guid ClassId, Guid StudentId, DateTime JoinedAt)>
             {
-                // Student 1 – SE graduate (history stays within SE curriculum)
-                (ClassSeeder.PRF192_Winter2025_A, TeacherStudentSeeder.Student1Id, new DateTime(2025, 11, 10)),
-                (ClassSeeder.CEA201_Winter2025_Evening, TeacherStudentSeeder.Student1Id, new DateTime(2025, 11, 12)),
-                (ClassSeeder.MAD101_Spring2026_A, TeacherStudentSeeder.Student1Id, new DateTime(2026, 1, 15)),
-                (ClassSeeder.PRO192_Spring2026_A, TeacherStudentSeeder.Student1Id, new DateTime(2026, 1, 16)),
-                (ClassSeeder.DBI202_Summer2026_A, TeacherStudentSeeder.Student1Id, new DateTime(2026, 5, 20)),
-                (ClassSeeder.CSD201_Summer2026_A, TeacherStudentSeeder.Student1Id, new DateTime(2026, 5, 21)),
-                (ClassSeeder.PRJ301_Fall2026_A, TeacherStudentSeeder.Student1Id, new DateTime(2026, 8, 9)),
-                (ClassSeeder.SWP391_Winter2026_A, TeacherStudentSeeder.Student1Id, new DateTime(2026, 9, 5)),
-                (ClassSeeder.SWT301_Winter2026_A, TeacherStudentSeeder.Student1Id, new DateTime(2026, 9, 6)),
-                (ClassSeeder.SEP490_Spring2027_A, TeacherStudentSeeder.Student1Id, new DateTime(2027, 2, 1)),
-
                 // Student 2 – Early SE student (stops after introductory courses)
                 (ClassSeeder.PRF192_Winter2025_A, TeacherStudentSeeder.Student2Id, new DateTime(2025, 11, 10)),
                 (ClassSeeder.CEA201_Winter2025_Evening, TeacherStudentSeeder.Student2Id, new DateTime(2025, 11, 12)),

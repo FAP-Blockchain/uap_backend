@@ -9,7 +9,7 @@ public class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<FapDbConte
 {
     public FapDbContext CreateDbContext(string[] args)
     {
-        // ✅ Trỏ đến thư mục Fap.Api để đọc appsettings.json
+
         var basePath = Path.Combine(Directory.GetCurrentDirectory(), "../Fap.Api");
         
         var config = new ConfigurationBuilder()
@@ -18,7 +18,7 @@ public class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<FapDbConte
             .AddEnvironmentVariables()
             .Build();
 
-        // ✅ Sửa key từ "Default" thành "DefaultConnection"
+
         var conn = config.GetConnectionString("DefaultConnection")
                  ?? "Server=localhost,1433;Database=FapDb;User Id=sa;Password=12345;TrustServerCertificate=True;Encrypt=False;";
 
