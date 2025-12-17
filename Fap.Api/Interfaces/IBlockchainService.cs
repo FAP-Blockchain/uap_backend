@@ -36,6 +36,12 @@ namespace Fap.Api.Interfaces
 
         Task<bool> IsContractDeployedAsync(string contractAddress);
 
+        /// <summary>
+        /// Decode known contract events from a transaction receipt.
+        /// Intended for audit logging (does not require the tx signer private key).
+        /// </summary>
+        Task<IReadOnlyList<(string EventName, string ContractAddress, string DetailJson)>> DecodeReceiptEventsAsync(string txHash);
+
         // ============ Credential Management (CredentialManagement.sol) ============
 
         /// <summary>

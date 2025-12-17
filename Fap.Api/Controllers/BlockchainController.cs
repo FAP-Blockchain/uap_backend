@@ -1,10 +1,15 @@
 using Fap.Api.Interfaces;
+using Fap.Api.DTOs.Blockchain;
+using Fap.Api.Extensions;
 using Fap.Domain.Enums;
 using Fap.Domain.Settings;
+using Fap.Domain.Entities;
+using Fap.Infrastructure.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json;
 
 namespace Fap.Api.Controllers
 {
@@ -16,13 +21,163 @@ namespace Fap.Api.Controllers
         private readonly BlockchainSettings _settings;
         private readonly IConfiguration _config;
         private readonly ILogger<BlockchainController> _logger;
+        private readonly FapDbContext _db;
 
-        public BlockchainController(IBlockchainService blockchain, IOptions<BlockchainSettings> settings, IConfiguration config, ILogger<BlockchainController> logger)
+        public BlockchainController(IBlockchainService blockchain, IOptions<BlockchainSettings> settings, IConfiguration config, ILogger<BlockchainController> logger, FapDbContext db)
         {
             _blockchain = blockchain;
             _settings = settings.Value;
             _config = config;
             _logger = logger;
+            _db = db;
+        }
+
+        /// <summary>
+        /// Audit helper: fetch tx receipt, decode known events, and persist them into ActionLogs.
+        /// Frontend signs the tx (MetaMask), backend reads receipt via RPC and stores audit trail.
+        /// </summary>
+        [HttpPost("tx-receipt")]
+        [Authorize]
+        public async Task<IActionResult> SaveTxReceiptAudit([FromBody] TxReceiptAuditRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(new { success = false, message = "Invalid request", errors = ModelState });
+            }
+
+            var userId = User.GetRequiredUserId();
+            var txHash = request.TxHash.Trim();
+
+            if (!txHash.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+            {
+                txHash = "0x" + txHash;
+            }
+
+            if (txHash.Length != 66)
+            {
+                return BadRequest(new { success = false, message = "TxHash must be 66 characters (0x + 64 hex)." });
+            }
+
+            var receipt = await _blockchain.GetTransactionReceiptAsync(txHash);
+            if (receipt == null)
+            {
+                return NotFound(new { success = false, message = "Transaction not found or still pending", transactionHash = txHash });
+            }
+
+            // Fetch tx for TxFrom/TxTo (auditability)
+            string? txFrom = null;
+            string? txTo = null;
+            try
+            {
+                var web3 = _blockchain.GetWeb3();
+                var tx = await web3.Eth.Transactions.GetTransactionByHash.SendRequestAsync(txHash);
+                txFrom = tx?.From;
+                txTo = tx?.To;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not resolve tx from/to for TxHash={TxHash}", txHash);
+            }
+
+            var decodedEvents = await _blockchain.DecodeReceiptEventsAsync(txHash);
+            var blockNumber = (long?)receipt.BlockNumber?.Value;
+
+            static string Truncate(string value, int maxLen)
+            {
+                if (string.IsNullOrEmpty(value)) return value;
+                return value.Length <= maxLen ? value : value[..maxLen];
+            }
+
+            // If no known events were decoded, still store a single audit record
+            if (decodedEvents.Count == 0)
+            {
+                var detail = JsonSerializer.Serialize(new
+                {
+                    request.Detail,
+                    transactionHash = txHash,
+                    blockNumber,
+                    from = receipt.From,
+                    to = receipt.To,
+                    status = receipt.Status?.Value,
+                    logsCount = receipt.Logs?.Length ?? 0
+                });
+
+                detail = Truncate(detail, 500);
+
+                _db.ActionLogs.Add(new ActionLog
+                {
+                    Id = Guid.NewGuid(),
+                    CreatedAt = DateTime.UtcNow,
+                    Action = request.Action ?? "CHAIN_TX",
+                    EventName = "UNKNOWN_EVENT",
+                    Detail = detail,
+                    UserId = userId,
+                    CredentialId = request.CredentialId,
+                    TransactionHash = txHash,
+                    BlockNumber = blockNumber,
+                    TxFrom = txFrom,
+                    TxTo = txTo,
+                    ContractAddress = receipt.To
+                });
+
+                await _db.SaveChangesAsync();
+                return Ok(new { success = true, transactionHash = txHash, blockNumber, saved = 1, events = Array.Empty<string>() });
+            }
+
+            var now = DateTime.UtcNow;
+            foreach (var ev in decodedEvents)
+            {
+                // Keep detail short to avoid nvarchar(500) truncation errors
+                string wrappedDetail;
+                if (string.IsNullOrWhiteSpace(request.Detail))
+                {
+                    wrappedDetail = ev.DetailJson;
+                }
+                else
+                {
+                    try
+                    {
+                        using var doc = JsonDocument.Parse(ev.DetailJson);
+                        wrappedDetail = JsonSerializer.Serialize(new
+                        {
+                            note = request.Detail,
+                            decoded = doc.RootElement.Clone()
+                        });
+                    }
+                    catch
+                    {
+                        wrappedDetail = $"{request.Detail} | {ev.DetailJson}";
+                    }
+                }
+
+                wrappedDetail = Truncate(wrappedDetail, 500);
+
+                _db.ActionLogs.Add(new ActionLog
+                {
+                    Id = Guid.NewGuid(),
+                    CreatedAt = now,
+                    Action = request.Action ?? "CHAIN_EVENT",
+                    EventName = ev.EventName,
+                    Detail = wrappedDetail,
+                    UserId = userId,
+                    CredentialId = request.CredentialId,
+                    TransactionHash = txHash,
+                    BlockNumber = blockNumber,
+                    TxFrom = txFrom,
+                    TxTo = txTo,
+                    ContractAddress = ev.ContractAddress
+                });
+            }
+
+            var savedCount = await _db.SaveChangesAsync();
+            return Ok(new
+            {
+                success = true,
+                transactionHash = txHash,
+                blockNumber,
+                saved = savedCount,
+                events = decodedEvents.Select(e => e.EventName).ToArray()
+            });
         }
 
         /// <summary>

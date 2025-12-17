@@ -7,7 +7,11 @@ using Fap.Domain.DTOs.Common;
 using Fap.Domain.DTOs.User;
 using Fap.Domain.Entities;
 using Fap.Domain.Repositories;
+using Fap.Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
+using Nethereum.RPC.Eth.DTOs;
+using System.Text.Json;
+using System.Globalization;
 
 namespace Fap.Api.Services
 {
@@ -18,14 +22,24 @@ namespace Fap.Api.Services
         private readonly IMapper _mapper;
         private readonly ILogger<UserService> _logger;
         private readonly ICloudStorageService _cloudStorageService;
+        private readonly IBlockchainService _blockchain;
+        private readonly FapDbContext _db;
         private readonly PasswordHasher<User> _hasher = new();
 
-        public UserService(IUnitOfWork uow, IMapper mapper, ILogger<UserService> logger, ICloudStorageService cloudStorageService)
+        public UserService(
+            IUnitOfWork uow,
+            IMapper mapper,
+            ILogger<UserService> logger,
+            ICloudStorageService cloudStorageService,
+            IBlockchainService blockchain,
+            FapDbContext db)
         {
             _uow = uow;
             _mapper = mapper;
             _logger = logger;
             _cloudStorageService = cloudStorageService;
+            _blockchain = blockchain;
+            _db = db;
         }
 
         public async Task<PagedResult<UserResponse>> GetUsersAsync(GetUsersRequest request)
@@ -351,8 +365,8 @@ namespace Fap.Api.Services
             }
         }
 
-        // Update user's blockchain registration info from frontend-provided data
-        public async Task<UpdateUserResponse> UpdateUserOnChainAsync(Guid userId, UpdateUserOnChainRequest request)
+        // Update user's blockchain registration info (backend fetches receipt & decodes logs)
+        public async Task<UpdateUserResponse> UpdateUserOnChainAsync(Guid userId, UpdateUserOnChainRequest request, Guid performedByUserId)
         {
             var response = new UpdateUserResponse
             {
@@ -376,18 +390,137 @@ namespace Fap.Api.Services
                     return response;
                 }
 
-                user.BlockchainTxHash = request.TransactionHash;
-                user.BlockNumber = request.BlockNumber;
-                user.BlockchainRegisteredAt = request.RegisteredAtUtc ?? DateTime.UtcNow;
+                var txHash = request.TransactionHash.Trim();
+
+                // 1) Fetch receipt from chain (do not trust FE-provided block number/time)
+                var receipt = await _blockchain.WaitForTransactionReceiptAsync(txHash, timeoutSeconds: 120);
+                var blockNumber = receipt.BlockNumber?.Value;
+                if (blockNumber == null)
+                {
+                    response.Errors.Add("Receipt did not include BlockNumber");
+                    response.Message = "Update failed";
+                    return response;
+                }
+
+                // 2) Derive timestamp from block
+                DateTime? registeredAtUtc = null;
+                try
+                {
+                    var web3 = _blockchain.GetWeb3();
+                    var block = await web3.Eth.Blocks
+                        .GetBlockWithTransactionsByNumber
+                        .SendRequestAsync(new BlockParameter(receipt.BlockNumber));
+
+                    if (block?.Timestamp?.Value != null)
+                    {
+                        var unixSeconds = (long)block.Timestamp.Value;
+                        registeredAtUtc = DateTimeOffset.FromUnixTimeSeconds(unixSeconds).UtcDateTime;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Could not resolve block timestamp for TxHash={TxHash}", txHash);
+                }
+
+                // 3) Decode known events for audit/validation
+                var decodedEvents = await _blockchain.DecodeReceiptEventsAsync(txHash);
+                var hasExpectedUserEvent = decodedEvents.Any(e =>
+                    string.Equals(e.EventName, "UserRegistered", StringComparison.Ordinal) ||
+                    string.Equals(e.EventName, "UserUpdated", StringComparison.Ordinal) ||
+                    string.Equals(e.EventName, "UserDeactivated", StringComparison.Ordinal));
+
+                if (!hasExpectedUserEvent)
+                {
+                    response.Errors.Add("Transaction receipt did not contain an expected user event (UserRegistered/UserUpdated/UserDeactivated)");
+                    response.Message = "Update failed";
+                    return response;
+                }
+
+                user.BlockchainTxHash = txHash;
+                user.BlockNumber = (long)blockNumber;
+                user.BlockchainRegisteredAt = registeredAtUtc ?? DateTime.UtcNow;
                 user.UpdatedAt = DateTime.UtcNow;
 
                 _uow.Users.Update(user);
                 await _uow.SaveChangesAsync();
 
+                // Fetch tx for TxFrom/TxTo (auditability)
+                string? txFrom = null;
+                string? txTo = null;
+                try
+                {
+                    var web3 = _blockchain.GetWeb3();
+                    var tx = await web3.Eth.Transactions.GetTransactionByHash.SendRequestAsync(txHash);
+                    txFrom = tx?.From;
+                    txTo = tx?.To;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Could not resolve tx from/to for TxHash={TxHash}", txHash);
+                }
+
+                // 4) Persist audit logs linked to this on-chain tx (actor is the admin performing the sync)
+                foreach (var e in decodedEvents)
+                {
+                    string detail;
+                    try
+                    {
+                        using var doc = JsonDocument.Parse(e.DetailJson);
+                        var root = doc.RootElement;
+                        object? indexedArgs = null;
+                        if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("indexedArgs", out var ia))
+                        {
+                            indexedArgs = ia.Clone();
+                        }
+
+                        detail = JsonSerializer.Serialize(new
+                        {
+                            targetUserId = userId,
+                            contractAddress = e.ContractAddress,
+                            eventName = e.EventName,
+                            indexedArgs
+                        });
+                    }
+                    catch
+                    {
+                        // Fallback: store raw decoded JSON string if parsing fails
+                        detail = JsonSerializer.Serialize(new
+                        {
+                            targetUserId = userId,
+                            contractAddress = e.ContractAddress,
+                            eventName = e.EventName,
+                            decoded = e.DetailJson
+                        });
+                    }
+
+                    if (detail.Length > 500)
+                    {
+                        detail = detail.Substring(0, 500);
+                    }
+
+                    _db.ActionLogs.Add(new ActionLog
+                    {
+                        Id = Guid.NewGuid(),
+                        CreatedAt = DateTime.UtcNow,
+                        Action = "USER_ONCHAIN_SYNC",
+                        Detail = detail,
+                        UserId = performedByUserId,
+                        TransactionHash = txHash,
+                        BlockNumber = (long)blockNumber,
+                        EventName = e.EventName,
+                        TxFrom = txFrom,
+                        TxTo = txTo,
+                        ContractAddress = e.ContractAddress,
+                        CredentialId = null
+                    });
+                }
+
+                await _db.SaveChangesAsync();
+
                 response.Success = true;
                 response.Message = "User on-chain info updated successfully";
                 _logger.LogInformation("User {UserId} blockchain info updated: TxHash={TxHash}, Block={Block}",
-                    userId, request.TransactionHash, request.BlockNumber);
+                    userId, txHash, (long)blockNumber);
 
                 return response;
             }

@@ -12,11 +12,13 @@ namespace Fap.Domain.DTOs.User
 
         /// <summary>
         /// Block number where the user registration transaction was included.
+        /// NOTE: This value is ignored by backend; it will be derived from the on-chain receipt.
         /// </summary>
         public long BlockNumber { get; set; }
 
         /// <summary>
-        /// Optional: on-chain registration timestamp (UTC). If not provided, server will use current time.
+        /// Optional: on-chain registration timestamp (UTC).
+        /// NOTE: This value is ignored by backend; it will be derived from the on-chain block timestamp when possible.
         /// </summary>
         public DateTime? RegisteredAtUtc { get; set; }
     }

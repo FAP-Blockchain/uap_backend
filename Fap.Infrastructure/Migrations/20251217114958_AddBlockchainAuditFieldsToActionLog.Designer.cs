@@ -4,6 +4,7 @@ using Fap.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Fap.Infrastructure.Migrations
 {
     [DbContext(typeof(FapDbContext))]
-    partial class FapDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251217114958_AddBlockchainAuditFieldsToActionLog")]
+    partial class AddBlockchainAuditFieldsToActionLog
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -36,10 +39,6 @@ namespace Fap.Infrastructure.Migrations
                     b.Property<long?>("BlockNumber")
                         .HasColumnType("bigint");
 
-                    b.Property<string>("ContractAddress")
-                        .HasMaxLength(42)
-                        .HasColumnType("nvarchar(42)");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -59,14 +58,6 @@ namespace Fap.Infrastructure.Migrations
                         .HasMaxLength(66)
                         .HasColumnType("nvarchar(66)");
 
-                    b.Property<string>("TxFrom")
-                        .HasMaxLength(42)
-                        .HasColumnType("nvarchar(42)");
-
-                    b.Property<string>("TxTo")
-                        .HasMaxLength(42)
-                        .HasColumnType("nvarchar(42)");
-
                     b.Property<Guid>("UserId")
                         .HasColumnType("uniqueidentifier");
 
@@ -75,19 +66,10 @@ namespace Fap.Infrastructure.Migrations
                     b.HasIndex("BlockNumber")
                         .HasDatabaseName("IX_ActionLogs_BlockNumber");
 
-                    b.HasIndex("ContractAddress")
-                        .HasDatabaseName("IX_ActionLogs_ContractAddress");
-
                     b.HasIndex("CredentialId");
 
                     b.HasIndex("TransactionHash")
                         .HasDatabaseName("IX_ActionLogs_TransactionHash");
-
-                    b.HasIndex("TxFrom")
-                        .HasDatabaseName("IX_ActionLogs_TxFrom");
-
-                    b.HasIndex("TxTo")
-                        .HasDatabaseName("IX_ActionLogs_TxTo");
 
                     b.HasIndex("UserId");
 

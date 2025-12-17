@@ -45,6 +45,27 @@ namespace Fap.Infrastructure.Data
         {
             base.OnModelCreating(modelBuilder);
 
+            // ==================== INDEXES (AUDITABILITY) ====================
+            modelBuilder.Entity<ActionLog>()
+                .HasIndex(al => al.TransactionHash)
+                .HasDatabaseName("IX_ActionLogs_TransactionHash");
+
+            modelBuilder.Entity<ActionLog>()
+                .HasIndex(al => al.BlockNumber)
+                .HasDatabaseName("IX_ActionLogs_BlockNumber");
+
+            modelBuilder.Entity<ActionLog>()
+                .HasIndex(al => al.TxFrom)
+                .HasDatabaseName("IX_ActionLogs_TxFrom");
+
+            modelBuilder.Entity<ActionLog>()
+                .HasIndex(al => al.TxTo)
+                .HasDatabaseName("IX_ActionLogs_TxTo");
+
+            modelBuilder.Entity<ActionLog>()
+                .HasIndex(al => al.ContractAddress)
+                .HasDatabaseName("IX_ActionLogs_ContractAddress");
+
             // ==================== DECIMAL PRECISION ====================
             // Grade.Score
             modelBuilder.Entity<Grade>()
