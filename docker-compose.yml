@@ -1,0 +1,38 @@
+name: fap-backend
+
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:-ChangeMe_12345}"
+    ports:
+      - "1433:1433"
+    volumes:
+      - mssql_data:/var/opt/mssql
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      - db
+    environment:
+      # Kestrel
+      PORT: "8080"
+      ASPNETCORE_ENVIRONMENT: "Production"
+
+      # Use ASP.NET Core's env var mapping for connection strings:
+      # ConnectionStrings:DefaultConnection => ConnectionStrings__DefaultConnection
+      ConnectionStrings__DefaultConnection: "Server=db,1433;Database=FapDb;User Id=sa;Password=${MSSQL_SA_PASSWORD:-ChangeMe_12345};TrustServerCertificate=True;Encrypt=False;"
+
+      # IMPORTANT: move the below secrets into real env vars/secret manager in production
+      Jwt__Key: "${JWT_KEY:-}" 
+      EmailSettings__Password: "${EMAIL_PASSWORD:-}"
+      IpfsSettings__ApiSecret: "${PINATA_API_SECRET:-}"
+      CloudinarySettings__ApiSecret: "${CLOUDINARY_API_SECRET:-}"
+    ports:
+      - "8080:8080"
+
+volumes:
+  mssql_data:
