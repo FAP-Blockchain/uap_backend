@@ -1,6 +1,9 @@
 using System.Linq;
 using System.Numerics;
 using System.Text;
+using System.Text.Json;
+using System.Globalization;
+using System.Collections.Generic;
 using Fap.Api.Interfaces;
 using Fap.Domain.Enums;
 using Fap.Domain.Settings;
@@ -10,6 +13,7 @@ using Nethereum.Contracts;
 using Nethereum.Hex.HexConvertors.Extensions;
 using Nethereum.Hex.HexTypes;
 using Nethereum.RPC.Eth.DTOs;
+using Nethereum.Util;
 using Nethereum.Web3;
 using Nethereum.Web3.Accounts;
 
@@ -230,6 +234,166 @@ namespace Fap.Api.Services
         {
             var code = await _web3.Eth.GetCode.SendRequestAsync(contractAddress);
             return code != "0x" && code != "0x0" && !string.IsNullOrEmpty(code);
+        }
+
+        // ==================== RECEIPT EVENT DECODING (AUDITABILITY) ====================
+
+        private record KnownEventDefinition(
+            string EventName,
+            string Signature,
+            (string Name, string Type)[] IndexedArgs
+        );
+
+        private static readonly IReadOnlyDictionary<string, KnownEventDefinition> KnownEventTopic0Map =
+            BuildKnownEventTopic0Map();
+
+        private static IReadOnlyDictionary<string, KnownEventDefinition> BuildKnownEventTopic0Map()
+        {
+            var sha3 = new Sha3Keccack();
+
+            // NOTE: These are the events your UAP contracts emit (UniversityManagement + Roles library)
+            // plus key events in CredentialManagement/AttendanceManagement already present in this service.
+            var events = new List<KnownEventDefinition>
+            {
+                // Roles.sol (library events) - appear in receipt logs
+                new(
+                    EventName: "RoleGranted",
+                    Signature: "RoleGranted(address,uint8,address)",
+                    IndexedArgs: new[] { ("account","address"), ("grantedBy","address") }
+                ),
+                new(
+                    EventName: "RoleRevoked",
+                    Signature: "RoleRevoked(address,uint8,address)",
+                    IndexedArgs: new[] { ("account","address"), ("revokedBy","address") }
+                ),
+
+                // UniversityManagement.sol
+                new(
+                    EventName: "UserRegistered",
+                    Signature: "UserRegistered(address,string,uint8)",
+                    IndexedArgs: new[] { ("userAddress","address") }
+                ),
+                new(
+                    EventName: "UserUpdated",
+                    Signature: "UserUpdated(address,string)",
+                    IndexedArgs: new[] { ("userAddress","address") }
+                ),
+                new(
+                    EventName: "UserDeactivated",
+                    Signature: "UserDeactivated(address)",
+                    IndexedArgs: new[] { ("userAddress","address") }
+                ),
+                new(
+                    EventName: "ContractUpdated",
+                    Signature: "ContractUpdated(string,address)",
+                    IndexedArgs: Array.Empty<(string, string)>()
+                ),
+
+                // CredentialManagement.sol (event is also present in CredentialManagementAbi)
+                new(
+                    EventName: "CredentialIssued",
+                    Signature: "CredentialIssued(uint256,address,string,address)",
+                    IndexedArgs: new[] { ("credentialId","uint256"), ("studentAddress","address"), ("issuedBy","address") }
+                ),
+
+                // AttendanceManagement.sol
+                new(
+                    EventName: "AttendanceMarked",
+                    Signature: "AttendanceMarked(uint256,uint256,address,uint8,address)",
+                    IndexedArgs: new[] { ("recordId","uint256"), ("classId","uint256"), ("studentAddress","address") }
+                ),
+                new(
+                    EventName: "AttendanceUpdated",
+                    Signature: "AttendanceUpdated(uint256,uint8,uint8,address)",
+                    IndexedArgs: new[] { ("recordId","uint256") }
+                ),
+            };
+
+            return events.ToDictionary(
+                e => ("0x" + sha3.CalculateHash(e.Signature)).ToLowerInvariant(),
+                e => e
+            );
+        }
+
+        private static string? DecodeIndexedAddressTopic(string topic)
+        {
+            if (string.IsNullOrWhiteSpace(topic)) return null;
+            var hex = topic.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ? topic[2..] : topic;
+            if (hex.Length < 40) return null;
+            var addr = hex[^40..];
+            return "0x" + addr.ToLowerInvariant();
+        }
+
+        private static string DecodeIndexedUint256Topic(string topic)
+        {
+            var hex = topic.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ? topic[2..] : topic;
+            // BigInteger.Parse requires culture-invariant hex parsing
+            var value = BigInteger.Parse("0" + hex, NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture);
+            return value.ToString(CultureInfo.InvariantCulture);
+        }
+
+        private static List<FilterLog> ExtractFilterLogs(TransactionReceipt receipt)
+        {
+            // In current Nethereum versions used by this repo, TransactionReceipt.Logs is FilterLog[].
+            return receipt.Logs?.ToList() ?? new List<FilterLog>();
+        }
+
+        public async Task<IReadOnlyList<(string EventName, string ContractAddress, string DetailJson)>> DecodeReceiptEventsAsync(string txHash)
+        {
+            var receipt = await GetTransactionReceiptAsync(txHash);
+            if (receipt == null)
+            {
+                return Array.Empty<(string, string, string)>();
+            }
+
+            var decoded = new List<(string EventName, string ContractAddress, string DetailJson)>();
+            var logs = ExtractFilterLogs(receipt);
+            // Serialize as string to avoid System.Text.Json emitting BigInteger internal fields.
+            var blockNumber = receipt.BlockNumber?.Value.ToString(CultureInfo.InvariantCulture);
+
+            foreach (var log in logs)
+            {
+                if (log.Topics == null || log.Topics.Length == 0) continue;
+                var topic0 = (log.Topics[0]?.ToString() ?? string.Empty).ToLowerInvariant();
+                if (!KnownEventTopic0Map.TryGetValue(topic0, out var def))
+                {
+                    continue; // only decode known events
+                }
+
+                var indexed = new Dictionary<string, object?>();
+                // Topics[0] = signature; Topics[1..] = indexed params (if any)
+                for (var i = 0; i < def.IndexedArgs.Length; i++)
+                {
+                    var topicIndex = i + 1;
+                    if (log.Topics.Length <= topicIndex) break;
+                    var (name, type) = def.IndexedArgs[i];
+                    var topic = log.Topics[topicIndex]?.ToString() ?? string.Empty;
+                    object? value = type switch
+                    {
+                        "address" => DecodeIndexedAddressTopic(topic),
+                        "uint256" => DecodeIndexedUint256Topic(topic),
+                        _ => topic
+                    };
+                    indexed[name] = value;
+                }
+
+                var contractAddress = log.Address?.ToString() ?? string.Empty;
+
+                // Keep payload compact to fit ActionLog.Detail (nvarchar(500))
+                var detailJson = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    transactionHash = txHash,
+                    blockNumber,
+                    contractAddress,
+                    eventName = def.EventName,
+                    signature = def.Signature,
+                    indexedArgs = indexed
+                });
+
+                decoded.Add((def.EventName, contractAddress, detailJson));
+            }
+
+            return decoded;
         }
 
         #region Credential Management Contract Methods

@@ -2,6 +2,7 @@ using Fap.Api.Interfaces;
 using Fap.Api.Services;
 using Fap.Domain.DTOs.User;
 using Fap.Api.DTOs.User;
+using Fap.Api.Extensions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Http;
@@ -196,7 +197,8 @@ namespace Fap.Api.Controllers
         {
             try
             {
-                var result = await _userService.UpdateUserOnChainAsync(id, request);
+                var performedByUserId = User.GetRequiredUserId();
+                var result = await _userService.UpdateUserOnChainAsync(id, request, performedByUserId);
 
                 if (!result.Success)
                 {
