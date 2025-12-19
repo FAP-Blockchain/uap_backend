@@ -33,11 +33,44 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Authenticate to Google Cloud (WIF)
+      - name: Validate Google Cloud auth secrets
+        shell: bash
+        run: |
+          WIF_PROVIDER='${{ secrets.GCP_WIF_PROVIDER }}'
+          WIF_SA='${{ secrets.GCP_SERVICE_ACCOUNT }}'
+          CREDS_JSON='${{ secrets.GCP_CREDENTIALS_JSON }}'
+
+          if [ -n "$WIF_PROVIDER" ] && [ -n "$CREDS_JSON" ]; then
+            echo "ERROR: Configure exactly one auth method: either GCP_WIF_PROVIDER (+ GCP_SERVICE_ACCOUNT) OR GCP_CREDENTIALS_JSON."
+            exit 1
+          fi
+
+          if [ -z "$WIF_PROVIDER" ] && [ -z "$CREDS_JSON" ]; then
+            echo "ERROR: Missing Google Cloud auth secrets. Set either:"
+            echo "- GCP_WIF_PROVIDER and GCP_SERVICE_ACCOUNT (recommended), or"
+            echo "- GCP_CREDENTIALS_JSON (service account key JSON)."
+            exit 1
+          fi
+
+          if [ -n "$WIF_PROVIDER" ] && [ -z "$WIF_SA" ]; then
+            echo "ERROR: GCP_WIF_PROVIDER is set but GCP_SERVICE_ACCOUNT is empty."
+            exit 1
+          fi
+
+          echo "Auth secrets look OK."
+
+      - name: Authenticate to Google Cloud (Workload Identity Federation)
+        if: ${{ secrets.GCP_WIF_PROVIDER != '' && secrets.GCP_SERVICE_ACCOUNT != '' }}
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Authenticate to Google Cloud (Credentials JSON)
+        if: ${{ secrets.GCP_CREDENTIALS_JSON != '' }}
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_CREDENTIALS_JSON }}
 
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
