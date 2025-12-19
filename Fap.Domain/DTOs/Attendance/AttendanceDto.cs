@@ -11,7 +11,7 @@ public class AttendanceOnChainPayloadDto
     public string AttendanceDataJson { get; set; } = string.Empty;
     public long ExpiresAtUnix { get; set; }
 }
-
+//testing git ignore
 public class AttendanceDto
 {
     public Guid Id { get; set; }
