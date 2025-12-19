@@ -1,0 +1,32 @@
+# Cloud Build pipeline: build Docker image, push to Artifact Registry, deploy Cloud Run
+
+steps:
+  # 1. Build Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      [ 'build', '-t', 'asia-southeast1-docker.pkg.dev/uap-blockchain/uap-backend/fap-api:$COMMIT_SHA', '.' ]
+
+  # 2. Push image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      [ 'push', 'asia-southeast1-docker.pkg.dev/uap-blockchain/uap-backend/fap-api:$COMMIT_SHA' ]
+
+  # 3. Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      [ 'run', 'deploy', 'fap-api',
+        '--image=asia-southeast1-docker.pkg.dev/uap-blockchain/uap-backend/fap-api:$COMMIT_SHA',
+        '--region=asia-southeast1',
+        '--platform=managed',
+        '--allow-unauthenticated',
+        '--port=8080' ]
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+# Nếu bạn dùng service account riêng, cần thêm logs bucket vào trigger UI:
+#   gs://uap-build-logs
+# (Tạo bucket này trên Google Cloud Storage trước)
+
+# Thay đổi tên service/image/region nếu bạn muốn deploy sang service khác.
