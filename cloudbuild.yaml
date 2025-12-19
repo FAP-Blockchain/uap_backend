@@ -4,19 +4,19 @@ steps:
   # 1. Build Docker image
   - name: 'gcr.io/cloud-builders/docker'
     args:
-      [ 'build', '-t', 'asia-southeast1-docker.pkg.dev/uap-blockchain/uap-backend/fap-api:$COMMIT_SHA', '.' ]
+      [ 'build', '-t', 'asia-southeast1-docker.pkg.dev/uap-blockchain/uap-backend/uap-api:$COMMIT_SHA', '.' ]
 
   # 2. Push image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
     args:
-      [ 'push', 'asia-southeast1-docker.pkg.dev/uap-blockchain/uap-backend/fap-api:$COMMIT_SHA' ]
+      [ 'push', 'asia-southeast1-docker.pkg.dev/uap-blockchain/uap-backend/uap-api:$COMMIT_SHA' ]
 
   # 3. Deploy to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: 'gcloud'
     args:
-      [ 'run', 'deploy', 'fap-api',
-        '--image=asia-southeast1-docker.pkg.dev/uap-blockchain/uap-backend/fap-api:$COMMIT_SHA',
+      [ 'run', 'deploy', 'uap-api',
+        '--image=asia-southeast1-docker.pkg.dev/uap-blockchain/uap-backend/uap-api:$COMMIT_SHA',
         '--region=asia-southeast1',
         '--platform=managed',
         '--allow-unauthenticated',

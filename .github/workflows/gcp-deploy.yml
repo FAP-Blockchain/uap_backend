@@ -1,0 +1,47 @@
+name: Deploy UAP API to Google Cloud Run
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+# This workflow triggers Cloud Build using cloudbuild.yaml (already in repo).
+# Required GitHub Secrets (recommended: Workload Identity Federation):
+# - GCP_WIF_PROVIDER: Workload identity provider resource name
+#   e.g. projects/123456789/locations/global/workloadIdentityPools/POOL/providers/PROVIDER
+# - GCP_SERVICE_ACCOUNT: Service account email used by GitHub Actions
+#   e.g. gha-deployer@uap-blockchain.iam.gserviceaccount.com
+#
+# The service account needs (at minimum):
+# - roles/cloudbuild.builds.editor (or builds.builder + permissions)
+# - roles/run.admin
+# - roles/iam.serviceAccountUser (on the runtime/deploy SA if applicable)
+# - roles/artifactregistry.writer
+#
+# Optional: if you prefer JSON key auth (NOT recommended), you can switch auth step.
+
+jobs:
+  deploy:
+    name: Build & Deploy (Cloud Build -> Cloud Run)
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (WIF)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Submit Cloud Build
+        run: |
+          gcloud --quiet builds submit --config cloudbuild.yaml .

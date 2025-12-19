@@ -1,8 +1,6 @@
-﻿name: Deploy FAP API to Azure with DB Migrations
+﻿name: Deploy UAP API to Azure with DB Migrations
 
 on:
-  push:
-    branches: [ main ]  
   workflow_dispatch:
 
 env:
