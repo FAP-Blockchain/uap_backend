@@ -162,7 +162,8 @@ namespace Fap.Api.Controllers
         {
             try
             {
-                var result = await _credentialService.SaveCredentialOnChainAsync(id, request);
+                var userId = GetCurrentUserId();
+                var result = await _credentialService.SaveCredentialOnChainAsync(id, request, userId);
                 if (!result.Success)
                 {
                     return BadRequest(new ProblemDetails

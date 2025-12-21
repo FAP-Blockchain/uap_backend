@@ -7,6 +7,7 @@ using Fap.Domain.Entities;
 using Fap.Domain.Repositories;
 using Fap.Domain.Settings;
 using Fap.Domain.Enums;
+using Fap.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using System.Globalization;
@@ -24,6 +25,8 @@ namespace Fap.Api.Services
         private readonly IConfiguration _configuration;
         private readonly FrontendSettings _frontendSettings;
         private readonly IBlockchainService _blockchainService;
+        private readonly FapDbContext _db;
+        private readonly BlockchainSettings _blockchainSettings;
         private readonly IPdfService _pdfService;
         private readonly ICloudStorageService _cloudStorageService;
         private readonly IIpfsService _ipfsService;
@@ -34,7 +37,9 @@ namespace Fap.Api.Services
                     ILogger<CredentialService> logger,
           IConfiguration configuration,
           IOptions<FrontendSettings> frontendOptions,
+                    IOptions<BlockchainSettings> blockchainOptions,
           IBlockchainService blockchainService,
+                    FapDbContext db,
           IPdfService pdfService,
                     ICloudStorageService cloudStorageService,
                     IIpfsService ipfsService)
@@ -44,7 +49,9 @@ namespace Fap.Api.Services
             _logger = logger;
             _configuration = configuration;
             _frontendSettings = frontendOptions.Value;
+                        _blockchainSettings = blockchainOptions.Value;
             _blockchainService = blockchainService;
+                        _db = db;
             _pdfService = pdfService;
             _cloudStorageService = cloudStorageService;
             _ipfsService = ipfsService;
@@ -501,7 +508,7 @@ overallGPA >= 8.0m ? "Second Class Honours (Upper)" :
             }
         }
 
-        public async Task<ServiceResult<bool>> SaveCredentialOnChainAsync(Guid credentialId, SaveCredentialOnChainRequest request)
+        public async Task<ServiceResult<bool>> SaveCredentialOnChainAsync(Guid credentialId, SaveCredentialOnChainRequest request, Guid performedByUserId)
         {
             try
             {
@@ -511,20 +518,233 @@ overallGPA >= 8.0m ? "Second Class Honours (Upper)" :
                     return ServiceResult<bool>.Fail("Credential not found");
                 }
 
+                if (string.IsNullOrWhiteSpace(request.TransactionHash))
+                {
+                    return ServiceResult<bool>.Fail("TransactionHash is required");
+                }
+
+                var txHash = request.TransactionHash.Trim();
+                if (!txHash.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+                {
+                    txHash = "0x" + txHash;
+                }
+
+                if (txHash.Length != 66)
+                {
+                    return ServiceResult<bool>.Fail("TxHash must be 66 characters (0x + 64 hex).");
+                }
+
+                // 1) Fetch receipt from chain (do not trust FE for block/time)
+                Nethereum.RPC.Eth.DTOs.TransactionReceipt receipt;
+                try
+                {
+                    receipt = await _blockchainService.WaitForTransactionReceiptAsync(txHash, timeoutSeconds: 120);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Could not fetch transaction receipt for TxHash={TxHash}", txHash);
+                    return ServiceResult<bool>.Fail("Could not fetch transaction receipt (timeout or invalid txHash)");
+                }
+
+                var blockNumber = receipt.BlockNumber?.Value;
+                if (blockNumber == null)
+                {
+                    return ServiceResult<bool>.Fail("Receipt did not include BlockNumber");
+                }
+
+                // 2) Decode known events for audit/validation
+                IReadOnlyList<(string EventName, string ContractAddress, string DetailJson)> decodedEvents;
+                try
+                {
+                    decodedEvents = await _blockchainService.DecodeReceiptEventsAsync(txHash);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Could not decode receipt events for TxHash={TxHash}", txHash);
+                    decodedEvents = Array.Empty<(string, string, string)>();
+                }
+
+                // Only log/validate credential issuance event
+                var issueEvents = decodedEvents
+                    .Where(e => string.Equals(e.EventName, "CredentialIssued", StringComparison.Ordinal))
+                    .ToList();
+
+                if (issueEvents.Count == 0)
+                {
+                    return ServiceResult<bool>.Fail("Transaction receipt did not contain an expected credential event (CredentialIssued)");
+                }
+
+                // 3) Fetch tx for TxFrom/TxTo (auditability) + optional contract target validation
+                string? txFrom = null;
+                string? txTo = null;
+                try
+                {
+                    var web3 = _blockchainService.GetWeb3();
+                    var tx = await web3.Eth.Transactions.GetTransactionByHash.SendRequestAsync(txHash);
+                    txFrom = tx?.From;
+                    txTo = tx?.To;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Could not resolve tx from/to for TxHash={TxHash}", txHash);
+                }
+
+                var expectedContractAddress = _blockchainSettings.Contracts?.CredentialManagement;
+                if (!string.IsNullOrWhiteSpace(expectedContractAddress) &&
+                    !string.IsNullOrWhiteSpace(txTo) &&
+                    !string.Equals(txTo, expectedContractAddress, StringComparison.OrdinalIgnoreCase))
+                {
+                    return ServiceResult<bool>.Fail("Transaction did not target CredentialManagement contract");
+                }
+
+                // Choose the most relevant CredentialIssued event (match student wallet if possible)
+                var studentWallet = credential.Student?.User?.WalletAddress;
+                (string EventName, string ContractAddress, string DetailJson) selectedEvent = issueEvents[0];
+                if (!string.IsNullOrWhiteSpace(studentWallet))
+                {
+                    foreach (var ev in issueEvents)
+                    {
+                        try
+                        {
+                            using var doc = JsonDocument.Parse(ev.DetailJson);
+                            if (doc.RootElement.ValueKind == JsonValueKind.Object &&
+                                doc.RootElement.TryGetProperty("indexedArgs", out var ia) &&
+                                ia.ValueKind == JsonValueKind.Object &&
+                                ia.TryGetProperty("studentAddress", out var sa))
+                            {
+                                var addr = sa.GetString();
+                                if (!string.IsNullOrWhiteSpace(addr) &&
+                                    string.Equals(addr, studentWallet, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    selectedEvent = ev;
+                                    break;
+                                }
+                            }
+                        }
+                        catch
+                        {
+                            // ignore parse errors
+                        }
+                    }
+                }
+
+                // Extract indexed args for validation
+                long? decodedBlockchainCredentialId = null;
+                string? decodedStudentAddress = null;
+                try
+                {
+                    using var doc = JsonDocument.Parse(selectedEvent.DetailJson);
+                    if (doc.RootElement.ValueKind == JsonValueKind.Object &&
+                        doc.RootElement.TryGetProperty("indexedArgs", out var ia) &&
+                        ia.ValueKind == JsonValueKind.Object)
+                    {
+                        if (ia.TryGetProperty("credentialId", out var cid))
+                        {
+                            var s = cid.GetString();
+                            if (!string.IsNullOrWhiteSpace(s) && long.TryParse(s, out var parsed))
+                            {
+                                decodedBlockchainCredentialId = parsed;
+                            }
+                        }
+                        if (ia.TryGetProperty("studentAddress", out var sa))
+                        {
+                            decodedStudentAddress = sa.GetString();
+                        }
+                    }
+                }
+                catch
+                {
+                    // ignore
+                }
+
+                if (decodedBlockchainCredentialId.HasValue && decodedBlockchainCredentialId.Value != request.BlockchainCredentialId)
+                {
+                    return ServiceResult<bool>.Fail("BlockchainCredentialId does not match decoded CredentialIssued event");
+                }
+
+                if (!string.IsNullOrWhiteSpace(studentWallet) && !string.IsNullOrWhiteSpace(decodedStudentAddress) &&
+                    !string.Equals(decodedStudentAddress, studentWallet, StringComparison.OrdinalIgnoreCase))
+                {
+                    return ServiceResult<bool>.Fail("Transaction CredentialIssued studentAddress does not match student's wallet");
+                }
+
                 credential.BlockchainCredentialId = request.BlockchainCredentialId;
-                credential.BlockchainTransactionHash = request.TransactionHash;
+                credential.BlockchainTransactionHash = txHash;
                 credential.BlockchainStoredAt = DateTime.UtcNow;
                 credential.IsOnBlockchain = true;
                 credential.UpdatedAt = DateTime.UtcNow;
 
                 _uow.Credentials.Update(credential);
+
+                // 4) Persist ActionLogs for audit trail
+                string detail;
+                try
+                {
+                    using var doc = JsonDocument.Parse(selectedEvent.DetailJson);
+                    var root = doc.RootElement;
+                    object? indexedArgs = null;
+                    if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("indexedArgs", out var ia))
+                    {
+                        indexedArgs = ia.Clone();
+                    }
+
+                    detail = JsonSerializer.Serialize(new
+                    {
+                        credentialId,
+                        credentialNumber = credential.CredentialId,
+                        studentId = credential.StudentId,
+                        certificateType = credential.CertificateType,
+                        blockchainCredentialId = request.BlockchainCredentialId,
+                        studentWalletAddress = studentWallet,
+                        contractAddress = selectedEvent.ContractAddress,
+                        eventName = selectedEvent.EventName,
+                        indexedArgs
+                    });
+                }
+                catch
+                {
+                    detail = JsonSerializer.Serialize(new
+                    {
+                        credentialId,
+                        credentialNumber = credential.CredentialId,
+                        studentId = credential.StudentId,
+                        certificateType = credential.CertificateType,
+                        blockchainCredentialId = request.BlockchainCredentialId,
+                        studentWalletAddress = studentWallet,
+                        contractAddress = selectedEvent.ContractAddress,
+                        eventName = selectedEvent.EventName,
+                        decoded = selectedEvent.DetailJson
+                    });
+                }
+
+                if (detail.Length > 500)
+                {
+                    detail = detail.Substring(0, 500);
+                }
+
+                _db.ActionLogs.Add(new ActionLog
+                {
+                    Id = Guid.NewGuid(),
+                    CreatedAt = DateTime.UtcNow,
+                    Action = "CREDENTIAL_ONCHAIN_SYNC",
+                    Detail = detail,
+                    UserId = performedByUserId,
+                    CredentialId = credentialId,
+                    TransactionHash = txHash,
+                    BlockNumber = (long)blockNumber,
+                    EventName = selectedEvent.EventName,
+                    TxFrom = txFrom,
+                    TxTo = txTo,
+                    ContractAddress = selectedEvent.ContractAddress
+                });
+
                 await _uow.SaveChangesAsync();
 
                 _logger.LogInformation(
                     "Saved on-chain data for credential {CredentialId}: BlockchainId={BlockchainId}, Tx={TxHash}",
                     credentialId,
                     request.BlockchainCredentialId,
-                    request.TransactionHash);
+                    txHash);
 
                 return ServiceResult<bool>.SuccessResponse(true);
             }

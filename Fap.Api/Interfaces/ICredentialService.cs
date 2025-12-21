@@ -15,7 +15,7 @@ namespace Fap.Api.Interfaces
         Task<CredentialDetailDto?> GetCredentialByIdAsync(Guid id);
         Task<CredentialDetailDto> CreateCredentialAsync(CreateCredentialRequest request, Guid createdBy);
         Task<ServiceResult<CredentialDetailDto>> IssueCredentialAsync(IssueCredentialDto request); // ✅ NEW - Admin Issue Credential
-        Task<ServiceResult<bool>> SaveCredentialOnChainAsync(Guid credentialId, SaveCredentialOnChainRequest request);
+        Task<ServiceResult<bool>> SaveCredentialOnChainAsync(Guid credentialId, SaveCredentialOnChainRequest request, Guid performedByUserId);
         Task<CredentialDetailDto> ReviewCredentialAsync(Guid credentialId, ReviewCredentialRequest request, Guid reviewedBy);
         Task RevokeCredentialAsync(Guid credentialId, RevokeCredentialRequest request, Guid revokedBy);
 
