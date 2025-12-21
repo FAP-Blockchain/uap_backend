@@ -1,4 +1,5 @@
 using Fap.Api.Interfaces;
+using Fap.Api.Extensions;
 using Fap.Domain.DTOs.Grade;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -193,7 +194,8 @@ namespace Fap.Api.Controllers
         {
             try
             {
-                var result = await _gradeService.SaveGradeOnChainAsync(id, request);
+                var userId = User.GetRequiredUserId();
+                var result = await _gradeService.SaveGradeOnChainAsync(id, request, userId);
 
                 if (!result.Success)
                 {

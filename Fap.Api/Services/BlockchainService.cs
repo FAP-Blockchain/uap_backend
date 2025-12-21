@@ -307,6 +307,13 @@ namespace Fap.Api.Services
                     Signature: "AttendanceUpdated(uint256,uint8,uint8,address)",
                     IndexedArgs: new[] { ("recordId","uint256") }
                 ),
+
+                // GradeManagement.sol
+                new(
+                    EventName: "GradeRecorded",
+                    Signature: "GradeRecorded(uint256,uint256,address,string,uint256,address)",
+                    IndexedArgs: new[] { ("gradeId","uint256"), ("classId","uint256"), ("studentAddress","address") }
+                ),
             };
 
             return events.ToDictionary(

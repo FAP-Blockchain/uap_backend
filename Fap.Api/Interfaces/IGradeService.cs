@@ -34,6 +34,6 @@ namespace Fap.Api.Interfaces
         /// <summary>
         /// Lưu thông tin transaction on-chain của grade (recordGrade/updateGrade/...)
         /// </summary>
-        Task<ServiceResult<bool>> SaveGradeOnChainAsync(Guid gradeId, SaveGradeOnChainRequest request);
+        Task<ServiceResult<bool>> SaveGradeOnChainAsync(Guid gradeId, SaveGradeOnChainRequest request, Guid performedByUserId);
     }
 }
