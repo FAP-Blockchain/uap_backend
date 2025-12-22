@@ -100,6 +100,13 @@ namespace Fap.Api.Interfaces
         /// Get attendance record data from chain
         /// </summary>
         Task<Services.BlockchainService.AttendanceOnChainStructDto> GetAttendanceFromChainAsync(long blockchainRecordId);
+
+        // ============ Grade Management (GradeManagement.sol) ============
+
+        /// <summary>
+        /// Get grade record data from chain
+        /// </summary>
+        Task<Services.BlockchainService.GradeOnChainStructDto> GetGradeFromChainAsync(long blockchainGradeId);
     }
 
     // DTO type is declared in BlockchainService to carry Nethereum attributes.

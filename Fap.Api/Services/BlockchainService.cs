@@ -917,6 +917,50 @@ namespace Fap.Api.Services
                         public BigInteger RecordId { get; set; }
                 }
 
+                [FunctionOutput]
+                public class GradeOnChainStructDto : IFunctionOutputDTO
+                {
+                    [Parameter("uint256", "gradeId", 1)]
+                    public BigInteger GradeId { get; set; }
+
+                    [Parameter("uint256", "classId", 2)]
+                    public BigInteger ClassId { get; set; }
+
+                    [Parameter("address", "studentAddress", 3)]
+                    public string StudentAddress { get; set; } = string.Empty;
+
+                    [Parameter("string", "componentName", 4)]
+                    public string ComponentName { get; set; } = string.Empty;
+
+                    [Parameter("uint256", "score", 5)]
+                    public BigInteger Score { get; set; }
+
+                    [Parameter("uint256", "maxScore", 6)]
+                    public BigInteger MaxScore { get; set; }
+
+                    [Parameter("uint8", "status", 7)]
+                    public byte Status { get; set; }
+
+                    [Parameter("address", "gradedBy", 8)]
+                    public string GradedBy { get; set; } = string.Empty;
+
+                    [Parameter("uint256", "gradedAt", 9)]
+                    public BigInteger GradedAt { get; set; }
+
+                    [Parameter("address", "approvedBy", 10)]
+                    public string ApprovedBy { get; set; } = string.Empty;
+
+                    [Parameter("uint256", "approvedAt", 11)]
+                    public BigInteger ApprovedAt { get; set; }
+                }
+
+                [Function("getGrade", typeof(GradeOnChainStructDto))]
+                public class GetGradeFunction : FunctionMessage
+                {
+                    [Parameter("uint256", "gradeId", 1)]
+                    public BigInteger GradeId { get; set; }
+                }
+
                 public async Task<(long BlockchainRecordId, string TransactionHash)> MarkAttendanceOnChainAsync(
                         ulong classId,
                         string studentWalletAddress,
@@ -985,11 +1029,11 @@ namespace Fap.Api.Services
 
                 public async Task<AttendanceOnChainStructDto> GetAttendanceFromChainAsync(long blockchainRecordId)
                 {
-                        try
-                        {
-                                _logger.LogInformation(
-                                        "Getting attendance from blockchain. RecordId: {RecordId}",
-                                        blockchainRecordId);
+                    try
+                    {
+                        _logger.LogInformation(
+                            "Getting attendance from blockchain. RecordId: {RecordId}",
+                            blockchainRecordId);
 
                         var contractAddress = _settings.Contracts.AttendanceManagement;
                         var function = new GetAttendanceRecordFunction
@@ -998,8 +1042,8 @@ namespace Fap.Api.Services
                         };
 
                         // Use a low-level eth_call so we can detect revert return-data and surface a clear error.
-                                var callDataHex = function.GetCallData().ToHex(true);
-                                var callInput = new CallInput(callDataHex, contractAddress);
+                        var callDataHex = function.GetCallData().ToHex(true);
+                        var callInput = new CallInput(callDataHex, contractAddress);
                         var raw = await _web3.Eth.Transactions.Call.SendRequestAsync(callInput);
                         if (string.IsNullOrWhiteSpace(raw) || string.Equals(raw, "0x", StringComparison.OrdinalIgnoreCase))
                         {
@@ -1014,9 +1058,8 @@ namespace Fap.Api.Services
                         AttendanceOnChainStructDto result;
                         try
                         {
-                            // Solidity ABI: since the returned struct contains a dynamic field (string notes),
-                            // the *single* return value (tuple) is encoded as a dynamic type:
-                            // first 32 bytes = offset to tuple data.
+                            // getAttendanceRecord returns a single struct containing a dynamic field (string notes)
+                            // so the ABI encodes it as a dynamic type with a leading offset.
                             var bytes = raw.HexToByteArray();
                             if (bytes.Length < 32)
                             {
@@ -1026,7 +1069,6 @@ namespace Fap.Api.Services
                             var offset = (int)new BigInteger(bytes.Take(32).ToArray(), isUnsigned: true, isBigEndian: true);
                             if (offset <= 0 || offset >= bytes.Length)
                             {
-                                // If offset isn't sane, fall back to decoding as-is.
                                 offset = 0;
                             }
 
@@ -1043,79 +1085,151 @@ namespace Fap.Api.Services
                             throw new InvalidOperationException($"Failed to decode getAttendanceRecord output (possible ABI/contract mismatch). OutputPrefix={prefix}", ex);
                         }
 
-                                    try
-                                    {
-                                        result.StatusEnum = (AttendanceStatusEnum)result.Status;
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        _logger.LogWarning(
-                                            ex,
-                                            "Failed to map attendance status value {Status} to AttendanceStatusEnum for record {RecordId}",
-                                            result.Status,
-                                            blockchainRecordId);
-                                    }
-
-                                    _logger.LogInformation(
-                                        "Got attendance from chain. RecordId: {RecordId}, Status: {Status}, ClassId: {ClassId}",
-                                        result.RecordId,
-                                        result.Status,
-                                        result.ClassId);
-
-                                    return result;
+                        try
+                        {
+                            result.StatusEnum = (AttendanceStatusEnum)result.Status;
                         }
                         catch (Exception ex)
                         {
-                                _logger.LogError(ex, "Failed to get attendance from blockchain. RecordId: {RecordId}", blockchainRecordId);
-                                throw;
+                            _logger.LogWarning(
+                                ex,
+                                "Failed to map attendance status value {Status} to AttendanceStatusEnum for record {RecordId}",
+                                result.Status,
+                                blockchainRecordId);
                         }
+
+                        _logger.LogInformation(
+                            "Got attendance from chain. RecordId: {RecordId}, Status: {Status}, ClassId: {ClassId}",
+                            result.RecordId,
+                            result.Status,
+                            result.ClassId);
+
+                        return result;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to get attendance from blockchain. RecordId: {RecordId}", blockchainRecordId);
+                        throw;
+                    }
                 }
 
-                            private static bool TryDecodeRevertReason(string hex, out string reason)
+                public async Task<GradeOnChainStructDto> GetGradeFromChainAsync(long blockchainGradeId)
+                {
+                    try
+                    {
+                        _logger.LogInformation(
+                            "Getting grade from blockchain. GradeId: {GradeId}",
+                            blockchainGradeId);
+
+                        var contractAddress = _settings.Contracts.GradeManagement;
+                        var function = new GetGradeFunction
+                        {
+                            GradeId = new BigInteger(blockchainGradeId)
+                        };
+
+                        var callDataHex = function.GetCallData().ToHex(true);
+                        var callInput = new CallInput(callDataHex, contractAddress);
+                        var raw = await _web3.Eth.Transactions.Call.SendRequestAsync(callInput);
+                        if (string.IsNullOrWhiteSpace(raw) || string.Equals(raw, "0x", StringComparison.OrdinalIgnoreCase))
+                        {
+                            throw new InvalidOperationException("Empty eth_call response (contract address/ABI mismatch or node error)");
+                        }
+
+                        if (TryDecodeRevertReason(raw, out var revertReason))
+                        {
+                            throw new InvalidOperationException($"getGrade reverted: {revertReason}");
+                        }
+
+                        GradeOnChainStructDto result;
+                        try
+                        {
+                            // getGrade returns a single struct containing a dynamic field (string componentName)
+                            // so the ABI encodes it as a dynamic type with a leading offset.
+                            var bytes = raw.HexToByteArray();
+                            if (bytes.Length < 32)
                             {
-                                reason = string.Empty;
-                                if (string.IsNullOrWhiteSpace(hex)) return false;
-                                if (!hex.StartsWith("0x", StringComparison.OrdinalIgnoreCase)) return false;
-                                if (hex.Length < 10) return false;
-
-                                // Error(string): 0x08c379a0
-                                if (hex.StartsWith("0x08c379a0", StringComparison.OrdinalIgnoreCase))
-                                {
-                                    try
-                                    {
-                                        var bytes = hex.HexToByteArray();
-                                        if (bytes.Length < 4 + 32 + 32) return false;
-
-                                        // Layout after selector:
-                                        // 0..31: offset (32)
-                                        // 32..63: string length
-                                        // 64.. : string bytes
-                                        var strLen = (int)new BigInteger(bytes.Skip(4 + 32).Take(32).ToArray(), isUnsigned: true, isBigEndian: true);
-                                        if (strLen < 0) return false;
-
-                                        var strStart = 4 + 32 + 32;
-                                        if (bytes.Length < strStart + strLen) return false;
-
-                                        reason = Encoding.UTF8.GetString(bytes, strStart, strLen);
-                                        if (string.IsNullOrWhiteSpace(reason)) reason = "reverted";
-                                        return true;
-                                    }
-                                    catch
-                                    {
-                                        reason = "reverted";
-                                        return true;
-                                    }
-                                }
-
-                                // Panic(uint256): 0x4e487b71
-                                if (hex.StartsWith("0x4e487b71", StringComparison.OrdinalIgnoreCase))
-                                {
-                                    reason = "panic";
-                                    return true;
-                                }
-
-                                return false;
+                                throw new InvalidOperationException("Invalid eth_call response length");
                             }
+
+                            var offset = (int)new BigInteger(bytes.Take(32).ToArray(), isUnsigned: true, isBigEndian: true);
+                            if (offset <= 0 || offset >= bytes.Length)
+                            {
+                                offset = 0;
+                            }
+
+                            var payloadHex = offset > 0
+                                ? bytes.Skip(offset).ToArray().ToHex(true)
+                                : raw;
+
+                            var decoder = new FunctionCallDecoder();
+                            result = decoder.DecodeFunctionOutput<GradeOnChainStructDto>(payloadHex);
+                        }
+                        catch (OverflowException ex)
+                        {
+                            var prefix = raw.Length > 66 ? raw[..66] + "..." : raw;
+                            throw new InvalidOperationException($"Failed to decode getGrade output (possible ABI/contract mismatch). OutputPrefix={prefix}", ex);
+                        }
+
+                        _logger.LogInformation(
+                            "Got grade from chain. GradeId: {GradeId}, ClassId: {ClassId}, Score: {Score}",
+                            result.GradeId,
+                            result.ClassId,
+                            result.Score);
+
+                        return result;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to get grade from blockchain. GradeId: {GradeId}", blockchainGradeId);
+                        throw;
+                    }
+                }
+
+                private static bool TryDecodeRevertReason(string hex, out string reason)
+                {
+                    reason = string.Empty;
+                    if (string.IsNullOrWhiteSpace(hex)) return false;
+                    if (!hex.StartsWith("0x", StringComparison.OrdinalIgnoreCase)) return false;
+                    if (hex.Length < 10) return false;
+
+                    // Error(string): 0x08c379a0
+                    if (hex.StartsWith("0x08c379a0", StringComparison.OrdinalIgnoreCase))
+                    {
+                        try
+                        {
+                            var bytes = hex.HexToByteArray();
+                            if (bytes.Length < 4 + 32 + 32) return false;
+
+                            // After selector:
+                            // 0..31: offset
+                            // 32..63: string length
+                            // 64.. : string bytes
+                            var strLen = (int)new BigInteger(bytes.Skip(4 + 32).Take(32).ToArray(), isUnsigned: true, isBigEndian: true);
+                            if (strLen < 0) return false;
+
+                            var strStart = 4 + 32 + 32;
+                            if (bytes.Length < strStart + strLen) return false;
+
+                            reason = Encoding.UTF8.GetString(bytes, strStart, strLen);
+                            if (string.IsNullOrWhiteSpace(reason)) reason = "reverted";
+                            return true;
+                        }
+                        catch
+                        {
+                            reason = "reverted";
+                            return true;
+                        }
+                    }
+
+                    // Panic(uint256): 0x4e487b71
+                    if (hex.StartsWith("0x4e487b71", StringComparison.OrdinalIgnoreCase))
+                    {
+                        reason = "panic";
+                        return true;
+                    }
+
+                    return false;
+                }
 
                 #endregion
 

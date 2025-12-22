@@ -1088,5 +1088,239 @@ namespace Fap.Api.Services
                 return result;
             }
         }
+
+        public async Task<List<GradeVerifyItemDto>> VerifyGradeListAsync(Guid studentId, Guid classId)
+        {
+            var classEntity = await _db.Classes
+                .AsNoTracking()
+                .Include(c => c.SubjectOffering)
+                .FirstOrDefaultAsync(c => c.Id == classId);
+
+            if (classEntity == null)
+            {
+                throw new InvalidOperationException("Class not found");
+            }
+
+            if (!classEntity.OnChainClassId.HasValue)
+            {
+                throw new InvalidOperationException("Class is not on-chain (missing OnChainClassId)");
+            }
+
+            var student = await _db.Students
+                .AsNoTracking()
+                .Include(s => s.User)
+                .FirstOrDefaultAsync(s => s.Id == studentId);
+
+            if (student == null)
+            {
+                throw new InvalidOperationException("Student not found");
+            }
+
+            var wallet = student.User?.WalletAddress;
+            if (string.IsNullOrWhiteSpace(wallet))
+            {
+                throw new InvalidOperationException("Student wallet address not found");
+            }
+
+            var subjectId = classEntity.SubjectOffering.SubjectId;
+
+            var grades = await _db.Grades
+                .AsNoTracking()
+                .Where(g => g.StudentId == studentId && g.SubjectId == subjectId)
+                .Include(g => g.Student).ThenInclude(s => s.User)
+                .Include(g => g.Subject)
+                .Include(g => g.GradeComponent)
+                .OrderBy(g => g.UpdatedAt)
+                .ToListAsync();
+
+            var results = new List<GradeVerifyItemDto>();
+
+            foreach (var grade in grades)
+            {
+                var item = new GradeVerifyItemDto
+                {
+                    Grade = _mapper.Map<GradeDto>(grade),
+                    Verified = false,
+                    Message = string.Empty
+                };
+
+                if (!grade.OnChainGradeId.HasValue || grade.OnChainGradeId.Value == 0)
+                {
+                    item.Message = "Missing on-chain gradeId";
+                    results.Add(item);
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(grade.OnChainTxHash))
+                {
+                    item.Message = "Missing on-chain txHash";
+                    results.Add(item);
+                    continue;
+                }
+
+                try
+                {
+                    // 1) Resolve gradeId from tx receipt (anti-tamper)
+                    var decodedEvents = await _blockchainService.DecodeReceiptEventsAsync(grade.OnChainTxHash);
+                    var gradeEvents = decodedEvents
+                        .Where(e => string.Equals(e.EventName, "GradeRecorded", StringComparison.Ordinal))
+                        .ToList();
+
+                    if (gradeEvents.Count == 0)
+                    {
+                        item.Message = "Tx receipt did not contain GradeRecorded";
+                        results.Add(item);
+                        continue;
+                    }
+
+                    ulong? receiptGradeId = null;
+                    ulong? receiptClassId = null;
+                    string? receiptStudentAddress = null;
+
+                    foreach (var ev in gradeEvents)
+                    {
+                        try
+                        {
+                            using var doc = System.Text.Json.JsonDocument.Parse(ev.DetailJson);
+                            var root = doc.RootElement;
+                            if (root.ValueKind != System.Text.Json.JsonValueKind.Object) continue;
+                            if (!root.TryGetProperty("indexedArgs", out var ia) || ia.ValueKind != System.Text.Json.JsonValueKind.Object) continue;
+
+                            var gidStr = ia.TryGetProperty("gradeId", out var gidEl) ? gidEl.GetString() : null;
+                            var cidStr = ia.TryGetProperty("classId", out var cidEl) ? cidEl.GetString() : null;
+                            var saStr = ia.TryGetProperty("studentAddress", out var saEl) ? saEl.GetString() : null;
+
+                            if (!string.IsNullOrWhiteSpace(cidStr) && ulong.TryParse(cidStr, out var cidUlong) && cidUlong == (ulong)classEntity.OnChainClassId.Value &&
+                                !string.IsNullOrWhiteSpace(saStr) && string.Equals(saStr, wallet, StringComparison.OrdinalIgnoreCase) &&
+                                !string.IsNullOrWhiteSpace(gidStr) && ulong.TryParse(gidStr, out var gidUlong) && gidUlong > 0)
+                            {
+                                receiptGradeId = gidUlong;
+                                receiptClassId = cidUlong;
+                                receiptStudentAddress = saStr;
+                                break;
+                            }
+                        }
+                        catch
+                        {
+                            // ignore
+                        }
+                    }
+
+                    if (!receiptGradeId.HasValue)
+                    {
+                        // fallback: first gradeId found
+                        foreach (var ev in gradeEvents)
+                        {
+                            try
+                            {
+                                using var doc = System.Text.Json.JsonDocument.Parse(ev.DetailJson);
+                                var root = doc.RootElement;
+                                if (root.ValueKind != System.Text.Json.JsonValueKind.Object) continue;
+                                if (!root.TryGetProperty("indexedArgs", out var ia) || ia.ValueKind != System.Text.Json.JsonValueKind.Object) continue;
+
+                                if (ia.TryGetProperty("gradeId", out var gidEl))
+                                {
+                                    var gidStr = gidEl.GetString();
+                                    if (!string.IsNullOrWhiteSpace(gidStr) && ulong.TryParse(gidStr, out var gidUlong) && gidUlong > 0)
+                                    {
+                                        receiptGradeId = gidUlong;
+                                        break;
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                // ignore
+                            }
+                        }
+                    }
+
+                    if (!receiptGradeId.HasValue || receiptGradeId.Value == 0)
+                    {
+                        item.Message = "Could not resolve gradeId from tx receipt";
+                        results.Add(item);
+                        continue;
+                    }
+
+                    if ((ulong)grade.OnChainGradeId.Value != receiptGradeId.Value)
+                    {
+                        item.Message = "Mismatch: gradeId (DB vs tx receipt)";
+                        results.Add(item);
+                        continue;
+                    }
+
+                    // 2) Query chain state and compare
+                    var chainGrade = await _blockchainService.GetGradeFromChainAsync((long)receiptGradeId.Value);
+
+                    if ((long)chainGrade.ClassId != classEntity.OnChainClassId.Value)
+                    {
+                        item.Message = "Mismatch: classId";
+                        results.Add(item);
+                        continue;
+                    }
+
+                    if (!string.Equals(chainGrade.StudentAddress, wallet, StringComparison.OrdinalIgnoreCase))
+                    {
+                        item.Message = "Mismatch: student wallet";
+                        results.Add(item);
+                        continue;
+                    }
+
+                    // Optional: if we decoded student/class from receipt, ensure receipt matches too
+                    if (receiptClassId.HasValue && (long)receiptClassId.Value != classEntity.OnChainClassId.Value)
+                    {
+                        item.Message = "Mismatch: classId (tx receipt)";
+                        results.Add(item);
+                        continue;
+                    }
+                    if (!string.IsNullOrWhiteSpace(receiptStudentAddress) && !string.Equals(receiptStudentAddress, wallet, StringComparison.OrdinalIgnoreCase))
+                    {
+                        item.Message = "Mismatch: student wallet (tx receipt)";
+                        results.Add(item);
+                        continue;
+                    }
+
+                    var dbComponent = (grade.GradeComponent?.Name ?? string.Empty).Trim();
+                    var chainComponent = (chainGrade.ComponentName ?? string.Empty).Trim();
+                    if (!string.Equals(dbComponent, chainComponent, StringComparison.Ordinal))
+                    {
+                        item.Message = "Mismatch: componentName";
+                        results.Add(item);
+                        continue;
+                    }
+
+                    const decimal factor = 100m;
+                    var dbScore = grade.Score ?? 0m;
+                    var expectedOnChainScore = (ulong)(dbScore * factor);
+                    var expectedOnChainMaxScore = 1000UL; // 10.00 * 100
+
+                    if (chainGrade.Score != new System.Numerics.BigInteger(expectedOnChainScore))
+                    {
+                        item.Message = "Mismatch: score";
+                        results.Add(item);
+                        continue;
+                    }
+
+                    if (chainGrade.MaxScore != new System.Numerics.BigInteger(expectedOnChainMaxScore))
+                    {
+                        item.Message = "Mismatch: maxScore";
+                        results.Add(item);
+                        continue;
+                    }
+
+                    item.Verified = true;
+                    item.Message = "Verified";
+                    results.Add(item);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to verify grade {GradeId} using on-chain grade {OnChainGradeId}", grade.Id, grade.OnChainGradeId);
+                    item.Message = "Failed to query on-chain grade";
+                    results.Add(item);
+                }
+            }
+
+            return results;
+        }
     }
 }

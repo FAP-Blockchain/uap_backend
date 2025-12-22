@@ -139,16 +139,17 @@ namespace Fap.Api.Services
             {
                 var attendance = attendanceList.FirstOrDefault(a => a.StudentId == member.StudentId);
                 var student = member.Student;
-                var wallet = student.User?.WalletAddress;
+                var studentUser = student?.User;
+                var wallet = studentUser?.WalletAddress;
 
                 var record = new StudentAttendanceRecord
                 {
                     AttendanceId = attendance?.Id ?? Guid.Empty,
                     StudentId = student?.Id ?? member.StudentId,
                     StudentCode = student?.StudentCode ?? string.Empty,
-                    StudentName = student?.User?.FullName ?? string.Empty,
-                    StudentEmail = student?.User?.Email ?? string.Empty,
-                    ProfileImageUrl = student?.User?.ProfileImageUrl,
+                    StudentName = studentUser?.FullName ?? string.Empty,
+                    StudentEmail = studentUser?.Email ?? string.Empty,
+                    ProfileImageUrl = studentUser?.ProfileImageUrl,
                     IsPresent = attendance?.IsPresent,
                     Notes = attendance?.Notes,
                     IsExcused = attendance?.IsExcused ?? false,

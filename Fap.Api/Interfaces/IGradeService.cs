@@ -35,5 +35,10 @@ namespace Fap.Api.Interfaces
         /// Lưu thông tin transaction on-chain của grade (recordGrade/updateGrade/...)
         /// </summary>
         Task<ServiceResult<bool>> SaveGradeOnChainAsync(Guid gradeId, SaveGradeOnChainRequest request, Guid performedByUserId);
+
+        /// <summary>
+        /// Verify all grades of a student in a class by comparing DB with on-chain records.
+        /// </summary>
+        Task<List<GradeVerifyItemDto>> VerifyGradeListAsync(Guid studentId, Guid classId);
     }
 }
