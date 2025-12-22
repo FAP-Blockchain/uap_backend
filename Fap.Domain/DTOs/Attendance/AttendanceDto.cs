@@ -11,6 +11,13 @@ public class AttendanceOnChainPayloadDto
     public string AttendanceDataJson { get; set; } = string.Empty;
     public long ExpiresAtUnix { get; set; }
 }
+
+public class AttendanceVerifyItemDto
+{
+    public AttendanceDto Attendance { get; set; } = new();
+    public bool Verified { get; set; }
+    public string? Message { get; set; }
+}
 //testing git ignore
 public class AttendanceDto
 {

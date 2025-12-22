@@ -144,11 +144,11 @@ namespace Fap.Api.Services
                 var record = new StudentAttendanceRecord
                 {
                     AttendanceId = attendance?.Id ?? Guid.Empty,
-                    StudentId = student.Id,
-                    StudentCode = student.StudentCode,
-                    StudentName = student.User.FullName,
-                    StudentEmail = student.User.Email,
-                    ProfileImageUrl = student.User.ProfileImageUrl,
+                    StudentId = student?.Id ?? member.StudentId,
+                    StudentCode = student?.StudentCode ?? string.Empty,
+                    StudentName = student?.User?.FullName ?? string.Empty,
+                    StudentEmail = student?.User?.Email ?? string.Empty,
+                    ProfileImageUrl = student?.User?.ProfileImageUrl,
                     IsPresent = attendance?.IsPresent,
                     Notes = attendance?.Notes,
                     IsExcused = attendance?.IsExcused ?? false,

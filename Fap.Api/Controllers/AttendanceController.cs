@@ -238,5 +238,31 @@ namespace Fap.Api.Controllers
                 });
             }
         }
+
+        /// <summary>
+        /// GET /api/attendance/verify-list?studentId=...&classId=...
+        /// Verify all attendance records of a student in a class by comparing DB with on-chain records.
+        /// </summary>
+        [HttpGet("verify-list")]
+        [Authorize(Roles = "Teacher,Admin")]
+        [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+        public async Task<IActionResult> VerifyAttendanceList([FromQuery] Guid studentId, [FromQuery] Guid classId)
+        {
+            try
+            {
+                var result = await _attendanceService.VerifyAttendanceListAsync(studentId, classId);
+                return Ok(new { success = true, data = result });
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "VerifyAttendanceList failed for StudentId={StudentId}, ClassId={ClassId}", studentId, classId);
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error verifying attendance list for StudentId={StudentId}, ClassId={ClassId}", studentId, classId);
+                return StatusCode(500, new { success = false, message = "An error occurred while verifying attendance list" });
+            }
+        }
     }
 }

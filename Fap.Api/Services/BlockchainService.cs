@@ -9,6 +9,7 @@ using Fap.Domain.Enums;
 using Fap.Domain.Settings;
 using Microsoft.Extensions.Options;
 using Nethereum.ABI.FunctionEncoding.Attributes;
+using Nethereum.ABI.FunctionEncoding;
 using Nethereum.Contracts;
 using Nethereum.Hex.HexConvertors.Extensions;
 using Nethereum.Hex.HexTypes;
@@ -990,16 +991,57 @@ namespace Fap.Api.Services
                                         "Getting attendance from blockchain. RecordId: {RecordId}",
                                         blockchainRecordId);
 
-                                var handler = _web3.Eth.GetContractQueryHandler<GetAttendanceRecordFunction>();
-                                var function = new GetAttendanceRecordFunction
-                                {
-                                        RecordId = new BigInteger(blockchainRecordId)
-                                };
+                        var contractAddress = _settings.Contracts.AttendanceManagement;
+                        var function = new GetAttendanceRecordFunction
+                        {
+                            RecordId = new BigInteger(blockchainRecordId)
+                        };
 
-                                    var result = await handler
-                                        .QueryDeserializingToObjectAsync<AttendanceOnChainStructDto>(
-                                            function,
-                                            _settings.Contracts.AttendanceManagement);
+                        // Use a low-level eth_call so we can detect revert return-data and surface a clear error.
+                                var callDataHex = function.GetCallData().ToHex(true);
+                                var callInput = new CallInput(callDataHex, contractAddress);
+                        var raw = await _web3.Eth.Transactions.Call.SendRequestAsync(callInput);
+                        if (string.IsNullOrWhiteSpace(raw) || string.Equals(raw, "0x", StringComparison.OrdinalIgnoreCase))
+                        {
+                            throw new InvalidOperationException("Empty eth_call response (contract address/ABI mismatch or node error)");
+                        }
+
+                        if (TryDecodeRevertReason(raw, out var revertReason))
+                        {
+                            throw new InvalidOperationException($"getAttendanceRecord reverted: {revertReason}");
+                        }
+
+                        AttendanceOnChainStructDto result;
+                        try
+                        {
+                            // Solidity ABI: since the returned struct contains a dynamic field (string notes),
+                            // the *single* return value (tuple) is encoded as a dynamic type:
+                            // first 32 bytes = offset to tuple data.
+                            var bytes = raw.HexToByteArray();
+                            if (bytes.Length < 32)
+                            {
+                                throw new InvalidOperationException("Invalid eth_call response length");
+                            }
+
+                            var offset = (int)new BigInteger(bytes.Take(32).ToArray(), isUnsigned: true, isBigEndian: true);
+                            if (offset <= 0 || offset >= bytes.Length)
+                            {
+                                // If offset isn't sane, fall back to decoding as-is.
+                                offset = 0;
+                            }
+
+                            var payloadHex = offset > 0
+                                ? bytes.Skip(offset).ToArray().ToHex(true)
+                                : raw;
+
+                            var decoder = new FunctionCallDecoder();
+                            result = decoder.DecodeFunctionOutput<AttendanceOnChainStructDto>(payloadHex);
+                        }
+                        catch (OverflowException ex)
+                        {
+                            var prefix = raw.Length > 66 ? raw[..66] + "..." : raw;
+                            throw new InvalidOperationException($"Failed to decode getAttendanceRecord output (possible ABI/contract mismatch). OutputPrefix={prefix}", ex);
+                        }
 
                                     try
                                     {
@@ -1028,6 +1070,52 @@ namespace Fap.Api.Services
                                 throw;
                         }
                 }
+
+                            private static bool TryDecodeRevertReason(string hex, out string reason)
+                            {
+                                reason = string.Empty;
+                                if (string.IsNullOrWhiteSpace(hex)) return false;
+                                if (!hex.StartsWith("0x", StringComparison.OrdinalIgnoreCase)) return false;
+                                if (hex.Length < 10) return false;
+
+                                // Error(string): 0x08c379a0
+                                if (hex.StartsWith("0x08c379a0", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    try
+                                    {
+                                        var bytes = hex.HexToByteArray();
+                                        if (bytes.Length < 4 + 32 + 32) return false;
+
+                                        // Layout after selector:
+                                        // 0..31: offset (32)
+                                        // 32..63: string length
+                                        // 64.. : string bytes
+                                        var strLen = (int)new BigInteger(bytes.Skip(4 + 32).Take(32).ToArray(), isUnsigned: true, isBigEndian: true);
+                                        if (strLen < 0) return false;
+
+                                        var strStart = 4 + 32 + 32;
+                                        if (bytes.Length < strStart + strLen) return false;
+
+                                        reason = Encoding.UTF8.GetString(bytes, strStart, strLen);
+                                        if (string.IsNullOrWhiteSpace(reason)) reason = "reverted";
+                                        return true;
+                                    }
+                                    catch
+                                    {
+                                        reason = "reverted";
+                                        return true;
+                                    }
+                                }
+
+                                // Panic(uint256): 0x4e487b71
+                                if (hex.StartsWith("0x4e487b71", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    reason = "panic";
+                                    return true;
+                                }
+
+                                return false;
+                            }
 
                 #endregion
 

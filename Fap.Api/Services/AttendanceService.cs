@@ -506,6 +506,71 @@ namespace Fap.Api.Services
                 return ServiceResult<bool>.Fail("Transaction receipt did not contain an expected attendance event (AttendanceMarked/AttendanceUpdated)");
             }
 
+            // 2.5) Resolve on-chain recordId from receipt (do not trust FE)
+            long? resolvedOnChainRecordId = null;
+            long? decodedClassId = null;
+            string? decodedStudentAddress = null;
+            foreach (var e in attendanceEvents)
+            {
+                try
+                {
+                    using var doc = System.Text.Json.JsonDocument.Parse(e.DetailJson);
+                    var root = doc.RootElement;
+                    if (root.ValueKind != System.Text.Json.JsonValueKind.Object) continue;
+                    if (!root.TryGetProperty("indexedArgs", out var ia) || ia.ValueKind != System.Text.Json.JsonValueKind.Object) continue;
+
+                    if (resolvedOnChainRecordId == null && ia.TryGetProperty("recordId", out var rid))
+                    {
+                        if (rid.ValueKind == System.Text.Json.JsonValueKind.String && long.TryParse(rid.GetString(), out var ridLong))
+                        {
+                            resolvedOnChainRecordId = ridLong;
+                        }
+                        else if (rid.ValueKind == System.Text.Json.JsonValueKind.Number && rid.TryGetInt64(out var ridLong2))
+                        {
+                            resolvedOnChainRecordId = ridLong2;
+                        }
+                    }
+
+                    if (decodedClassId == null && ia.TryGetProperty("classId", out var cid))
+                    {
+                        if (cid.ValueKind == System.Text.Json.JsonValueKind.String && long.TryParse(cid.GetString(), out var cidLong))
+                        {
+                            decodedClassId = cidLong;
+                        }
+                        else if (cid.ValueKind == System.Text.Json.JsonValueKind.Number && cid.TryGetInt64(out var cidLong2))
+                        {
+                            decodedClassId = cidLong2;
+                        }
+                    }
+
+                    if (decodedStudentAddress == null && ia.TryGetProperty("studentAddress", out var sa))
+                    {
+                        if (sa.ValueKind == System.Text.Json.JsonValueKind.String)
+                        {
+                            decodedStudentAddress = sa.GetString();
+                        }
+                    }
+                }
+                catch
+                {
+                    // ignore parsing errors; we will fall back to FE value if needed
+                }
+            }
+
+            if (request.OnChainRecordId > 0)
+            {
+                if (resolvedOnChainRecordId.HasValue && resolvedOnChainRecordId.Value > 0 && resolvedOnChainRecordId.Value != request.OnChainRecordId)
+                {
+                    return ServiceResult<bool>.Fail("OnChainRecordId does not match decoded recordId from receipt");
+                }
+                resolvedOnChainRecordId = request.OnChainRecordId;
+            }
+
+            if (!resolvedOnChainRecordId.HasValue || resolvedOnChainRecordId.Value <= 0)
+            {
+                return ServiceResult<bool>.Fail("Could not resolve OnChainRecordId from transaction receipt");
+            }
+
             // 3) Fetch tx for TxFrom/TxTo (auditability) + optional contract target validation
             string? txFrom = null;
             string? txTo = null;
@@ -541,7 +606,36 @@ namespace Fap.Api.Services
                 _logger.LogWarning(ex, "Could not resolve OnChainClassId for AttendanceId={AttendanceId}", attendanceId);
             }
 
-            attendance.OnChainRecordId = request.OnChainRecordId;
+            // Optional sanity-check: ensure decoded classId matches the DB-mapped on-chain class
+            if (onChainClassId.HasValue && decodedClassId.HasValue && decodedClassId.Value > 0 && decodedClassId.Value != onChainClassId.Value)
+            {
+                return ServiceResult<bool>.Fail("Transaction receipt classId does not match Class.OnChainClassId");
+            }
+
+            // Optional sanity-check: ensure decoded studentAddress matches the student's wallet
+            if (!string.IsNullOrWhiteSpace(decodedStudentAddress))
+            {
+                try
+                {
+                    var student = await _db.Students
+                        .AsNoTracking()
+                        .Include(s => s.User)
+                        .FirstOrDefaultAsync(s => s.Id == attendance.StudentId);
+
+                    var wallet = student?.User?.WalletAddress;
+                    if (!string.IsNullOrWhiteSpace(wallet) &&
+                        !string.Equals(wallet, decodedStudentAddress, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return ServiceResult<bool>.Fail("Transaction receipt studentAddress does not match student's wallet");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Could not validate student wallet against receipt for AttendanceId={AttendanceId}", attendanceId);
+                }
+            }
+
+            attendance.OnChainRecordId = resolvedOnChainRecordId.Value;
             attendance.OnChainTransactionHash = txHash;
             attendance.IsOnBlockchain = true;
 
@@ -567,7 +661,7 @@ namespace Fap.Api.Services
                         slotId = attendance.SlotId,
                         studentId = attendance.StudentId,
                         onChainClassId,
-                        onChainRecordId = request.OnChainRecordId,
+                        onChainRecordId = resolvedOnChainRecordId.Value,
                         contractAddress = e.ContractAddress,
                         eventName = e.EventName,
                         indexedArgs
@@ -581,7 +675,7 @@ namespace Fap.Api.Services
                         slotId = attendance.SlotId,
                         studentId = attendance.StudentId,
                         onChainClassId,
-                        onChainRecordId = request.OnChainRecordId,
+                        onChainRecordId = resolvedOnChainRecordId.Value,
                         contractAddress = e.ContractAddress,
                         eventName = e.EventName,
                         decoded = e.DetailJson
@@ -613,6 +707,279 @@ namespace Fap.Api.Services
             await _unitOfWork.SaveChangesAsync();
 
             return ServiceResult<bool>.SuccessResponse(true);
+        }
+
+        private static byte MapAttendanceToChainStatus(Attendance attendance)
+        {
+            // DataTypes.AttendanceStatus enum in solidity:
+            // PRESENT=0, ABSENT=1, LATE=2, EXCUSED=3
+            if (attendance.IsPresent) return 0;
+            if (!attendance.IsPresent && attendance.IsExcused) return 3;
+            return 1;
+        }
+
+        public async Task<List<AttendanceVerifyItemDto>> VerifyAttendanceListAsync(Guid studentId, Guid classId)
+        {
+            var classEntity = await _db.Classes
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.Id == classId);
+
+            if (classEntity == null)
+            {
+                throw new InvalidOperationException("Class not found");
+            }
+
+            var student = await _db.Students
+                .AsNoTracking()
+                .Include(s => s.User)
+                .FirstOrDefaultAsync(s => s.Id == studentId);
+
+            if (student == null)
+            {
+                throw new InvalidOperationException("Student not found");
+            }
+
+            var wallet = student.User?.WalletAddress;
+            var onChainClassId = classEntity.OnChainClassId;
+
+            var attendances = await _db.Attendances
+                .AsNoTracking()
+                .Include(a => a.Student)
+                    .ThenInclude(s => s.User)
+                .Include(a => a.Subject)
+                .Include(a => a.Slot)
+                    .ThenInclude(s => s.TimeSlot)
+                .Include(a => a.Slot)
+                    .ThenInclude(s => s.Class)
+                .Where(a => a.StudentId == studentId && a.Slot.ClassId == classId)
+                .OrderBy(a => a.Slot.Date)
+                .ThenBy(a => a.RecordedAt)
+                .ToListAsync();
+
+            var results = new List<AttendanceVerifyItemDto>(attendances.Count);
+
+            foreach (var attendance in attendances)
+            {
+                var dto = _mapper.Map<AttendanceDto>(attendance);
+                var item = new AttendanceVerifyItemDto
+                {
+                    Attendance = dto,
+                    Verified = false,
+                    Message = null
+                };
+
+                if (onChainClassId == null || onChainClassId <= 0)
+                {
+                    item.Message = "Class has no OnChainClassId";
+                    results.Add(item);
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(wallet))
+                {
+                    item.Message = "Student has no wallet address";
+                    results.Add(item);
+                    continue;
+                }
+
+                if (!attendance.OnChainRecordId.HasValue || attendance.OnChainRecordId <= 0)
+                {
+                    item.Message = "Attendance has no OnChainRecordId";
+                    results.Add(item);
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(attendance.OnChainTransactionHash))
+                {
+                    item.Message = "Attendance has no OnChainTransactionHash";
+                    results.Add(item);
+                    continue;
+                }
+
+                try
+                {
+                    // 1) Decode tx receipt and resolve recordId from logs
+                    var txHash = attendance.OnChainTransactionHash.Trim();
+                    if (!txHash.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+                    {
+                        txHash = "0x" + txHash;
+                    }
+
+                    IReadOnlyList<(string EventName, string ContractAddress, string DetailJson)> decodedEvents;
+                    try
+                    {
+                        decodedEvents = await _blockchainService.DecodeReceiptEventsAsync(txHash);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to decode receipt events for attendance tx {TxHash}", txHash);
+                        decodedEvents = Array.Empty<(string, string, string)>();
+                    }
+
+                    var attendanceEvents = decodedEvents
+                        .Where(e =>
+                            string.Equals(e.EventName, "AttendanceMarked", StringComparison.Ordinal) ||
+                            string.Equals(e.EventName, "AttendanceUpdated", StringComparison.Ordinal))
+                        .ToList();
+
+                    if (attendanceEvents.Count == 0)
+                    {
+                        item.Message = "Transaction receipt did not contain AttendanceMarked/AttendanceUpdated";
+                        results.Add(item);
+                        continue;
+                    }
+
+                    long? receiptRecordId = null;
+                    long? receiptClassId = null;
+                    string? receiptStudentAddress = null;
+
+                    // Prefer AttendanceMarked (contains classId + studentAddress) to disambiguate batches
+                    foreach (var ev in attendanceEvents.Where(e => string.Equals(e.EventName, "AttendanceMarked", StringComparison.Ordinal)))
+                    {
+                        try
+                        {
+                            using var doc = System.Text.Json.JsonDocument.Parse(ev.DetailJson);
+                            var root = doc.RootElement;
+                            if (root.ValueKind != System.Text.Json.JsonValueKind.Object) continue;
+                            if (!root.TryGetProperty("indexedArgs", out var ia) || ia.ValueKind != System.Text.Json.JsonValueKind.Object) continue;
+
+                            var ridStr = ia.TryGetProperty("recordId", out var ridEl) ? ridEl.GetString() : null;
+                            var cidStr = ia.TryGetProperty("classId", out var cidEl) ? cidEl.GetString() : null;
+                            var saStr = ia.TryGetProperty("studentAddress", out var saEl) ? saEl.GetString() : null;
+
+                            if (!string.IsNullOrWhiteSpace(cidStr) && long.TryParse(cidStr, out var cidLong) && cidLong == onChainClassId.Value &&
+                                !string.IsNullOrWhiteSpace(saStr) && string.Equals(saStr, wallet, StringComparison.OrdinalIgnoreCase) &&
+                                !string.IsNullOrWhiteSpace(ridStr) && long.TryParse(ridStr, out var ridLong) && ridLong > 0)
+                            {
+                                receiptRecordId = ridLong;
+                                receiptClassId = cidLong;
+                                receiptStudentAddress = saStr;
+                                break;
+                            }
+                        }
+                        catch
+                        {
+                            // ignore
+                        }
+                    }
+
+                    // Fallback: any attendance event with recordId
+                    if (!receiptRecordId.HasValue)
+                    {
+                        foreach (var ev in attendanceEvents)
+                        {
+                            try
+                            {
+                                using var doc = System.Text.Json.JsonDocument.Parse(ev.DetailJson);
+                                var root = doc.RootElement;
+                                if (root.ValueKind != System.Text.Json.JsonValueKind.Object) continue;
+                                if (!root.TryGetProperty("indexedArgs", out var ia) || ia.ValueKind != System.Text.Json.JsonValueKind.Object) continue;
+
+                                if (ia.TryGetProperty("recordId", out var ridEl))
+                                {
+                                    var ridStr = ridEl.GetString();
+                                    if (!string.IsNullOrWhiteSpace(ridStr) && long.TryParse(ridStr, out var ridLong) && ridLong > 0)
+                                    {
+                                        receiptRecordId = ridLong;
+                                        break;
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                // ignore
+                            }
+                        }
+                    }
+
+                    if (!receiptRecordId.HasValue || receiptRecordId.Value <= 0)
+                    {
+                        item.Message = "Could not resolve recordId from tx receipt";
+                        results.Add(item);
+                        continue;
+                    }
+
+                    // 2) Anti-tamper: receipt-derived recordId must match DB recordId
+                    if (attendance.OnChainRecordId.Value != receiptRecordId.Value)
+                    {
+                        item.Message = "Mismatch: recordId (DB vs tx receipt)";
+                        results.Add(item);
+                        continue;
+                    }
+
+                    // 3) Query chain state using receipt-derived recordId (source of truth)
+                    var chainRecord = await _blockchainService.GetAttendanceFromChainAsync(receiptRecordId.Value);
+
+                    if ((long)chainRecord.ClassId != onChainClassId.Value)
+                    {
+                        item.Message = "Mismatch: classId";
+                        results.Add(item);
+                        continue;
+                    }
+
+                    if (!string.Equals(chainRecord.StudentAddress, wallet, StringComparison.OrdinalIgnoreCase))
+                    {
+                        item.Message = "Mismatch: student wallet";
+                        results.Add(item);
+                        continue;
+                    }
+
+                    // Optional: if we decoded student/class from AttendanceMarked, ensure receipt matches too
+                    if (receiptClassId.HasValue && receiptClassId.Value != onChainClassId.Value)
+                    {
+                        item.Message = "Mismatch: classId (tx receipt)";
+                        results.Add(item);
+                        continue;
+                    }
+                    if (!string.IsNullOrWhiteSpace(receiptStudentAddress) && !string.Equals(receiptStudentAddress, wallet, StringComparison.OrdinalIgnoreCase))
+                    {
+                        item.Message = "Mismatch: student wallet (tx receipt)";
+                        results.Add(item);
+                        continue;
+                    }
+
+                    var expectedStatus = MapAttendanceToChainStatus(attendance);
+                    if (chainRecord.Status != expectedStatus)
+                    {
+                        item.Message = "Mismatch: status";
+                        results.Add(item);
+                        continue;
+                    }
+
+                    var dbNotes = (attendance.Notes ?? string.Empty).Trim();
+                    var chainNotes = (chainRecord.Notes ?? string.Empty).Trim();
+                    if (!string.Equals(dbNotes, chainNotes, StringComparison.Ordinal))
+                    {
+                        item.Message = "Mismatch: notes";
+                        results.Add(item);
+                        continue;
+                    }
+
+                    item.Verified = true;
+                    item.Message = "Verified";
+                    results.Add(item);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to verify attendance {AttendanceId} using on-chain record {OnChainRecordId}", attendance.Id, attendance.OnChainRecordId);
+                    var msg = ex.Message ?? string.Empty;
+                    if (msg.Contains("Record not found", StringComparison.OrdinalIgnoreCase))
+                    {
+                        item.Message = "On-chain record not found";
+                    }
+                    else if (msg.StartsWith("getAttendanceRecord reverted:", StringComparison.OrdinalIgnoreCase))
+                    {
+                        item.Message = msg.Length > 200 ? msg[..200] : msg;
+                    }
+                    else
+                    {
+                        item.Message = "Failed to query on-chain record";
+                    }
+                    results.Add(item);
+                }
+            }
+
+            return results;
         }
 
         #endregion

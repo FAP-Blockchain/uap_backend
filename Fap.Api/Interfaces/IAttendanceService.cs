@@ -66,6 +66,12 @@ namespace Fap.Api.Interfaces
         /// </summary>
         Task<List<AttendanceDto>> GetStudentAttendanceByClassAsync(Guid studentId, Guid classId);
 
+        /// <summary>
+        /// Verify all attendance records of a student in a class by comparing DB values with on-chain attendance records.
+        /// Returns a list of per-attendance verification results.
+        /// </summary>
+        Task<List<AttendanceVerifyItemDto>> VerifyAttendanceListAsync(Guid studentId, Guid classId);
+
         // ==================== TEACHER VIEW ====================
   
         /// <summary>
