@@ -84,6 +84,36 @@ namespace Fap.Api.Controllers
         }
 
         /// <summary>
+        /// GET /api/credential-requests/{id}/verify-preissue - Get grade & attendance verification lists
+        /// Used by Admin to verify before approving/issuing the credential.
+        /// </summary>
+        [HttpGet("{id:guid}/verify-preissue")]
+        [Authorize(Roles = "Admin")]
+        [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetPreIssueVerify(Guid id)
+        {
+            try
+            {
+                var data = await _credentialService.GetCredentialRequestPreIssueVerifyAsync(id);
+                return Ok(new { success = true, data });
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound(new ProblemDetails { Status = 404, Title = "Not Found" });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new ProblemDetails { Status = 400, Title = "Bad Request", Detail = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting pre-issue verify data for credential request {RequestId}", id);
+                return StatusCode(500, new ProblemDetails { Status = 500, Title = "Internal Server Error" });
+            }
+        }
+
+        /// <summary>
         /// POST /api/credential-requests - Create credential request (Student)
         /// </summary>
         [HttpPost]

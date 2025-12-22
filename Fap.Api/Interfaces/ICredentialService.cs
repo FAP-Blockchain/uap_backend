@@ -53,6 +53,7 @@ namespace Fap.Api.Interfaces
 
         Task<PagedResult<CredentialRequestDto>> GetCredentialRequestsAsync(GetCredentialRequestsRequest request);
         Task<CredentialRequestDto?> GetCredentialRequestByIdAsync(Guid id);
+        Task<CredentialRequestPreIssueVerifyDto> GetCredentialRequestPreIssueVerifyAsync(Guid requestId);
         Task<CredentialRequestDto> RequestCredentialAsync(Guid userId, RequestCredentialRequest request);
         Task<List<CredentialRequestDto>> GetStudentCredentialRequestsAsync(Guid userId, string? status = null);
         Task<CredentialDetailDto?> ProcessCredentialRequestAsync(Guid requestId, ProcessCredentialRequestRequest request, Guid processedBy);

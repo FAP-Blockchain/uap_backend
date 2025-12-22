@@ -25,6 +25,8 @@ namespace Fap.Api.Services
         private readonly IConfiguration _configuration;
         private readonly FrontendSettings _frontendSettings;
         private readonly IBlockchainService _blockchainService;
+        private readonly IAttendanceService _attendanceService;
+        private readonly IGradeService _gradeService;
         private readonly FapDbContext _db;
         private readonly BlockchainSettings _blockchainSettings;
         private readonly IPdfService _pdfService;
@@ -39,6 +41,8 @@ namespace Fap.Api.Services
           IOptions<FrontendSettings> frontendOptions,
                     IOptions<BlockchainSettings> blockchainOptions,
           IBlockchainService blockchainService,
+                    IAttendanceService attendanceService,
+                    IGradeService gradeService,
                     FapDbContext db,
           IPdfService pdfService,
                     ICloudStorageService cloudStorageService,
@@ -51,6 +55,8 @@ namespace Fap.Api.Services
             _frontendSettings = frontendOptions.Value;
                         _blockchainSettings = blockchainOptions.Value;
             _blockchainService = blockchainService;
+                        _attendanceService = attendanceService;
+                        _gradeService = gradeService;
                         _db = db;
             _pdfService = pdfService;
             _cloudStorageService = cloudStorageService;
@@ -1094,6 +1100,90 @@ overallGPA >= 8.0m ? "Second Class Honours (Upper)" :
                 _logger.LogError(ex, "Error getting credential request {RequestId}", id);
                 return null;
             }
+        }
+
+        public async Task<CredentialRequestPreIssueVerifyDto> GetCredentialRequestPreIssueVerifyAsync(Guid requestId)
+        {
+            var req = await _db.CredentialRequests
+                .AsNoTracking()
+                .FirstOrDefaultAsync(r => r.Id == requestId);
+
+            if (req == null)
+                throw new KeyNotFoundException($"Credential request {requestId} not found");
+
+            var result = new CredentialRequestPreIssueVerifyDto
+            {
+                RequestId = req.Id,
+                StudentId = req.StudentId,
+                CertificateType = req.CertificateType,
+                SubjectId = req.SubjectId,
+                SemesterId = req.SemesterId,
+                StudentRoadmapId = req.StudentRoadmapId
+            };
+
+            if (!string.Equals(req.CertificateType, "SubjectCompletion", StringComparison.OrdinalIgnoreCase))
+            {
+                result.Message = "Pre-issue verification is currently supported for SubjectCompletion only.";
+                return result;
+            }
+
+            if (!req.SubjectId.HasValue)
+            {
+                result.Message = "Missing SubjectId on credential request.";
+                return result;
+            }
+
+            var classQuery = _db.Classes
+                .AsNoTracking()
+                .Include(c => c.SubjectOffering)
+                .Include(c => c.Members)
+                .Where(c => c.SubjectOffering.SubjectId == req.SubjectId.Value)
+                .Where(c => c.Members.Any(m => m.StudentId == req.StudentId));
+
+            if (req.SemesterId.HasValue)
+            {
+                classQuery = classQuery.Where(c => c.SubjectOffering.SemesterId == req.SemesterId.Value);
+            }
+
+            var classEntity = await classQuery
+                .OrderByDescending(c => c.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            if (classEntity == null)
+            {
+                result.Message = "Cannot resolve a class for this request (student not enrolled or subject/semester mismatch).";
+                return result;
+            }
+
+            result.ClassId = classEntity.Id;
+            result.ClassCode = classEntity.ClassCode;
+            result.OnChainClassId = classEntity.OnChainClassId;
+
+            try
+            {
+                result.Attendance = await _attendanceService.VerifyAttendanceListAsync(req.StudentId, classEntity.Id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to verify attendance list for request {RequestId}", requestId);
+                result.Message = string.IsNullOrWhiteSpace(result.Message)
+                    ? "Could not verify attendance list."
+                    : result.Message;
+            }
+
+            try
+            {
+                result.Grades = await _gradeService.VerifyGradeListAsync(req.StudentId, classEntity.Id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to verify grade list for request {RequestId}", requestId);
+                result.Message = string.IsNullOrWhiteSpace(result.Message)
+                    ? "Could not verify grade list."
+                    : result.Message;
+            }
+
+            return result;
         }
 
         public async Task<CredentialRequestDto> RequestCredentialAsync(Guid userId, RequestCredentialRequest request)
