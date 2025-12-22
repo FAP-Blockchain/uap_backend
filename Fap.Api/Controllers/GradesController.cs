@@ -210,5 +210,30 @@ namespace Fap.Api.Controllers
                 return StatusCode(500, new { message = "An error occurred while saving grade on-chain info" });
             }
         }
+
+        /// <summary>
+        /// GET /api/grades/verify-list?studentId=...&classId=...
+        /// Verify all grade records of a student in a class by comparing DB with on-chain records.
+        /// </summary>
+        [HttpGet("verify-list")]
+        [Authorize(Roles = "Teacher,Admin")]
+        [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+        public async Task<IActionResult> VerifyGradeList([FromQuery] Guid studentId, [FromQuery] Guid classId)
+        {
+            try
+            {
+                var data = await _gradeService.VerifyGradeListAsync(studentId, classId);
+                return Ok(new { success = true, data });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error verifying grade list for student {StudentId} class {ClassId}", studentId, classId);
+                return StatusCode(500, new { success = false, message = "An error occurred", error = ex.Message });
+            }
+        }
     }
 }
