@@ -1,5 +1,6 @@
 using Fap.Api.Interfaces;
 using Fap.Domain.DTOs.Validation;
+using Fap.Domain.Helpers;
 using Fap.Infrastructure.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -142,9 +143,11 @@ namespace Fap.Api.Controllers
             }
 
             var originalScore = grade.Score;
+            var originalLetterGrade = grade.LetterGrade;
             var originalUpdatedAt = grade.UpdatedAt;
 
             grade.Score = request.Score;
+            grade.LetterGrade = GradeHelper.CalculateLetterGrade(request.Score);
             grade.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
@@ -163,6 +166,8 @@ namespace Fap.Api.Controllers
                     gradeComponentId = grade.GradeComponentId,
                     originalScore,
                     newScore = grade.Score,
+                    originalLetterGrade,
+                    newLetterGrade = grade.LetterGrade,
                     originalUpdatedAt,
                     newUpdatedAt = grade.UpdatedAt,
                     onChainGradeId = grade.OnChainGradeId,
