@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -20,7 +21,7 @@ namespace Fap.Api.Controllers
         private readonly ILogger<ValidationController> _logger;
 
         public ValidationController(
-            IValidationService validationService, 
+            IValidationService validationService,
             FapDbContext context,
             ILogger<ValidationController> logger)
         {
@@ -33,11 +34,12 @@ namespace Fap.Api.Controllers
         public async Task<IActionResult> GetCredentials()
         {
             var credentials = await _context.Credentials
+                .AsNoTracking()
                 .Include(c => c.Student)
                     .ThenInclude(s => s!.User)
                 .Include(c => c.CertificateTemplate)
                 .OrderByDescending(c => c.IssuedDate)
-                .Take(50) // Limit to last 50
+                .Take(50)
                 .Select(c => new
                 {
                     id = c.Id,
@@ -52,17 +54,14 @@ namespace Fap.Api.Controllers
                 })
                 .ToListAsync();
 
-            return Ok(new
-            {
-                success = true,
-                data = credentials
-            });
+            return Ok(new { success = true, data = credentials });
         }
 
         [HttpGet("latest_credential")]
         public async Task<IActionResult> GetLatestCredential()
         {
             var credential = await _context.Credentials
+                .AsNoTracking()
                 .OrderByDescending(c => c.IssuedDate)
                 .FirstOrDefaultAsync();
 
@@ -90,6 +89,7 @@ namespace Fap.Api.Controllers
         public async Task<IActionResult> GetLatestGrades()
         {
             var grades = await _context.Grades
+                .AsNoTracking()
                 .Include(g => g.Student)
                     .ThenInclude(s => s.User)
                 .Include(g => g.Subject)
@@ -111,7 +111,6 @@ namespace Fap.Api.Controllers
                     score = g.Score,
                     letterGrade = g.LetterGrade,
                     updatedAt = g.UpdatedAt,
-
                     onChainGradeId = g.OnChainGradeId,
                     onChainTxHash = g.OnChainTxHash,
                     onChainBlockNumber = g.OnChainBlockNumber,
@@ -120,11 +119,7 @@ namespace Fap.Api.Controllers
                 })
                 .ToListAsync();
 
-            return Ok(new
-            {
-                success = true,
-                data = grades
-            });
+            return Ok(new { success = true, data = grades });
         }
 
         [HttpPut("tamper_grade/{id}")]
@@ -154,11 +149,7 @@ namespace Fap.Api.Controllers
 
             await _context.SaveChangesAsync();
 
-            _logger.LogWarning(
-                "Tampered with grade {Id}. Score {OldScore}->{NewScore}",
-                grade.Id,
-                originalScore,
-                grade.Score);
+            _logger.LogWarning("Tampered with grade {Id}. Score {OldScore}->{NewScore}", grade.Id, originalScore, grade.Score);
 
             return Ok(new
             {
@@ -184,6 +175,7 @@ namespace Fap.Api.Controllers
         public async Task<IActionResult> GetLatestAttendances()
         {
             var attendances = await _context.Attendances
+                .AsNoTracking()
                 .Include(a => a.Student)
                     .ThenInclude(s => s.User)
                 .Include(a => a.Subject)
@@ -219,11 +211,7 @@ namespace Fap.Api.Controllers
                 })
                 .ToListAsync();
 
-            return Ok(new
-            {
-                success = true,
-                data = attendances
-            });
+            return Ok(new { success = true, data = attendances });
         }
 
         [HttpPut("tamper_attendance/{id}")]
@@ -243,10 +231,8 @@ namespace Fap.Api.Controllers
             var originalIsPresent = attendance.IsPresent;
             var originalIsExcused = attendance.IsExcused;
 
-            // Set exact present status (DB-only tamper)
             attendance.IsPresent = request.IsPresent;
 
-            // Keep data minimally consistent when toggling to present
             if (attendance.IsPresent)
             {
                 attendance.IsExcused = false;
@@ -288,7 +274,6 @@ namespace Fap.Api.Controllers
         public async Task<IActionResult> TamperCredential(Guid id, [FromBody] TamperCredentialRequest request)
         {
             var credential = await _context.Credentials.FindAsync(id);
-
             if (credential == null)
             {
                 return NotFound(new { success = false, message = "Credential not found." });
@@ -300,30 +285,16 @@ namespace Fap.Api.Controllers
             }
 
             var originalUrl = credential.FileUrl;
-            
-            // Tamper with the data
             credential.FileUrl = request.FileUrl;
-            // Use provided hash or a default fake one if provided, otherwise keep original hash (mismatch)
-            // Actually, to simulate tampering, we usually change the file content (FileUrl points to new file)
-            // but keep the Hash the same (so verification fails because Hash(NewFile) != OldHash).
-            // OR we change the Hash to something else.
-            // The user request says "thay đổi file", implying changing FileUrl.
-            // If we want verification to fail, we just need FileUrl to point to a file that hashes to something DIFFERENT than credential.IPFSHash.
-            // So we update FileUrl. We can optionally update IPFSHash if we want to simulate "Database Tampering" of the hash too, 
-            // but usually tampering means the file content changed but the blockchain record (which we can't change) remains.
-            // However, the previous implementation also updated IPFSHash in DB. 
-            // Let's stick to the previous logic: Update FileUrl in DB. 
-            // If request.IPFSHash is provided, update it in DB too.
-            
+
             if (!string.IsNullOrEmpty(request.IPFSHash))
             {
                 credential.IPFSHash = request.IPFSHash;
             }
-            
+
             await _context.SaveChangesAsync();
 
-            _logger.LogWarning("Tampered with credential {Id}. Original URL: {OrigUrl}, New URL: {NewUrl}", 
-                credential.Id, originalUrl, credential.FileUrl);
+            _logger.LogWarning("Tampered with credential {Id}. Original URL: {OrigUrl}, New URL: {NewUrl}", credential.Id, originalUrl, credential.FileUrl);
 
             return Ok(new
             {
@@ -358,22 +329,17 @@ namespace Fap.Api.Controllers
                 return BadRequest(new { success = false, message = "FileUrl is required." });
             }
 
-            // Tamper with the data
-            // We change the FileUrl and IPFSHash so that off-chain data no longer matches on-chain hash
             var originalUrl = credential.FileUrl;
             var originalHash = credential.IPFSHash;
 
-            // Point to the user-provided file
             credential.FileUrl = request.FileUrl;
-            // Use provided hash or a default fake one
-            credential.IPFSHash = !string.IsNullOrEmpty(request.IPFSHash) 
-                ? request.IPFSHash 
-                : "QmTamperedHash1234567890TamperedHash1234567890"; 
-            
+            credential.IPFSHash = !string.IsNullOrEmpty(request.IPFSHash)
+                ? request.IPFSHash
+                : "QmTamperedHash1234567890TamperedHash1234567890";
+
             await _context.SaveChangesAsync();
 
-            _logger.LogWarning("Tampered with credential {Id}. Original URL: {OrigUrl}, New URL: {NewUrl}", 
-                credential.Id, originalUrl, credential.FileUrl);
+            _logger.LogWarning("Tampered with credential {Id}. Original URL: {OrigUrl}, New URL: {NewUrl}", credential.Id, originalUrl, credential.FileUrl);
 
             return Ok(new
             {
@@ -394,14 +360,7 @@ namespace Fap.Api.Controllers
         [HttpGet("attendance_date")]
         public async Task<IActionResult> GetAttendanceDateValidation()
         {
-            return Ok(new
-            {
-                success = true,
-                data = new
-                {
-                    enabled = await _validationService.IsAttendanceDateValidationEnabledAsync()
-                }
-            });
+            return Ok(new { success = true, data = new { enabled = await _validationService.IsAttendanceDateValidationEnabledAsync() } });
         }
 
         [HttpPost("attendance_date")]
@@ -413,13 +372,8 @@ namespace Fap.Api.Controllers
             return Ok(new
             {
                 success = true,
-                message = request.Enabled
-                    ? "Attendance date validation enabled"
-                    : "Attendance date validation disabled",
-                data = new
-                {
-                    enabled = request.Enabled
-                }
+                message = request.Enabled ? "Attendance date validation enabled" : "Attendance date validation disabled",
+                data = new { enabled = request.Enabled }
             });
         }
     }
