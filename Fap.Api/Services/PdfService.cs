@@ -4,12 +4,45 @@ using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using QRCoder;
+using System;
 
 namespace Fap.Api.Services
 {
     public class PdfService : IPdfService
     {
         private readonly ILogger<PdfService> _logger;
+
+        private static readonly Lazy<TimeZoneInfo> VietnamTimeZone = new(() =>
+        {
+            // Windows: "SE Asia Standard Time"; Linux: "Asia/Ho_Chi_Minh"
+            try { return TimeZoneInfo.FindSystemTimeZoneById("Asia/Ho_Chi_Minh"); }
+            catch
+            {
+                try { return TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time"); }
+                catch
+                {
+                    return TimeZoneInfo.CreateCustomTimeZone("UTC+7", TimeSpan.FromHours(7), "UTC+7", "UTC+7");
+                }
+            }
+        });
+
+        private static DateTime ToVietnamTime(DateTime value)
+        {
+            // Most persisted timestamps here are UTC. If Kind is Unspecified, treat as UTC.
+            var tz = VietnamTimeZone.Value;
+
+            if (value.Kind == DateTimeKind.Utc)
+            {
+                return TimeZoneInfo.ConvertTimeFromUtc(value, tz);
+            }
+
+            if (value.Kind == DateTimeKind.Local)
+            {
+                return TimeZoneInfo.ConvertTime(value, tz);
+            }
+
+            return TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(value, DateTimeKind.Utc), tz);
+        }
 
         public PdfService(ILogger<PdfService> logger)
         {
@@ -141,8 +174,9 @@ namespace Fap.Api.Services
                                 }
                             }
 
-                            // Issue Date
-                            column.Item().PaddingTop(20).AlignCenter().Text($"Issued on: {credential.IssuedDate:MMMM dd, yyyy}")
+                            // Issue Date (Vietnam time: UTC+7)
+                            var issuedAtVn = ToVietnamTime(credential.IssuedDate);
+                            column.Item().PaddingTop(20).AlignCenter().Text($"Issued on: {issuedAtVn:MMMM dd, yyyy}")
                                 .FontSize(14).Italic();
 
                             // QR Code and Blockchain Info
@@ -197,7 +231,8 @@ namespace Fap.Api.Services
                                 row.RelativeItem().AlignLeft().Text($"Verification Hash: {hashPreview}")
                                     .FontSize(8).FontColor(Colors.Grey.Darken1);
 
-                                row.RelativeItem().AlignRight().Text($"Generated: {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} UTC")
+                                var generatedAtVn = ToVietnamTime(DateTime.UtcNow);
+                                row.RelativeItem().AlignRight().Text($"Generated: {generatedAtVn:yyyy-MM-dd HH:mm:ss} UTC+7")
                                     .FontSize(8).FontColor(Colors.Grey.Darken1);
                             });
                         });
