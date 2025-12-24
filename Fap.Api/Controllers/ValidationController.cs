@@ -86,6 +86,204 @@ namespace Fap.Api.Controllers
             });
         }
 
+        [HttpGet("grades")]
+        public async Task<IActionResult> GetLatestGrades()
+        {
+            var grades = await _context.Grades
+                .Include(g => g.Student)
+                    .ThenInclude(s => s.User)
+                .Include(g => g.Subject)
+                .Include(g => g.GradeComponent)
+                .OrderByDescending(g => g.UpdatedAt)
+                .ThenByDescending(g => g.Id)
+                .Take(50)
+                .Select(g => new
+                {
+                    id = g.Id,
+                    studentId = g.StudentId,
+                    studentName = g.Student != null && g.Student.User != null ? g.Student.User.FullName : "Unknown",
+                    studentCode = g.Student != null ? g.Student.StudentCode : "Unknown",
+                    subjectId = g.SubjectId,
+                    subjectCode = g.Subject != null ? g.Subject.SubjectCode : "Unknown",
+                    subjectName = g.Subject != null ? g.Subject.SubjectName : "Unknown",
+                    gradeComponentId = g.GradeComponentId,
+                    gradeComponentName = g.GradeComponent != null ? g.GradeComponent.Name : "Unknown",
+                    score = g.Score,
+                    letterGrade = g.LetterGrade,
+                    updatedAt = g.UpdatedAt,
+
+                    onChainGradeId = g.OnChainGradeId,
+                    onChainTxHash = g.OnChainTxHash,
+                    onChainBlockNumber = g.OnChainBlockNumber,
+                    onChainChainId = g.OnChainChainId,
+                    onChainContractAddress = g.OnChainContractAddress
+                })
+                .ToListAsync();
+
+            return Ok(new
+            {
+                success = true,
+                data = grades
+            });
+        }
+
+        [HttpPut("tamper_grade/{id}")]
+        public async Task<IActionResult> TamperGrade(Guid id, [FromBody] TamperGradeRequest request)
+        {
+            if (request == null)
+            {
+                return BadRequest(new { success = false, message = "Request body is required." });
+            }
+
+            if (request.Score < 0m || request.Score > 10m)
+            {
+                return BadRequest(new { success = false, message = "Score must be between 0 and 10." });
+            }
+
+            var grade = await _context.Grades.FirstOrDefaultAsync(g => g.Id == id);
+            if (grade == null)
+            {
+                return NotFound(new { success = false, message = "Grade not found." });
+            }
+
+            var originalScore = grade.Score;
+            var originalUpdatedAt = grade.UpdatedAt;
+
+            grade.Score = request.Score;
+            grade.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogWarning(
+                "Tampered with grade {Id}. Score {OldScore}->{NewScore}",
+                grade.Id,
+                originalScore,
+                grade.Score);
+
+            return Ok(new
+            {
+                success = true,
+                message = "Grade has been tampered with. Verification should now fail if the grade is on-chain.",
+                data = new
+                {
+                    id = grade.Id,
+                    studentId = grade.StudentId,
+                    subjectId = grade.SubjectId,
+                    gradeComponentId = grade.GradeComponentId,
+                    originalScore,
+                    newScore = grade.Score,
+                    originalUpdatedAt,
+                    newUpdatedAt = grade.UpdatedAt,
+                    onChainGradeId = grade.OnChainGradeId,
+                    onChainTxHash = grade.OnChainTxHash
+                }
+            });
+        }
+
+        [HttpGet("attendances")]
+        public async Task<IActionResult> GetLatestAttendances()
+        {
+            var attendances = await _context.Attendances
+                .Include(a => a.Student)
+                    .ThenInclude(s => s.User)
+                .Include(a => a.Subject)
+                .Include(a => a.Slot)
+                    .ThenInclude(s => s.TimeSlot)
+                .Include(a => a.Slot)
+                    .ThenInclude(s => s.Class)
+                .OrderByDescending(a => a.RecordedAt)
+                .ThenByDescending(a => a.Id)
+                .Take(50)
+                .Select(a => new
+                {
+                    id = a.Id,
+                    studentId = a.StudentId,
+                    studentName = a.Student != null && a.Student.User != null ? a.Student.User.FullName : "Unknown",
+                    studentCode = a.Student != null ? a.Student.StudentCode : "Unknown",
+                    subjectId = a.SubjectId,
+                    subjectCode = a.Subject != null ? a.Subject.SubjectCode : "Unknown",
+                    subjectName = a.Subject != null ? a.Subject.SubjectName : "Unknown",
+                    slotId = a.SlotId,
+                    classId = a.Slot != null ? a.Slot.ClassId : (Guid?)null,
+                    classCode = a.Slot != null && a.Slot.Class != null ? a.Slot.Class.ClassCode : "Unknown",
+                    date = a.Slot != null ? a.Slot.Date : (DateTime?)null,
+                    timeSlotName = a.Slot != null && a.Slot.TimeSlot != null ? a.Slot.TimeSlot.Name : "Unknown",
+                    isPresent = a.IsPresent,
+                    isExcused = a.IsExcused,
+                    notes = a.Notes,
+                    excuseReason = a.ExcuseReason,
+                    recordedAt = a.RecordedAt,
+                    onChainRecordId = a.OnChainRecordId,
+                    onChainTransactionHash = a.OnChainTransactionHash,
+                    isOnBlockchain = a.IsOnBlockchain
+                })
+                .ToListAsync();
+
+            return Ok(new
+            {
+                success = true,
+                data = attendances
+            });
+        }
+
+        [HttpPut("tamper_attendance/{id}")]
+        public async Task<IActionResult> TamperAttendance(Guid id, [FromBody] TamperAttendanceRequest request)
+        {
+            if (request == null)
+            {
+                return BadRequest(new { success = false, message = "Request body is required." });
+            }
+
+            var attendance = await _context.Attendances.FirstOrDefaultAsync(a => a.Id == id);
+            if (attendance == null)
+            {
+                return NotFound(new { success = false, message = "Attendance not found." });
+            }
+
+            var originalIsPresent = attendance.IsPresent;
+            var originalIsExcused = attendance.IsExcused;
+
+            // Set exact present status (DB-only tamper)
+            attendance.IsPresent = request.IsPresent;
+
+            // Keep data minimally consistent when toggling to present
+            if (attendance.IsPresent)
+            {
+                attendance.IsExcused = false;
+                attendance.ExcuseReason = null;
+            }
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogWarning(
+                "Tampered with attendance {Id}. Present {OldPresent}->{NewPresent}, Excused {OldExcused}->{NewExcused}",
+                attendance.Id,
+                originalIsPresent,
+                attendance.IsPresent,
+                originalIsExcused,
+                attendance.IsExcused);
+
+            return Ok(new
+            {
+                success = true,
+                message = "Attendance has been tampered with. Verification should now fail if the record is on-chain.",
+                data = new
+                {
+                    id = attendance.Id,
+                    studentId = attendance.StudentId,
+                    subjectId = attendance.SubjectId,
+                    slotId = attendance.SlotId,
+                    originalIsPresent,
+                    newIsPresent = attendance.IsPresent,
+                    originalIsExcused,
+                    newIsExcused = attendance.IsExcused,
+                    onChainRecordId = attendance.OnChainRecordId,
+                    onChainTransactionHash = attendance.OnChainTransactionHash,
+                    isOnBlockchain = attendance.IsOnBlockchain
+                }
+            });
+        }
+
         [HttpPut("tamper_credential/{id}")]
         public async Task<IActionResult> TamperCredential(Guid id, [FromBody] TamperCredentialRequest request)
         {
