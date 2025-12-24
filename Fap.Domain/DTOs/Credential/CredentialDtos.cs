@@ -24,7 +24,9 @@ namespace Fap.Domain.DTOs.Credential
         public string? VerificationHash { get; set; }
         public int ViewCount { get; set; }
         public bool IsOnBlockchain { get; set; }
+        public long? BlockchainCredentialId { get; set; }
         public string? BlockchainTransactionHash { get; set; }
+        public DateTime? BlockchainStoredAt { get; set; }
     }
 
     public class CredentialDetailDto : CredentialDto

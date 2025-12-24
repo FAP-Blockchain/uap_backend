@@ -1,6 +1,7 @@
 using Fap.Api.Interfaces;
 using Fap.Api.DTOs.Blockchain;
 using Fap.Api.Extensions;
+using Fap.Domain.Constants;
 using Fap.Domain.Enums;
 using Fap.Domain.Settings;
 using Fap.Domain.Entities;
@@ -108,7 +109,7 @@ namespace Fap.Api.Controllers
                 {
                     Id = Guid.NewGuid(),
                     CreatedAt = DateTime.UtcNow,
-                    Action = request.Action ?? "CHAIN_TX",
+                    Action = request.Action ?? ActionLogActions.ChainTx,
                     EventName = "UNKNOWN_EVENT",
                     Detail = detail,
                     UserId = userId,
@@ -156,7 +157,7 @@ namespace Fap.Api.Controllers
                 {
                     Id = Guid.NewGuid(),
                     CreatedAt = now,
-                    Action = request.Action ?? "CHAIN_EVENT",
+                    Action = request.Action ?? ActionLogActions.ChainEvent,
                     EventName = ev.EventName,
                     Detail = wrappedDetail,
                     UserId = userId,

@@ -3,6 +3,7 @@ using Fap.Api.Interfaces;
 using Fap.Domain.DTOs.Credential;
 using Fap.Domain.DTOs.Common;
 using Fap.Domain.DTOs; // For ServiceResult
+using Fap.Domain.Constants;
 using Fap.Domain.Entities;
 using Fap.Domain.Repositories;
 using Fap.Domain.Settings;
@@ -732,7 +733,7 @@ overallGPA >= 8.0m ? "Second Class Honours (Upper)" :
                 {
                     Id = Guid.NewGuid(),
                     CreatedAt = DateTime.UtcNow,
-                    Action = "CREDENTIAL_ONCHAIN_SYNC",
+                    Action = ActionLogActions.CredentialOnChainSync,
                     Detail = detail,
                     UserId = performedByUserId,
                     CredentialId = credentialId,
@@ -928,23 +929,29 @@ overallGPA >= 8.0m ? "Second Class Honours (Upper)" :
                 credential.RevocationReason = request.RevocationReason;
                 credential.UpdatedAt = DateTime.UtcNow;
 
+                var detail = $"Credential revoked. CredentialNumber={credential.CredentialId}; DbId={credential.Id}; Reason={request.RevocationReason}";
+                if (detail.Length > 500)
+                {
+                    detail = detail[..500];
+                }
+
+                var actionLog = new ActionLog
+                {
+                    Id = Guid.NewGuid(),
+                    CreatedAt = DateTime.UtcNow,
+                    Action = ActionLogActions.RevokeCredential,
+                    Detail = detail,
+                    UserId = revokedBy,
+                    CredentialId = credential.Id
+                };
+
                 _uow.Credentials.Update(credential);
+                await _uow.ActionLogs.AddAsync(actionLog);
                 await _uow.SaveChangesAsync();
 
-                try
-                {
-                    if (credential.BlockchainCredentialId.HasValue)
-                    {
-                        await _blockchainService.RevokeCredentialOnChainAsync(
-                            credential.BlockchainCredentialId.Value
-                        );
-                    }
-                }
-                catch (Exception chainEx)
-                {
-                    _logger.LogError(chainEx, "Error revoking credential on blockchain {CredentialId}", credentialId);
-                    // Không throw lại để không chặn API
-                }
+                // NOTE: Intentionally do NOT revoke on-chain here.
+                // The desired flow is: persist revocation in DB first, then the Admin signs
+                // `revokeCredential(...)` from the frontend via MetaMask to update the blockchain state.
 
                 _logger.LogInformation("Revoked credential {CredentialId}", credentialId);
             }

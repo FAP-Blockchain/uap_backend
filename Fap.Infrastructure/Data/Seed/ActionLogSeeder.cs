@@ -1,4 +1,5 @@
-﻿using Fap.Domain.Entities;
+﻿using Fap.Domain.Constants;
+using Fap.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 
@@ -43,7 +44,7 @@ namespace Fap.Infrastructure.Data.Seed
                 logs.Add(new ActionLog
                 {
                     Id = Guid.NewGuid(),
-                    Action = "ISSUE_CREDENTIAL",
+                    Action = ActionLogActions.IssueCredential,
                     Detail = JsonSerializer.Serialize(new
                     {
                         CredentialId = credential.CredentialId,
@@ -62,7 +63,7 @@ namespace Fap.Infrastructure.Data.Seed
                     logs.Add(new ActionLog
                     {
                         Id = Guid.NewGuid(),
-                        Action = "BLOCKCHAIN_STORE",
+                        Action = ActionLogActions.BlockchainStore,
                         Detail = JsonSerializer.Serialize(new
                         {
                             CredentialId = credential.CredentialId,
@@ -82,7 +83,7 @@ namespace Fap.Infrastructure.Data.Seed
                     logs.Add(new ActionLog
                     {
                         Id = Guid.NewGuid(),
-                        Action = "VERIFY_CREDENTIAL",
+                        Action = ActionLogActions.VerifyCredential,
                         Detail = JsonSerializer.Serialize(new
                         {
                             CredentialId = credential.CredentialId,
@@ -101,7 +102,7 @@ namespace Fap.Infrastructure.Data.Seed
                     logs.Add(new ActionLog
                     {
                         Id = Guid.NewGuid(),
-                        Action = "REVOKE_CREDENTIAL",
+                        Action = ActionLogActions.RevokeCredential,
                         Detail = JsonSerializer.Serialize(new
                         {
                             CredentialId = credential.CredentialId,
@@ -123,7 +124,7 @@ namespace Fap.Infrastructure.Data.Seed
                 logs.Add(new ActionLog
                 {
                     Id = Guid.NewGuid(),
-                    Action = "SUBMIT_GRADE",
+                    Action = ActionLogActions.SubmitGrade,
                     Detail = JsonSerializer.Serialize(new
                     {
                         StudentId = grade.StudentId,
@@ -142,7 +143,7 @@ namespace Fap.Infrastructure.Data.Seed
                     logs.Add(new ActionLog
                     {
                         Id = Guid.NewGuid(),
-                        Action = "UPDATE_GRADE",
+                        Action = ActionLogActions.UpdateGrade,
                         Detail = JsonSerializer.Serialize(new
                         {
                             StudentId = grade.StudentId,
@@ -163,7 +164,7 @@ namespace Fap.Infrastructure.Data.Seed
                 logs.Add(new ActionLog
                 {
                     Id = Guid.NewGuid(),
-                    Action = "DELETE_GRADE",
+                    Action = ActionLogActions.DeleteGrade,
                     Detail = JsonSerializer.Serialize(new
                     {
                         Reason = "Incorrect grade entry - duplicate record",
@@ -189,7 +190,7 @@ namespace Fap.Infrastructure.Data.Seed
                     logs.Add(new ActionLog
                     {
                         Id = Guid.NewGuid(),
-                        Action = "USER_LOGIN",
+                        Action = ActionLogActions.UserLogin,
                         Detail = JsonSerializer.Serialize(new
                         {
                             Email = user.Email,
@@ -211,7 +212,7 @@ namespace Fap.Infrastructure.Data.Seed
                 logs.Add(new ActionLog
                 {
                     Id = Guid.NewGuid(),
-                    Action = "USER_LOGOUT",
+                    Action = ActionLogActions.UserLogout,
                     Detail = JsonSerializer.Serialize(new
                     {
                         Email = user.Email,
@@ -229,7 +230,7 @@ namespace Fap.Infrastructure.Data.Seed
                 logs.Add(new ActionLog
                 {
                     Id = Guid.NewGuid(),
-                    Action = "PASSWORD_RESET",
+                    Action = ActionLogActions.PasswordReset,
                     Detail = JsonSerializer.Serialize(new
                     {
                         Email = user.Email,
@@ -246,7 +247,7 @@ namespace Fap.Infrastructure.Data.Seed
                 logs.Add(new ActionLog
                 {
                     Id = Guid.NewGuid(),
-                    Action = "USER_CREATED",
+                    Action = ActionLogActions.UserCreated,
                     Detail = JsonSerializer.Serialize(new
                     {
                         Email = user.Email,
@@ -271,7 +272,7 @@ namespace Fap.Infrastructure.Data.Seed
               logs.Add(new ActionLog
       {
    Id = Guid.NewGuid(),
-         Action = "CREATE_CLASS",
+             Action = ActionLogActions.CreateClass,
         Detail = JsonSerializer.Serialize(new
            {
    ClassCode = cls.ClassCode,
@@ -291,7 +292,7 @@ namespace Fap.Infrastructure.Data.Seed
     logs.Add(new ActionLog
       {
          Id = Guid.NewGuid(),
-        Action = "UPDATE_SCHEDULE",
+                Action = ActionLogActions.UpdateSchedule,
             Detail = JsonSerializer.Serialize(new
       {
      ClassCode = cls.ClassCode,
@@ -311,7 +312,7 @@ namespace Fap.Infrastructure.Data.Seed
     logs.Add(new ActionLog
    {
             Id = Guid.NewGuid(),
-     Action = "CANCEL_SLOT",
+         Action = ActionLogActions.CancelSlot,
    Detail = JsonSerializer.Serialize(new
     {
      SlotId = slot.Id,

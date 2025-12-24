@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using AutoMapper;
 using Fap.Api.Interfaces;
+using Fap.Domain.Constants;
 using Fap.Domain.DTOs.Common;
 using Fap.Domain.DTOs.User;
 using Fap.Domain.Entities;
@@ -513,7 +514,7 @@ namespace Fap.Api.Services
                     {
                         Id = Guid.NewGuid(),
                         CreatedAt = DateTime.UtcNow,
-                        Action = "USER_ONCHAIN_SYNC",
+                        Action = ActionLogActions.UserOnChainSync,
                         Detail = detail,
                         UserId = performedByUserId,
                         TransactionHash = txHash,
@@ -739,7 +740,7 @@ namespace Fap.Api.Services
                 {
                     Id = Guid.NewGuid(),
                     CreatedAt = DateTime.UtcNow,
-                    Action = "USER_WALLET_ONCHAIN_UPDATE",
+                    Action = ActionLogActions.UserWalletOnChainUpdate,
                     Detail = detail,
                     UserId = performedByUserId,
                     TransactionHash = txHash,

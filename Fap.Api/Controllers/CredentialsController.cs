@@ -188,9 +188,6 @@ namespace Fap.Api.Controllers
             }
         }
 
-        /// <summary>
-        /// DELETE /api/credentials/{id} - Revoke credential (Admin only)
-        /// </summary>
         [HttpDelete("{id:guid}")]
         [Authorize(Roles = "Admin")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]

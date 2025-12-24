@@ -1,4 +1,5 @@
 using Fap.Api.Interfaces;
+using Fap.Domain.Constants;
 using Fap.Domain.DTOs.Attendance;
 using Fap.Domain.DTOs; // ServiceResult
 using Fap.Domain.Entities;
@@ -691,7 +692,7 @@ namespace Fap.Api.Services
                 {
                     Id = Guid.NewGuid(),
                     CreatedAt = DateTime.UtcNow,
-                    Action = "ATTENDANCE_ONCHAIN_SYNC",
+                    Action = ActionLogActions.AttendanceOnChainSync,
                     Detail = detail,
                     UserId = performedByUserId,
                     TransactionHash = txHash,
