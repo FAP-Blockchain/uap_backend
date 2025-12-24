@@ -1925,7 +1925,7 @@ overallGPA >= 8.0m ? "Second Class Honours (Upper)" :
             };
 
             var count = await _uow.Credentials.CountAsync(c => c.CertificateType == certificateType);
-            var sequence = (count + 1).ToString("D6");
+            var sequence = (count + 2).ToString("D6");
 
             return $"{prefix}-{year}-{sequence}";
         }
