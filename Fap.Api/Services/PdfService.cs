@@ -56,10 +56,6 @@ namespace Fap.Api.Services
         {
             try
             {
-                // Generate QR Code for the certificate
-                var qrCodeData = credential.ShareableUrl ?? $"https://verify.certificate/{credential.CredentialId}";
-                var qrCodeBytes = GenerateQRCodeBytes(qrCodeData, 10);
-
                 // Create PDF document
                 var document = Document.Create(container =>
                 {
@@ -179,41 +175,25 @@ namespace Fap.Api.Services
                             column.Item().PaddingTop(20).AlignCenter().Text($"Issued on: {issuedAtVn:MMMM dd, yyyy}")
                                 .FontSize(14).Italic();
 
-                            // QR Code and Blockchain Info
-                            column.Item().PaddingTop(20).Row(row =>
+                            // Blockchain Info
+                            column.Item().PaddingTop(20).AlignRight().Column(col =>
                             {
-                                // Left: QR Code
-                                row.RelativeItem(1).Column(col =>
+                                if (credential.IsOnBlockchain)
                                 {
-                                    col.Item().AlignLeft().Text("Scan to verify:")
-                                        .FontSize(10).Italic();
-                                    col.Item().AlignLeft().PaddingTop(5).Image(qrCodeBytes)
-                                        .FitWidth();
-                                });
+                                    col.Item().AlignRight().Text("✓ Verified on Blockchain")
+                                        .FontSize(10).Bold().FontColor(Colors.Green.Darken2);
 
-                                // Center: Spacer
-                                row.RelativeItem(2);
-
-                                // Right: Blockchain Info
-                                row.RelativeItem(1).Column(col =>
+                                    if (!string.IsNullOrEmpty(credential.BlockchainTransactionHash))
+                                    {
+                                        col.Item().AlignRight().Text($"TX: {credential.BlockchainTransactionHash.Substring(0, Math.Min(20, credential.BlockchainTransactionHash.Length))}...")
+                                            .FontSize(8).FontColor(Colors.Grey.Darken1);
+                                    }
+                                }
+                                else
                                 {
-                                    if (credential.IsOnBlockchain)
-                                    {
-                                        col.Item().AlignRight().Text("✓ Verified on Blockchain")
-                                            .FontSize(10).Bold().FontColor(Colors.Green.Darken2);
-                                        
-                                        if (!string.IsNullOrEmpty(credential.BlockchainTransactionHash))
-                                        {
-                                            col.Item().AlignRight().Text($"TX: {credential.BlockchainTransactionHash.Substring(0, Math.Min(20, credential.BlockchainTransactionHash.Length))}...")
-                                                .FontSize(8).FontColor(Colors.Grey.Darken1);
-                                        }
-                                    }
-                                    else
-                                    {
-                                        col.Item().AlignRight().Text("⏳ Blockchain Pending")
-                                            .FontSize(10).Italic().FontColor(Colors.Orange.Medium);
-                                    }
-                                });
+                                    col.Item().AlignRight().Text("⏳ Blockchain Pending")
+                                        .FontSize(10).Italic().FontColor(Colors.Orange.Medium);
+                                }
                             });
                         });
 
