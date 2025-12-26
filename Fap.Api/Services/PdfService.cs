@@ -63,7 +63,8 @@ namespace Fap.Api.Services
                     {
                         // Page settings
                         page.Size(PageSizes.A4.Landscape());
-                        page.Margin(50);
+                        // Keep margins modest so content fits on a single page
+                        page.Margin(40);
                         page.PageColor(Colors.White);
                         page.DefaultTextStyle(x => x.FontSize(12).FontColor(Colors.Black));
 
@@ -87,7 +88,8 @@ namespace Fap.Api.Services
                         // Content
                         page.Content().PaddingVertical(20).Column(column =>
                         {
-                            column.Spacing(15);
+                            // Tighten spacing to avoid spilling onto a second page
+                            column.Spacing(10);
 
                             // Certificate Number
                             column.Item().AlignCenter().Text($"Certificate No: {credential.CredentialId}")
@@ -172,11 +174,11 @@ namespace Fap.Api.Services
 
                             // Issue Date (Vietnam time: UTC+7)
                             var issuedAtVn = ToVietnamTime(credential.IssuedDate);
-                            column.Item().PaddingTop(20).AlignCenter().Text($"Issued on: {issuedAtVn:MMMM dd, yyyy}")
+                            column.Item().PaddingTop(12).AlignCenter().Text($"Issued on: {issuedAtVn:MMMM dd, yyyy}")
                                 .FontSize(14).Italic();
 
                             // Blockchain Info
-                            column.Item().PaddingTop(20).AlignRight().Column(col =>
+                            column.Item().PaddingTop(12).AlignRight().Column(col =>
                             {
                                 if (credential.IsOnBlockchain)
                                 {
@@ -189,31 +191,6 @@ namespace Fap.Api.Services
                                             .FontSize(8).FontColor(Colors.Grey.Darken1);
                                     }
                                 }
-                                else
-                                {
-                                    col.Item().AlignRight().Text("⏳ Blockchain Pending")
-                                        .FontSize(10).Italic().FontColor(Colors.Orange.Medium);
-                                }
-                            });
-                        });
-
-                        // Footer
-                        page.Footer().Column(column =>
-                        {
-                            column.Item().LineHorizontal(1).LineColor(Colors.Grey.Lighten2);
-                            column.Item().PaddingTop(10).Row(row =>
-                            {
-                                var hashLength = credential.VerificationHash?.Length ?? 0;
-                                var hashPreview = hashLength > 0 
-                                    ? credential.VerificationHash!.Substring(0, Math.Min(32, hashLength)) + "..."
-                                    : "N/A";
-                                
-                                row.RelativeItem().AlignLeft().Text($"Verification Hash: {hashPreview}")
-                                    .FontSize(8).FontColor(Colors.Grey.Darken1);
-
-                                var generatedAtVn = ToVietnamTime(DateTime.UtcNow);
-                                row.RelativeItem().AlignRight().Text($"Generated: {generatedAtVn:yyyy-MM-dd HH:mm:ss} UTC+7")
-                                    .FontSize(8).FontColor(Colors.Grey.Darken1);
                             });
                         });
                     });
