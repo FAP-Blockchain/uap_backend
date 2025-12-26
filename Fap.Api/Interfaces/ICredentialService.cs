@@ -25,6 +25,11 @@ namespace Fap.Api.Interfaces
         Task<CredentialShareDto> GetCredentialShareInfoAsync(Guid credentialId, Guid? userId);
         Task<CredentialVerificationDto> VerifyCredentialAsync(VerifyCredentialRequest request);
 
+        /// <summary>
+        /// Admin report: list credentials that fail on-chain verification (hash mismatch / on-chain revoked / missing record).
+        /// </summary>
+        Task<List<InvalidOnChainCredentialDto>> GetInvalidOnChainCredentialsAsync(int limit = 200);
+
         // ==================== PUBLIC VIEW (No Auth Required) ====================
         
         /// <summary>

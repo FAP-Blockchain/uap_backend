@@ -110,6 +110,30 @@ namespace Fap.Domain.DTOs.Credential
         public DateTime? VerifiedAt { get; set; }
     }
 
+    /// <summary>
+    /// Admin report: credentials that fail on-chain verification.
+    /// Intended for detecting tampering/fraud so admin can revoke affected credentials.
+    /// </summary>
+    public class InvalidOnChainCredentialDto
+    {
+        public Guid Id { get; set; }
+        public string CredentialNumber { get; set; } = string.Empty;
+        public string CertificateType { get; set; } = string.Empty;
+        public string StudentName { get; set; } = string.Empty;
+        public string StudentCode { get; set; } = string.Empty;
+        public DateTime IssuedDate { get; set; }
+
+        public long? BlockchainCredentialId { get; set; }
+        public string? BlockchainTransactionHash { get; set; }
+
+        /// <summary>
+        /// One of: HashMismatch, OnChainRevokedOrExpired, OnChainRecordMissing
+        /// </summary>
+        public string IssueType { get; set; } = string.Empty;
+
+        public string? Detail { get; set; }
+    }
+
     public class QRCodeResponse
     {
         public Guid CredentialId { get; set; }

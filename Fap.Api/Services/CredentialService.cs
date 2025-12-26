@@ -1616,6 +1616,125 @@ overallGPA >= 8.0m ? "Second Class Honours (Upper)" :
             public string? verificationHash { get; set; }
         }
 
+        public async Task<List<InvalidOnChainCredentialDto>> GetInvalidOnChainCredentialsAsync(int limit = 200)
+        {
+            // Note: this is an admin report. Keep it deterministic and conservative:
+            // only return credentials we can confidently flag as invalid.
+            if (limit <= 0) limit = 200;
+            if (limit > 2000) limit = 2000;
+
+            // 1) Pull candidate credentials from DB (anchored on-chain)
+            var candidates = await _db.Credentials
+                .AsNoTracking()
+                .Include(c => c.Student)
+                    .ThenInclude(s => s!.User)
+                .Where(c => c.BlockchainCredentialId.HasValue)
+                .Where(c => !c.IsRevoked && c.Status != "Revoked")
+                .OrderByDescending(c => c.IssuedDate)
+                .Take(limit)
+                .ToListAsync();
+
+            var results = new List<InvalidOnChainCredentialDto>();
+
+            foreach (var credential in candidates)
+            {
+                if (!credential.BlockchainCredentialId.HasValue)
+                {
+                    continue;
+                }
+
+                Services.BlockchainService.CredentialOnChainStructDto onChain;
+                try
+                {
+                    onChain = await _blockchainService.GetCredentialFromChainAsync(credential.BlockchainCredentialId.Value);
+                }
+                catch (Exception ex)
+                {
+                    // Do not mark as invalid if we cannot read chain.
+                    _logger.LogWarning(ex,
+                        "Failed to read credential {CredentialId} from chain (BlockchainCredentialId={BlockchainCredentialId})",
+                        credential.Id,
+                        credential.BlockchainCredentialId.Value);
+                    continue;
+                }
+
+                // A) On-chain status revoked/expired => invalid for verification purposes
+                if (onChain.StatusEnum == BlockchainCredentialStatus.Revoked ||
+                    onChain.StatusEnum == BlockchainCredentialStatus.Expired)
+                {
+                    results.Add(new InvalidOnChainCredentialDto
+                    {
+                        Id = credential.Id,
+                        CredentialNumber = credential.CredentialId,
+                        CertificateType = credential.CertificateType,
+                        StudentName = credential.Student?.User?.FullName ?? string.Empty,
+                        StudentCode = credential.Student?.StudentCode ?? string.Empty,
+                        IssuedDate = credential.IssuedDate,
+                        BlockchainCredentialId = credential.BlockchainCredentialId,
+                        BlockchainTransactionHash = credential.BlockchainTransactionHash,
+                        IssueType = "OnChainRevokedOrExpired",
+                        Detail = $"On-chain status is {onChain.StatusEnum}."
+                    });
+                    continue;
+                }
+
+                // B) Hash mismatch (off-chain recomputed vs on-chain)
+                var offChainHash = GenerateVerificationHash(credential);
+
+                string? onChainHash = null;
+
+                // Prefer the explicit bytes32 hash stored in the contract struct if present
+                if (!string.IsNullOrWhiteSpace(onChain.VerificationHashBase64))
+                {
+                    onChainHash = onChain.VerificationHashBase64;
+                }
+                else
+                {
+                    // Fallback to credentialData JSON metadata
+                    try
+                    {
+                        if (!string.IsNullOrWhiteSpace(onChain.CredentialData))
+                        {
+                            var meta = JsonSerializer.Deserialize<OnChainMetadataDto>(onChain.CredentialData);
+                            onChainHash = meta?.verificationHash;
+                        }
+                    }
+                    catch (Exception jsonEx)
+                    {
+                        _logger.LogWarning(jsonEx,
+                            "Failed to parse on-chain credentialData JSON for credential {CredentialId}",
+                            credential.Id);
+                    }
+                }
+
+                if (string.IsNullOrWhiteSpace(onChainHash))
+                {
+                    // Cannot compare -> do not flag
+                    continue;
+                }
+
+                var matches = string.Equals(offChainHash, onChainHash, StringComparison.Ordinal);
+                if (!matches)
+                {
+                    results.Add(new InvalidOnChainCredentialDto
+                    {
+                        Id = credential.Id,
+                        CredentialNumber = credential.CredentialId,
+                        CertificateType = credential.CertificateType,
+                        StudentName = credential.Student?.User?.FullName ?? string.Empty,
+                        StudentCode = credential.Student?.StudentCode ?? string.Empty,
+                        IssuedDate = credential.IssuedDate,
+                        BlockchainCredentialId = credential.BlockchainCredentialId,
+                        BlockchainTransactionHash = credential.BlockchainTransactionHash,
+                        IssueType = "HashMismatch",
+                        Detail = "Off-chain data does not match the on-chain hash (possible tampering/fraud)."
+                    });
+                }
+            }
+
+            return results;
+        }
+
         public async Task<CredentialVerificationDto> VerifyCredentialAsync(VerifyCredentialRequest request)
         {
             try

@@ -397,6 +397,31 @@ namespace Fap.Api.Controllers
             }
         }
 
+        // ==================== ON-CHAIN VALIDATION (ADMIN) ====================
+
+        /// <summary>
+        /// GET /api/credentials/on-chain/invalid - List credentials that are confidently invalid on-chain (Admin only)
+        /// Returns only cases with clear on-chain revoked/expired status or verification hash mismatch.
+        /// Chain unreachable/read errors are skipped to avoid false positives.
+        /// </summary>
+        [HttpGet("on-chain/invalid")]
+        [Authorize(Roles = "Admin")]
+        [ProducesResponseType(typeof(List<InvalidOnChainCredentialDto>), StatusCodes.Status200OK)]
+        public async Task<ActionResult<List<InvalidOnChainCredentialDto>>> GetInvalidOnChainCredentials([FromQuery] int limit = 200)
+        {
+            try
+            {
+                limit = Math.Clamp(limit, 1, 2000);
+                var result = await _credentialService.GetInvalidOnChainCredentialsAsync(limit);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting invalid on-chain credentials");
+                return StatusCode(500, new ProblemDetails { Status = 500, Title = "Internal Server Error" });
+            }
+        }
+
         // ==================== VERIFICATION (PUBLIC) ====================
 
         /// <summary>
